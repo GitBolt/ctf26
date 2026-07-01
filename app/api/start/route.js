@@ -1,5 +1,6 @@
 import { PublicKey } from "@solana/web3.js";
 import { createSession } from "../../lib/session";
+import { recordAuditEvent } from "../../lib/anti-cheat";
 
 function json(body, status = 200) {
   return Response.json(body, { status });
@@ -43,17 +44,20 @@ export async function POST(request) {
   try {
     new PublicKey(wallet);
   } catch {
+    await recordAuditEvent({ event: "start_bad_wallet", wallet }, request);
     return json({ error: "bad request" }, 400);
   }
 
   const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "";
   const ok = await verifyTurnstile(turnstileToken, ip);
   if (!ok) {
+    await recordAuditEvent({ event: "start_human_check_failed", wallet }, request);
     return json({ error: "human check failed" }, 403);
   }
 
   const session = createSession(wallet);
   const nonce = JSON.parse(Buffer.from(session.split(".")[0], "base64url").toString("utf8")).nonce;
+  await recordAuditEvent({ event: "start_session_issued", wallet, nonce }, request);
 
   return json({
     session,

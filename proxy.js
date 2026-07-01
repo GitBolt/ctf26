@@ -12,5 +12,5 @@ export function proxy(request) {
 }
 
 export const config = {
-  matcher: ["/", "/api/start", "/api/claim"],
+  matcher: ["/", "/api/start", "/api/claim", "/api/clerk", "/api/preclaim"],
 };

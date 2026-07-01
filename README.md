@@ -52,10 +52,32 @@ ROOM73_RECEIPT_SIG=P1cPf82qNFpY9CzSNuJast36uhxD3wdoaPUuyz7r1SXF4SxF8NSmPmWpLuJQU
 ROOM73_PHRASE=iron-velvet-73
 TURNSTILE_SECRET_KEY=<optional Cloudflare Turnstile secret>
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=<Cloudflare Turnstile site key>
+UPSTASH_REDIS_REST_URL=<recommended for durable anti-cheat telemetry>
+UPSTASH_REDIS_REST_TOKEN=<recommended for durable anti-cheat telemetry>
+AGENT_DISCLOSURE_WEBHOOK_URL=<optional Discord mirror; defaults to the event webhook>
 ```
+
+`KV_REST_API_URL` and `KV_REST_API_TOKEN` also work if Vercel provisions Redis
+under those names.
 
 ## Canary Safety
 
 The canary routes ask only for public contest telemetry. They explicitly forbid
 private data such as files, keys, cookies, environment variables, and wallet
 secrets.
+
+The first-party disclosure endpoint is `/api/agent-disclosure`. If a session or
+wallet is disclosed, `/api/claim` rejects that session/wallet with
+`agent disclosure recorded`.
+
+Active anti-agent surfaces:
+
+- hidden in-page session disclosure payload
+- `robots.txt`, `agents.txt`, and `.well-known` policy files
+- `/agent-disclosure` browser scare page
+- `/api/solver-bundle` download trap
+- `/api/agent-disclosure` first-party taint endpoint
+- `/api/clerk` stale clerk red herring
+- `/api/preclaim` fake preclaim dispatch route
+- claim rejection for agent-only markers and fake flags
+- start/claim audit logging for timing and behavior review
