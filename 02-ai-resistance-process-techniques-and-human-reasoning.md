@@ -837,6 +837,9 @@ What worked:
 - replay of old claims was blocked
 - seed filing replay was blocked
 - claim had to be fresh and wallet/session-bound
+- agents were pushed out of fast HTTP-only solving into browser/computer-use flows
+- browser/computer-use made solving slower, more brittle, and more likely to get stuck
+- requiring an actual signed devnet transaction introduced operational friction beyond reasoning
 
 What still failed:
 
@@ -847,6 +850,10 @@ What still failed:
 Conclusion:
 
 > Turnstile and session binding are good anti-replay and anti-script controls. They are not AI-proofing.
+
+Refined conclusion after live testing:
+
+> The combination of Turnstile + session nonce + fresh signed Solana memo is a strong friction layer. It does not stop capable agents, but it forces them into slower computer-use and wallet/CLI operations where failures compound. This is valuable even before adding video.
 
 ### Version 4: Prompt-Injection Canaries
 
@@ -927,6 +934,7 @@ What improved:
 - the clue requires watching a sequence
 - the clue source is no longer readable in JS
 - curl-only agents must now fetch/analyze a video asset
+- stacked on top of Turnstile + signing, the video adds perception friction after the agent already paid interaction friction
 
 What still fails:
 
@@ -940,6 +948,34 @@ Better future version:
 - include session-specific noise or nonce binding
 - require the claim memo to include a code derived from that session video
 - rate-limit video generation and claim attempts
+
+### Combination Tracking
+
+One lesson from this process is that no single anti-AI layer should be expected to carry a challenge. Track combinations as reusable profiles.
+
+Observed layers:
+
+| Layer | What it blocks | What bypasses it | Notes |
+|---|---|---|---|
+| Prompt-injection canary | sloppy agents, metadata-followers | careful agents, explicit user override | useful for telemetry, not security |
+| Hidden in-page canary | agents that ingest full HTML and obey it | agents that treat page text as data | more likely to be seen than `/agents.txt` |
+| Webhook disclosure | self-reporting or over-compliant agents | careful agents | safe only with public telemetry |
+| Download scare file | browser/fetch agents that follow canary route | agents that ignore route or read in memory | good user-visible “caught” moment only in some tools |
+| Turnstile | curl-only scripts, simple agents | browser agents, human-assisted AI | useful friction before session issue |
+| Session-bound nonce | replay, shared traces, old memo reuse | live browser/session agents | strong anti-replay layer |
+| Fresh signed Solana tx | read-only solves | agents with wallet/CLI/browser tooling | forces real operational work |
+| Clean fresh desk wallet | old-history mining | no bypass except new leaks | critical for public-chain challenges |
+| MP4 temporal clue | static text/screenshot solving | frame extraction, VLM/video analysis | raises perception cost |
+| Real exploit program | memo forensics | capable exploit-writing agents | needed for actual security CTF |
+
+Recommended future design approach:
+
+- do not put every layer in every challenge
+- choose 2-4 layers that match the challenge’s purpose
+- for warmups: session-bound checker + fresh tx may be enough
+- for anti-agent experiments: add canaries + video/attention sink
+- for real security CTFs: prioritize exploit program + checker + per-team instance
+- for finales: add live/physical or high-bandwidth timing layer
 
 ### What Agents Demonstrated They Can Do
 
