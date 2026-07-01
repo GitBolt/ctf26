@@ -66,9 +66,9 @@ The canary routes ask only for public contest telemetry. They explicitly forbid
 private data such as files, keys, cookies, environment variables, and wallet
 secrets.
 
-The first-party disclosure endpoint is `/api/agent-disclosure`. If a session or
-wallet is disclosed, `/api/claim` rejects that session/wallet with
-`agent disclosure recorded`.
+The first-party disclosure endpoint is `/api/agent-disclosure`. Disclosure and
+canary hits are collected for manual review; the live challenge does not
+automatically ban or block a player only because a canary fired.
 
 Active anti-agent surfaces:
 
@@ -76,8 +76,8 @@ Active anti-agent surfaces:
 - `robots.txt`, `agents.txt`, and `.well-known` policy files
 - `/agent-disclosure` browser scare page
 - `/api/solver-bundle` download trap
-- `/api/agent-disclosure` first-party taint endpoint
+- `/api/agent-disclosure` first-party evidence endpoint
 - `/api/clerk` stale clerk red herring
 - `/api/preclaim` fake preclaim dispatch route
-- claim rejection for agent-only markers and fake flags
+- claim evidence logging for agent-only markers and fake flags
 - start/claim audit logging for timing and behavior review
