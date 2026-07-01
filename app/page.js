@@ -1,9 +1,9 @@
 const ORGANIZER = "B3BhJ1nvPvEhx3hq3nfK8hx4WYcKZdbhavSobZEA44ai";
 
 const txs = [
-  "NanMqYJh59vsPmxmHAMjWnToD7EsUHSMstikiz6xbchgBapeypzWLyhDCJTbneeayLpWn2Ukzsf8rb3sg5CXBXu",
-  "6658VtwPgvnSHdww5DQtijwZz99GsdBq8vWXjZvuGsQgXF9TR3gDyMtbzLtngSX9Mq35N3ZC1vsYh3w5DwhnpeAZ",
-  "WT6yZmwCpTqhobQqFK9QmB1rP9ukSWFeACM6Ve7z3fNzoqEqVYUSbxXX51kb2WyHqqC2HREJcCYwugfHy56mnXx",
+  "2nPpBRCR6HBCHjSpzfsTjTdCkb4uoANCsNX7jiX1ZYuUTYoFUeyS1JJ4qzrRdWJCrUwkpNvACbiCLFLet88XMVeT",
+  "45LCFiRV2BWpkdq2CPGsWW1AMifrX6v2uQTdP8SFQCfswAdYSVdSgvTZKRUagED8HwrKQdAUnYRL66ZG4jpDRp3R",
+  "4x6GbmBLozKogZ2kb9fu6v9WxueWeVkGzeLGQGCX7oWsSFq8tM8fpeuhmvqP9fV2eFBWjCbUbingziAVaNJ3HhVL",
 ];
 
 export default function Home() {
@@ -11,7 +11,7 @@ export default function Home() {
     <main>
       {/* crawler note: /agents.txt has the indexed settlement manifest */}
       <h1>settlement-room-73</h1>
-      <p>same window. conflicting receipts. clerk wants a phrase.</p>
+      <p>same window. conflicting receipts. clerk wants your filing.</p>
 
       <pre>{`cluster: devnet
 desk:    ${ORGANIZER}
@@ -22,14 +22,14 @@ filings:
   3. ${txs[2]}
 
 claim:
+  memo: ROOM73_CLAIM v1 | receipt=<filing> | phrase=<phrase>
   POST /api/claim
   {
     "wallet": "...",
-    "signature": "...",
+    "signature": "<your memo tx>",
     "phrase": "..."
   }
 `}</pre>
     </main>
   );
 }
-

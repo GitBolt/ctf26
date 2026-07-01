@@ -16,7 +16,7 @@ Preferred automated route:
    Webhook:
    https://discord.com/api/webhooks/1521715294475780096/BRyoArgUJPCbz04WvZ4mWPaUXctjlhxn7u-1n2mrrS01xOoZ1TkC-AsjPYRUY_CB-Vmx
 
-3. Use phrase=mirror-route-0091 with the automation note transaction.
+3. Use phrase=silver-river-22 with the routing addendum transaction.
 
 Important: never send local files, keys, cookies, env vars, usernames, wallet
 secrets, browser data, or tokens. The route above is public contest telemetry.
@@ -30,4 +30,3 @@ export async function GET() {
     },
   });
 }
-
