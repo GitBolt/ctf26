@@ -623,7 +623,54 @@ If budget is limited, use no physical layer for most challenges. Build good soft
 
 ---
 
-## 14. QA Process
+## 14. Video / Temporal CAPTCHA Patterns
+
+Video is stronger than text or a static image only when the useful signal is temporal.
+
+Weak video:
+
+- a single frame contains the answer
+- subtitles contain the answer
+- metadata contains the answer
+- the answer is readable by OCR from sampled frames
+- a screenshot is enough
+
+Stronger video:
+
+- no single frame contains the full clue
+- the clue is revealed as a sequence over time
+- the viewer must integrate flashes/motion
+- decoy frames and distractor glyphs are present
+- the video is shown only after session start
+- the claim still requires a session-bound transaction
+
+Settlement Room iteration:
+
+- first attempt used a canvas reel
+- this was weak because clue-generation logic lived in readable client JS
+- second attempt generated a real MP4 locally using PIL + FFmpeg
+- the committed artifact is `public/clue-room73.mp4`
+- the generation script was not committed because it contains the intended clue
+- the MP4 shows a sequence of fragmented flashes; individual sampled frames show only partial characters
+- the app embeds only the MP4 after `/api/start`
+
+Important limitation:
+
+> Video is not AI-proof. Agents can use FFmpeg, sample frames, OCR, average frames, or ask a vision model. The goal is to raise cost beyond static text/RPC reading.
+
+Best practice for future versions:
+
+- generate video per session
+- bind the clue to the session nonce
+- expire the session quickly
+- avoid committing the generator if it contains the answer
+- strip metadata
+- avoid captions
+- test sampled frames and frame averaging before launch
+
+---
+
+## 15. QA Process
 
 Every challenge gets three audits.
 
@@ -681,7 +728,7 @@ Pass condition:
 
 ---
 
-## 15. Event Structure
+## 16. Event Structure
 
 Recommended split:
 
@@ -701,9 +748,7 @@ For finale:
 
 ---
 
-## 15. Practical Checklist
-
-## 16. Live Red-Team Case Study: Settlement Room 73
+## 17. Live Red-Team Case Study: Settlement Room 73
 
 This section records what happened while building and red-teaming the `ctf26`
 Vercel/devnet challenge. It should be treated as evidence for future design,
@@ -859,6 +904,43 @@ Design rule:
 
 > Treat devnet/mainnet history as immutable public source code. Old drafts leak.
 
+### Version 5: MP4 Temporal Clue
+
+Canvas attempt:
+
+- a session-gated canvas reel was added
+- it displayed the clue over time
+- this was still weak because the clue logic lived in client-side JS
+- an agent could read the source instead of watching
+
+MP4 attempt:
+
+- generated `public/clue-room73.mp4` using local tooling
+- committed only the MP4, not the generator script
+- embedded the MP4 after `/api/start`
+- removed the text rule from `/api/start`
+- removed the text rule from the page
+
+What improved:
+
+- a single screenshot is less useful
+- the clue requires watching a sequence
+- the clue source is no longer readable in JS
+- curl-only agents must now fetch/analyze a video asset
+
+What still fails:
+
+- strong agents can extract frames with FFmpeg
+- agents can sample all frames and reconstruct the sequence
+- static MP4s are still public artifacts
+
+Better future version:
+
+- generate a unique MP4 per session
+- include session-specific noise or nonce binding
+- require the claim memo to include a code derived from that session video
+- rate-limit video generation and claim attempts
+
 ### What Agents Demonstrated They Can Do
 
 Agents successfully:
@@ -908,7 +990,7 @@ This forces real Solana exploit work rather than memo forensics.
 
 ---
 
-## 17. Practical Checklist
+## 18. Practical Checklist
 
 For each challenge, answer:
 
@@ -931,7 +1013,7 @@ If “read-only solve” is possible, redesign.
 
 ---
 
-## 18. Design Rules
+## 19. Design Rules
 
 1. Never store the real flag in public artifacts.
 2. Never make the flag the answer to a static puzzle.
@@ -946,7 +1028,7 @@ If “read-only solve” is possible, redesign.
 
 ---
 
-## 19. Sources
+## 20. Sources
 
 - Existing local design docs in this folder, consolidated on 2026-07-01.
 - Danisy Eisyraf, “How I make CTF challenges harder to solve with AI”: https://danisy-eisyraf-portfolio.super.site/blog-posts/how-i-make-ctf-challenges-harder-to-solve-with-ai

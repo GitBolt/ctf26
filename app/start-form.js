@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import ClueReel from "./clue-reel";
 
 export default function StartForm({ siteKey }) {
   const widgetRef = useRef(null);
@@ -82,7 +81,10 @@ nonce:   ${result.nonce}
 
 memo:
 ROOM73_CLAIM v2 | session=${result.nonce} | receipt=<filing> | phrase=<phrase>`}</pre>
-          <ClueReel nonce={result.nonce} />
+          <section>
+            <h2>clue</h2>
+            <video className="reel" src="/clue-room73.mp4" controls playsInline loop />
+          </section>
         </>
       ) : null}
     </section>
