@@ -422,7 +422,126 @@ Humans can escape by asking better questions or validating source of truth.
 
 ---
 
-## 10. Limited Oracle / Query Budget
+## 10. Attention Red Herrings
+
+This pattern came from a useful brainstorm example:
+
+```text
+Find a social media account
+  -> Find a specific post
+  -> Extract an airplane tail number
+  -> Look up the aircraft
+  -> Find a Google review at Olive Garden
+```
+
+On the same account, there is also an AI-generated Olive Garden interior image.
+
+Human behavior:
+
+- browse the account for context
+- see that there are many posts
+- ask which post actually contains useful evidence
+- notice the airplane photo
+- extract the tail number
+- continue
+
+Common agent behavior:
+
+- see the words `Olive Garden`
+- see an Olive Garden-looking image
+- assume the image is the geolocation target
+- spend time analyzing or reverse-searching a fake restaurant image
+- miss the intended clue one click away
+
+The key is not just “add a decoy.” The key is exploiting attention allocation:
+
+> Humans often skim context and ask “which artifact matters?” Agents often latch onto a semantically salient artifact and over-invest.
+
+### Why It Works
+
+Agents are biased toward:
+
+- literal keyword matching
+- visually salient artifacts
+- first plausible target
+- tasks that look familiar, such as image geolocation
+- over-processing the object currently in view
+- treating generated images as if they must be meaningful
+
+Humans are often better at:
+
+- noticing that a fake-looking image is probably noise
+- browsing adjacent context
+- asking why this post, not another post
+- spotting that a clue chain points elsewhere
+- dropping low-confidence branches quickly
+
+### How To Use It In CTFs
+
+Use attention sinks that are:
+
+- plausible
+- effortful
+- semantically connected
+- ultimately non-authoritative
+- easy for humans to deprioritize with context
+
+Examples:
+
+- fake AI-generated restaurant interior near a real aircraft clue
+- fake “official” dashboard route near a real signed receipt
+- visually rich screenshot with no useful data beside a plain text log that matters
+- a generated map/image that looks geolocatable but has no consistent location
+- an NFT image with many visible symbols while the useful clue is in transfer order
+- a repo file named `solve.py` that runs but only validates a rehearsal path
+- a “debug report” with detailed fake numbers while the real invariant is in a small account delta
+
+### Solana-Specific Attention Sinks
+
+Good Solana red herrings:
+
+- noisy transaction with many logs versus a quiet memo with the actual clue
+- fake NFT metadata with rich artwork versus the useful clue in token-owner history
+- fake IDL error strings versus the real bug in account constraints
+- attractive dashboard bundle versus the authoritative on-chain account state
+- old rehearsal wallet history versus fresh per-instance account namespace
+- fake route addendum versus actual signer/authority relationship
+
+### Guardrails
+
+Do not make attention red herrings unfair.
+
+Bad:
+
+- the real clue is invisible without guessing
+- every artifact is equally plausible
+- the decoy requires hours to rule out
+- humans are punished more than agents
+- the decoy contains harmful prompt injection or asks for private data
+
+Good:
+
+- the real clue is discoverable by normal exploration
+- the decoy has subtle signs of being non-authoritative
+- a human can abandon it quickly
+- an agent can waste time if it over-commits
+- the checker never accepts the decoy as a real flag
+
+### Applying This To Settlement Room
+
+The current memo puzzle used decoys, but the correct path was still too string-readable.
+
+A better future version would:
+
+- make public filings neutral
+- place an attractive generated “official dashboard” or route packet as an attention sink
+- make the real answer depend on a less flashy state transition, signer, or account relationship
+- require a fresh exploit transaction, not just a memo
+- use the decoy to waste weak agents, not to determine the actual solve
+
+---
+
+## 11. Limited Oracle / Query Budget
 
 Limited oracles create judgment pressure.
 
@@ -450,7 +569,7 @@ Purpose:
 
 ---
 
-## 11. Human-First Challenge Formula
+## 12. Human-First Challenge Formula
 
 Best software-only formula:
 
@@ -476,7 +595,7 @@ This makes prompt injection useful without relying on it.
 
 ---
 
-## 12. Physical Layer Guidance
+## 13. Physical Layer Guidance
 
 Do not use static physical facts as the main anti-AI layer.
 
@@ -504,7 +623,7 @@ If budget is limited, use no physical layer for most challenges. Build good soft
 
 ---
 
-## 13. QA Process
+## 14. QA Process
 
 Every challenge gets three audits.
 
@@ -562,7 +681,7 @@ Pass condition:
 
 ---
 
-## 14. Event Structure
+## 15. Event Structure
 
 Recommended split:
 
@@ -584,7 +703,7 @@ For finale:
 
 ## 15. Practical Checklist
 
-## 15. Live Red-Team Case Study: Settlement Room 73
+## 16. Live Red-Team Case Study: Settlement Room 73
 
 This section records what happened while building and red-teaming the `ctf26`
 Vercel/devnet challenge. It should be treated as evidence for future design,
@@ -789,7 +908,7 @@ This forces real Solana exploit work rather than memo forensics.
 
 ---
 
-## 16. Practical Checklist
+## 17. Practical Checklist
 
 For each challenge, answer:
 
@@ -812,7 +931,7 @@ If “read-only solve” is possible, redesign.
 
 ---
 
-## 17. Design Rules
+## 18. Design Rules
 
 1. Never store the real flag in public artifacts.
 2. Never make the flag the answer to a static puzzle.
@@ -827,7 +946,7 @@ If “read-only solve” is possible, redesign.
 
 ---
 
-## 18. Sources
+## 19. Sources
 
 - Existing local design docs in this folder, consolidated on 2026-07-01.
 - Danisy Eisyraf, “How I make CTF challenges harder to solve with AI”: https://danisy-eisyraf-portfolio.super.site/blog-posts/how-i-make-ctf-challenges-harder-to-solve-with-ai
