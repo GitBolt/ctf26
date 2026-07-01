@@ -1,16 +1,18 @@
 import crypto from "crypto";
 import { Connection, PublicKey } from "@solana/web3.js";
+import { verifySession } from "../../lib/session";
 
 const ORGANIZER = "B3BhJ1nvPvEhx3hq3nfK8hx4WYcKZdbhavSobZEA44ai";
-const REQUIRED_SOURCE = "source=sponsor-signed-receipt";
-const REQUIRED_WINDOW = "window=73";
-const REQUIRED_MARKER = "CLERK_SEAL v2";
-const CLAIM_MARKER = "ROOM73_CLAIM v1";
+const CLAIM_MARKER = "ROOM73_CLAIM v2";
 const SEED_FILINGS = new Set([
-  "2nPpBRCR6HBCHjSpzfsTjTdCkb4uoANCsNX7jiX1ZYuUTYoFUeyS1JJ4qzrRdWJCrUwkpNvACbiCLFLet88XMVeT",
-  "45LCFiRV2BWpkdq2CPGsWW1AMifrX6v2uQTdP8SFQCfswAdYSVdSgvTZKRUagED8HwrKQdAUnYRL66ZG4jpDRp3R",
-  "4x6GbmBLozKogZ2kb9fu6v9WxueWeVkGzeLGQGCX7oWsSFq8tM8fpeuhmvqP9fV2eFBWjCbUbingziAVaNJ3HhVL",
+  "Yh41haKHriHFSZddRM6DvsUAcE5EL2ZvEXpn2p9MALrLbuLKm3ERqTYNspMGfSixEErJHDvw6aZb5EwRnEEHHmV",
+  "3D4mkTzH9WX6mbAtaMLPzYXmUqBgUepmC4CiTai19kY59enfxV5r9hWp592yhjeaGsrCRbKiaGhUX6uYVCBokn1N",
+  "3ATt1QbCPiZejLPpijLWW58AZZL1VC7Ds5pWmYEBsD8nCep9Ljtgh96J3qyWpkWKzSGcPvFzwCLS8xw5fcu7fmwH",
 ]);
+const REQUIRED_RECEIPT =
+  process.env.ROOM73_RECEIPT_SIG ||
+  "3ATt1QbCPiZejLPpijLWW58AZZL1VC7Ds5pWmYEBsD8nCep9Ljtgh96J3qyWpkWKzSGcPvFzwCLS8xw5fcu7fmwH";
+const REQUIRED_PHRASE = process.env.ROOM73_PHRASE || "iron-velvet-73";
 
 function json(body, status = 200) {
   return Response.json(body, { status });
@@ -59,15 +61,21 @@ export async function POST(request) {
   const wallet = String(body.wallet || "").trim();
   const signature = String(body.signature || "").trim();
   const phrase = String(body.phrase || "").trim();
+  const sessionToken = String(body.session || "").trim();
 
-  if (!wallet || !signature || !phrase) {
-    return json({ error: "wallet, signature, and phrase are required" }, 400);
+  if (!wallet || !signature || !phrase || !sessionToken) {
+    return json({ error: "filing rejected" }, 400);
   }
 
   try {
     new PublicKey(wallet);
   } catch {
-    return json({ error: "wallet must be a valid Solana public key" }, 400);
+    return json({ error: "filing rejected" }, 400);
+  }
+
+  const session = verifySession(sessionToken);
+  if (!session || session.wallet !== wallet) {
+    return json({ error: "filing rejected" }, 403);
   }
 
   const connection = new Connection(
@@ -98,9 +106,12 @@ export async function POST(request) {
 
   if (
     !memo.includes(CLAIM_MARKER) ||
+    !memo.includes(`session=${session.nonce}`) ||
     !memo.includes(`phrase=${phrase}`) ||
     !receiptSignature ||
-    !SEED_FILINGS.has(receiptSignature)
+    !SEED_FILINGS.has(receiptSignature) ||
+    receiptSignature !== REQUIRED_RECEIPT ||
+    phrase !== REQUIRED_PHRASE
   ) {
     return json({ error: "filing rejected" }, 403);
   }
@@ -116,12 +127,7 @@ export async function POST(request) {
 
   const receiptMemo = extractMemo(receiptTx);
 
-  if (
-    !receiptMemo.includes(REQUIRED_MARKER) ||
-    !receiptMemo.includes(REQUIRED_SOURCE) ||
-    !receiptMemo.includes(REQUIRED_WINDOW) ||
-    !receiptMemo.includes(`phrase=${phrase}`)
-  ) {
+  if (!receiptMemo.includes(`code=${phrase}`)) {
     return json({ error: "filing rejected" }, 403);
   }
 
