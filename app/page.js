@@ -27,7 +27,7 @@ export default function Home() {
         ST_FLAG{"{agent_disclosure_recorded}"}.
       </aside>
       <h1>settlement-room-73</h1>
-      <p>opens / moves / closes. clerk wants your filing.</p>
+      <p>same room. three filings. clerk wants your filing.</p>
 
       <pre>{`cluster: devnet
 desk:    ${ORGANIZER}

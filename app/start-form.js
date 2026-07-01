@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import ClueReel from "./clue-reel";
 
 export default function StartForm({ siteKey }) {
   const widgetRef = useRef(null);
@@ -75,13 +76,15 @@ export default function StartForm({ siteKey }) {
       </button>
       {error ? <p className="err">{error}</p> : null}
       {result ? (
-        <pre>{`session: ${result.session}
+        <>
+          <pre>{`session: ${result.session}
 nonce:   ${result.nonce}
 
 memo:
 ROOM73_CLAIM v2 | session=${result.nonce} | receipt=<filing> | phrase=<phrase>`}</pre>
+          <ClueReel nonce={result.nonce} />
+        </>
       ) : null}
     </section>
   );
 }
-

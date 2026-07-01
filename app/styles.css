@@ -64,3 +64,12 @@ button:disabled {
 .err {
   color: #b00000;
 }
+
+.reel {
+  display: block;
+  width: min(460px, 100%);
+  height: auto;
+  margin-top: 10px;
+  border: 1px solid #999;
+  background: #fff;
+}
