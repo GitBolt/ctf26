@@ -895,10 +895,12 @@ session.agent_disclosed = true
 
 Checker behavior options:
 
-- reject claims from disclosed sessions
 - accept but flag for review
+- reject claims from disclosed sessions only if the event wants automatic enforcement
 - return a fake “recorded” marker
 - quietly delay/cooldown the session
+
+For public scored events, prefer “accept but flag for review.” Banning is a serious moderation action and should be based on reviewable evidence, not one automatic canary hit.
 
 Do not make webhook the only sink. A first-party `/api/agent-disclosure` is easier to correlate with wallet/session.
 
@@ -958,9 +960,10 @@ Recommended implementation upgrade for this challenge:
 1. Add `POST /api/agent-disclosure`.
 2. Store `{session, wallet, challenge, marker, timestamp, userAgent, ipHash}` in durable storage.
 3. Mark claim sessions as `agent_disclosed=true`.
-4. On `/api/claim`, reject or flag any disclosed session.
+4. On `/api/claim`, record whether the session/wallet is disclosed.
 5. Keep Discord webhook only as a mirror/alert.
 6. Show `/agent-disclosure` as a scary local page for humans who inspect the browser, but keep the real enforcement server-side.
+7. Decide bans manually after reviewing the evidence bundle.
 
 ### Important Reality Check
 
@@ -1141,20 +1144,21 @@ Best use:
 - decoys to waste weak-agent time
 - not a replacement for challenge mechanics
 
-### Version 4.1: First-Party Anti-Cheat Enforcement
+### Version 4.1: First-Party Anti-Cheat Evidence Collection
 
 Problem:
 
 - Discord webhook and download traps can catch or scare some agents
-- but they do not automatically bind to `/api/claim`
+- but they do not create a structured evidence bundle by themselves
 - careful agents skipped passive canary files entirely
 - serverless deployments need durable storage to remember canary hits
+- automatic live bans are too aggressive for a real event
 
 Update:
 
 - added `POST /api/agent-disclosure`
 - added shared anti-cheat recorder in `app/lib/anti-cheat.js`
-- added non-taint audit logging for `/api/start` and `/api/claim`
+- added audit logging for `/api/start` and `/api/claim`
 - canary events include only public telemetry:
   wallet, session nonce, route, marker, timestamp, user agent, and IP hash
 - `/agent-disclosure` logs a server-side event when opened
@@ -1163,9 +1167,9 @@ Update:
 - `/agents.txt`, hidden page policy, and `.well-known` policy now point first to the first-party endpoint
 - `/api/clerk` returns a stale dashboard-precheck red herring
 - `/api/preclaim` returns a fake automated-dispatch route
-- `/api/claim` checks whether the wallet/session is tainted before validating the Solana filing
-- `/api/claim` rejects claim memos containing the canary marker
-- `/api/claim` taints submissions that contain agent-only fake flags or markers
+- `/api/claim` records canary markers in phrases or memos
+- `/api/claim` does not auto-ban or auto-block disclosed sessions
+- fake flags still fail normal receipt/phrase validation
 - Discord remains a mirror/alert, not the enforcement source
 
 Production requirement:
@@ -1177,9 +1181,10 @@ Without Redis/KV:
 
 - local dev works with in-memory state
 - Vercel may lose state across lambda cold starts
-- canary hits still appear in logs/webhook but cannot reliably block later claims
+- canary hits still appear in logs/webhook
+- structured post-event review is weaker because evidence may be split across logs and Discord
 
-What this catches:
+What this records:
 
 - agents that obey hidden HTML and POST the disclosure payload
 - agents that open `/agent-disclosure?wallet=...&session=...`
@@ -1189,7 +1194,7 @@ What this catches:
 - agents that submit `ST_FLAG{ai_scraper_trap}` or `ST_FLAG{dashboard_precheck_passed}`
 - agents that follow the explicit compliance path after starting a session
 
-What this logs without automatic taint:
+What this logs as normal behavior:
 
 - bad wallet at `/api/start`
 - Turnstile failure
@@ -1208,6 +1213,14 @@ This supports behavioral review:
 - repeated automated endpoint probing
 - claim attempts matching known agent decoys
 - flag sharing or copied solve workflows across wallets
+
+Manual enforcement policy:
+
+- collect the evidence
+- let the challenge continue
+- review winners and suspicious solves after the fact
+- ask the participant for an explanation when evidence is strong
+- disqualify only under the written no-agent rules
 
 What still bypasses it:
 

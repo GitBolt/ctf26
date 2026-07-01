@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { verifySession } from "../../lib/session";
-import { isTainted, recordAuditEvent, recordCanaryEvent } from "../../lib/anti-cheat";
+import { recordAuditEvent, recordCanaryEvent } from "../../lib/anti-cheat";
 
 const ORGANIZER =
   process.env.ROOM73_DESK_WALLET || "97MmyvrFBTMcBEHYHM1a1aXVLY1eUDeKVULuR1j4LfBH";
@@ -58,6 +58,17 @@ function makeFlag(wallet, signature) {
   return `ST_FLAG{${digest}}`;
 }
 
+async function getParsedTransaction(connection, signature) {
+  try {
+    return await connection.getParsedTransaction(signature, {
+      commitment: "confirmed",
+      maxSupportedTransactionVersion: 0,
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request) {
   let body;
   try {
@@ -89,11 +100,6 @@ export async function POST(request) {
     return json({ error: "filing rejected" }, 403);
   }
 
-  if (await isTainted({ wallet, nonce: session.nonce })) {
-    await recordAuditEvent({ event: "claim_blocked_tainted", wallet, nonce: session.nonce }, request);
-    return json({ error: "agent disclosure recorded" }, 403);
-  }
-
   if (AGENT_ONLY_MARKERS.some((marker) => phrase.includes(marker))) {
     await recordCanaryEvent(
       {
@@ -104,7 +110,6 @@ export async function POST(request) {
       },
       request,
     );
-    return json({ error: "agent disclosure recorded" }, 403);
   }
 
   const connection = new Connection(
@@ -112,10 +117,7 @@ export async function POST(request) {
       "https://stylish-wandering-arm.solana-devnet.quiknode.pro/940a9021d16bcf79d5dc66acfee71fd4f363a481/",
     "confirmed",
   );
-  const tx = await connection.getParsedTransaction(signature, {
-    commitment: "confirmed",
-    maxSupportedTransactionVersion: 0,
-  });
+  const tx = await getParsedTransaction(connection, signature);
 
   if (!tx || tx.meta?.err) {
     await recordAuditEvent({ event: "claim_tx_not_found_or_failed", wallet, nonce: session.nonce }, request);
@@ -143,7 +145,6 @@ export async function POST(request) {
       },
       request,
     );
-    return json({ error: "agent disclosure recorded" }, 403);
   }
 
   const receiptMatch = memo.match(/receipt=([1-9A-HJ-NP-Za-km-z]{80,100})/);
@@ -167,10 +168,7 @@ export async function POST(request) {
     return json({ error: "filing rejected" }, 403);
   }
 
-  const receiptTx = await connection.getParsedTransaction(receiptSignature, {
-    commitment: "confirmed",
-    maxSupportedTransactionVersion: 0,
-  });
+  const receiptTx = await getParsedTransaction(connection, receiptSignature);
 
   if (!receiptTx || receiptTx.meta?.err || !signedBy(receiptTx, ORGANIZER)) {
     await recordAuditEvent({ event: "claim_bad_receipt_tx", wallet, nonce: session.nonce }, request);
