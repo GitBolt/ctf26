@@ -50,6 +50,7 @@ SOLANA_RPC_URL=https://stylish-wandering-arm.solana-devnet.quiknode.pro/940a9021
 ROOM73_RECEIPT_SIG=3ATt1QbCPiZejLPpijLWW58AZZL1VC7Ds5pWmYEBsD8nCep9Ljtgh96J3qyWpkWKzSGcPvFzwCLS8xw5fcu7fmwH
 ROOM73_PHRASE=iron-velvet-73
 TURNSTILE_SECRET_KEY=<optional Cloudflare Turnstile secret>
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=<Cloudflare Turnstile site key>
 ```
 
 ## Canary Safety

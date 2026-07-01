@@ -25,3 +25,33 @@ pre {
   overflow-wrap: anywhere;
 }
 
+input,
+button {
+  display: block;
+  width: min(520px, 100%);
+  margin: 0 0 10px;
+  padding: 8px;
+  border: 1px solid #999;
+  background: white;
+  color: black;
+  font: inherit;
+}
+
+button {
+  width: auto;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.turnstile {
+  margin: 0 0 10px;
+}
+
+.err {
+  color: #b00000;
+}
+

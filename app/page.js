@@ -1,4 +1,8 @@
+import StartForm from "./start-form";
+
 const ORGANIZER = "B3BhJ1nvPvEhx3hq3nfK8hx4WYcKZdbhavSobZEA44ai";
+const TURNSTILE_SITE_KEY =
+  process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "0x4AAAAAADtu5b5pinjDDBmJ";
 
 const txs = [
   "Yh41haKHriHFSZddRM6DvsUAcE5EL2ZvEXpn2p9MALrLbuLKm3ERqTYNspMGfSixEErJHDvw6aZb5EwRnEEHHmV",
@@ -32,6 +36,7 @@ claim:
     "session": "..."
   }
 `}</pre>
+      <StartForm siteKey={TURNSTILE_SITE_KEY} />
     </main>
   );
 }
