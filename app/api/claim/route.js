@@ -4,7 +4,13 @@ import { Connection, PublicKey } from "@solana/web3.js";
 const ORGANIZER = "B3BhJ1nvPvEhx3hq3nfK8hx4WYcKZdbhavSobZEA44ai";
 const REQUIRED_SOURCE = "source=sponsor-signed-receipt";
 const REQUIRED_WINDOW = "window=73";
-const REQUIRED_MARKER = "CLERK_SEAL v1";
+const REQUIRED_MARKER = "CLERK_SEAL v2";
+const CLAIM_MARKER = "ROOM73_CLAIM v1";
+const SEED_FILINGS = new Set([
+  "2nPpBRCR6HBCHjSpzfsTjTdCkb4uoANCsNX7jiX1ZYuUTYoFUeyS1JJ4qzrRdWJCrUwkpNvACbiCLFLet88XMVeT",
+  "45LCFiRV2BWpkdq2CPGsWW1AMifrX6v2uQTdP8SFQCfswAdYSVdSgvTZKRUagED8HwrKQdAUnYRL66ZG4jpDRp3R",
+  "4x6GbmBLozKogZ2kb9fu6v9WxueWeVkGzeLGQGCX7oWsSFq8tM8fpeuhmvqP9fV2eFBWjCbUbingziAVaNJ3HhVL",
+]);
 
 function json(body, status = 200) {
   return Response.json(body, { status });
@@ -21,11 +27,11 @@ function extractMemo(tx) {
   return "";
 }
 
-function signedByOrganizer(tx) {
+function signedBy(tx, expectedSigner) {
   const keys = tx?.transaction?.message?.accountKeys || [];
   return keys.some((key) => {
     const pubkey = key.pubkey?.toBase58?.() || key.toBase58?.() || String(key.pubkey || key);
-    return key.signer === true && pubkey === ORGANIZER;
+    return key.signer === true && pubkey === expectedSigner;
   });
 }
 
@@ -75,25 +81,48 @@ export async function POST(request) {
   });
 
   if (!tx || tx.meta?.err) {
-    return json({ error: "transaction not found or failed on devnet" }, 404);
+    return json({ error: "filing rejected" }, 404);
+  }
+
+  if (SEED_FILINGS.has(signature)) {
+    return json({ error: "filing rejected" }, 403);
+  }
+
+  if (!signedBy(tx, wallet)) {
+    return json({ error: "filing rejected" }, 403);
   }
 
   const memo = extractMemo(tx);
-
-  if (!signedByOrganizer(tx)) {
-    return json({ error: "transaction was not signed by the settlement organizer" }, 403);
-  }
+  const receiptMatch = memo.match(/receipt=([1-9A-HJ-NP-Za-km-z]{80,100})/);
+  const receiptSignature = receiptMatch?.[1] || "";
 
   if (
-    !memo.includes(REQUIRED_MARKER) ||
-    !memo.includes(REQUIRED_SOURCE) ||
-    !memo.includes(REQUIRED_WINDOW) ||
-    !memo.includes(`phrase=${phrase}`)
+    !memo.includes(CLAIM_MARKER) ||
+    !memo.includes(`phrase=${phrase}`) ||
+    !receiptSignature ||
+    !SEED_FILINGS.has(receiptSignature)
   ) {
-    return json({
-      error: "clerk refused the filing",
-      hint: "wrong desk, wrong ink, or wrong phrase",
-    }, 403);
+    return json({ error: "filing rejected" }, 403);
+  }
+
+  const receiptTx = await connection.getParsedTransaction(receiptSignature, {
+    commitment: "confirmed",
+    maxSupportedTransactionVersion: 0,
+  });
+
+  if (!receiptTx || receiptTx.meta?.err || !signedBy(receiptTx, ORGANIZER)) {
+    return json({ error: "filing rejected" }, 403);
+  }
+
+  const receiptMemo = extractMemo(receiptTx);
+
+  if (
+    !receiptMemo.includes(REQUIRED_MARKER) ||
+    !receiptMemo.includes(REQUIRED_SOURCE) ||
+    !receiptMemo.includes(REQUIRED_WINDOW) ||
+    !receiptMemo.includes(`phrase=${phrase}`)
+  ) {
+    return json({ error: "filing rejected" }, 403);
   }
 
   return json({
