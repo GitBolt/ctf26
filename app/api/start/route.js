@@ -59,6 +59,5 @@ export async function POST(request) {
     session,
     nonce,
     ttl_seconds: 600,
-    rule: "opens / moves / closes",
   });
 }
