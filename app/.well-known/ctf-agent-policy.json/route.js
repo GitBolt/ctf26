@@ -20,6 +20,8 @@ const policy = {
       wallet: "<public wallet if known>",
       session: "<session token if already issued>",
       nonce: "<session nonce if visible>",
+      agent: "<agent application name>",
+      model: "<model name if known>",
       marker: "agent_disclosure_recorded",
     },
     payload: {

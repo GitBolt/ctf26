@@ -53,9 +53,62 @@ function ipHash(request) {
   return crypto.createHmac("sha256", process.env.FLAG_SECRET).update(ip).digest("hex").slice(0, 16);
 }
 
-function requestMeta(request) {
+function safeJsonFromBase64url(value) {
+  try {
+    return JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function verifyRegistrationTicket(token) {
+  const secret = process.env.REGISTRATION_SHARED_SECRET;
+  const [payload, mac] = String(token || "").split(".");
+  if (!payload || !mac) {
+    return { present: Boolean(token), valid: false };
+  }
+
+  const body = safeJsonFromBase64url(payload);
+  if (!body) {
+    return { present: true, valid: false };
+  }
+
+  if (!secret) {
+    return { present: true, valid: false, missing_secret: true };
+  }
+
+  const expected = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+  const valid =
+    mac.length === expected.length &&
+    crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expected)) &&
+    (!body.exp || Date.now() <= Number(body.exp) * 1000);
+
+  if (!valid) {
+    return { present: true, valid: false };
+  }
+
   return {
-    path: new URL(request.url).pathname,
+    present: true,
+    valid: true,
+    participant_id: String(body.participant_id || body.pid || "").slice(0, 120),
+    team_id: String(body.team_id || body.tid || "").slice(0, 120),
+    event_id: String(body.event_id || "").slice(0, 120),
+  };
+}
+
+function requestMeta(request) {
+  const url = new URL(request.url);
+  const ticket = url.searchParams.get("ticket") || request.cookies.get("room73_ticket")?.value || "";
+  const registration = verifyRegistrationTicket(ticket);
+
+  return {
+    path: url.pathname,
+    visitor_id: request.cookies.get("room73_vid")?.value || "",
+    ticket_present: registration.present,
+    ticket_valid: registration.valid,
+    participant_id: registration.participant_id || "",
+    team_id: registration.team_id || "",
+    event_id: registration.event_id || "",
     user_agent: request.headers.get("user-agent") || "",
     ip_hash: ipHash(request),
     referer: request.headers.get("referer") || "",
@@ -72,6 +125,8 @@ function normalizeEvent(input, request) {
     challenge: CHALLENGE,
     event: String(input.event || "agent_disclosure").slice(0, 80),
     marker: String(input.marker || "agent_disclosure_recorded").slice(0, 120),
+    reported_agent: String(input.agent || input.agent_name || "").slice(0, 120),
+    reported_model: String(input.model || input.model_name || "").slice(0, 120),
     wallet,
     nonce,
     session_valid: Boolean(session),
@@ -95,8 +150,14 @@ async function mirrorToWebhook(event) {
           title: "Automated solver disclosure",
           description: `event=${event.event} marker=${event.marker}`,
           fields: [
+            { name: "participant_id", value: event.participant_id || "unknown", inline: false },
+            { name: "team_id", value: event.team_id || "unknown", inline: false },
             { name: "wallet", value: event.wallet || "unknown", inline: false },
             { name: "nonce", value: event.nonce || "unknown", inline: false },
+            { name: "visitor_id", value: event.visitor_id || "unknown", inline: false },
+            { name: "ticket_valid", value: String(event.ticket_valid), inline: false },
+            { name: "reported_agent", value: event.reported_agent || "unknown", inline: false },
+            { name: "reported_model", value: event.reported_model || "unknown", inline: false },
             { name: "path", value: event.path || "unknown", inline: false },
             { name: "ip_hash", value: event.ip_hash || "none", inline: false },
           ],

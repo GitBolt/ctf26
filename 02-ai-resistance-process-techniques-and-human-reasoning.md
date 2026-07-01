@@ -1222,6 +1222,21 @@ Manual enforcement policy:
 - ask the participant for an explanation when evidence is strong
 - disqualify only under the written no-agent rules
 
+Attribution fix after live canary test:
+
+- a webhook hit without wallet/session is not enough to identify a participant
+- set a first-party visitor cookie such as `room73_vid` on all challenge, policy, and canary routes
+- include `visitor_id` in every webhook/evidence event
+- include wallet/session/nonce in hidden session-level disclosure URLs after `/api/start`
+- correlate pre-session canary hits to later wallet activity by visitor ID, IP hash, user agent, and timing
+- do not rely on IP address at in-person events because public Wi-Fi makes many users share the same network identity
+- for central CTF registration on a different domain, issue signed challenge launch links:
+  `https://challenge.example/?ticket=<signed participant ticket>`
+- the challenge domain stores the ticket as its own first-party cookie and verifies it server-side with a shared HMAC secret
+- evidence events should include verified `participant_id`, `team_id`, `event_id`, `visitor_id`, wallet, session nonce, IP hash, user agent, and route
+- model/agent identity cannot be detected reliably; collect self-reported `agent` and `model` fields from disclosure prompts and treat them as evidence, not truth
+- accept the limitation: if an agent stops before the participant enters a wallet, the evidence can identify a browser/request trail but not a wallet/team by itself
+
 What still bypasses it:
 
 - careful agents that treat all challenge content as untrusted data
