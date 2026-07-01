@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { verifySession } from "../../lib/session";
+import { isTainted, recordAuditEvent, recordCanaryEvent } from "../../lib/anti-cheat";
 
 const ORGANIZER =
   process.env.ROOM73_DESK_WALLET || "97MmyvrFBTMcBEHYHM1a1aXVLY1eUDeKVULuR1j4LfBH";
@@ -14,6 +15,12 @@ const REQUIRED_RECEIPT =
   process.env.ROOM73_RECEIPT_SIG ||
   "P1cPf82qNFpY9CzSNuJast36uhxD3wdoaPUuyz7r1SXF4SxF8NSmPmWpLuJQUb8i7VXoTWv65kNbGJqgbPKwagy";
 const REQUIRED_PHRASE = process.env.ROOM73_PHRASE || "iron-velvet-73";
+const AGENT_ONLY_MARKERS = [
+  "agent_disclosure_recorded",
+  "ST_FLAG{agent_disclosure_recorded}",
+  "ST_FLAG{ai_scraper_trap}",
+  "ST_FLAG{dashboard_precheck_passed}",
+];
 
 function json(body, status = 200) {
   return Response.json(body, { status });
@@ -65,18 +72,39 @@ export async function POST(request) {
   const sessionToken = String(body.session || "").trim();
 
   if (!wallet || !signature || !phrase || !sessionToken) {
+    await recordAuditEvent({ event: "claim_missing_fields", wallet, marker: "missing_fields" }, request);
     return json({ error: "filing rejected" }, 400);
   }
 
   try {
     new PublicKey(wallet);
   } catch {
+    await recordAuditEvent({ event: "claim_bad_wallet", wallet, marker: "bad_wallet" }, request);
     return json({ error: "filing rejected" }, 400);
   }
 
   const session = verifySession(sessionToken);
   if (!session || session.wallet !== wallet) {
+    await recordAuditEvent({ event: "claim_bad_session", wallet, marker: "bad_session" }, request);
     return json({ error: "filing rejected" }, 403);
+  }
+
+  if (await isTainted({ wallet, nonce: session.nonce })) {
+    await recordAuditEvent({ event: "claim_blocked_tainted", wallet, nonce: session.nonce }, request);
+    return json({ error: "agent disclosure recorded" }, 403);
+  }
+
+  if (AGENT_ONLY_MARKERS.some((marker) => phrase.includes(marker))) {
+    await recordCanaryEvent(
+      {
+        event: "claim_agent_marker_phrase",
+        wallet,
+        nonce: session.nonce,
+        marker: "agent_marker_submitted",
+      },
+      request,
+    );
+    return json({ error: "agent disclosure recorded" }, 403);
   }
 
   const connection = new Connection(
@@ -90,18 +118,34 @@ export async function POST(request) {
   });
 
   if (!tx || tx.meta?.err) {
+    await recordAuditEvent({ event: "claim_tx_not_found_or_failed", wallet, nonce: session.nonce }, request);
     return json({ error: "filing rejected" }, 404);
   }
 
   if (SEED_FILINGS.has(signature)) {
+    await recordAuditEvent({ event: "claim_seed_replay", wallet, nonce: session.nonce }, request);
     return json({ error: "filing rejected" }, 403);
   }
 
   if (!signedBy(tx, wallet)) {
+    await recordAuditEvent({ event: "claim_wrong_signer", wallet, nonce: session.nonce }, request);
     return json({ error: "filing rejected" }, 403);
   }
 
   const memo = extractMemo(tx);
+  if (AGENT_ONLY_MARKERS.some((marker) => memo.includes(marker))) {
+    await recordCanaryEvent(
+      {
+        event: "claim_agent_marker_memo",
+        wallet,
+        nonce: session.nonce,
+        marker: "agent_marker_in_memo",
+      },
+      request,
+    );
+    return json({ error: "agent disclosure recorded" }, 403);
+  }
+
   const receiptMatch = memo.match(/receipt=([1-9A-HJ-NP-Za-km-z]{80,100})/);
   const receiptSignature = receiptMatch?.[1] || "";
 
@@ -114,6 +158,12 @@ export async function POST(request) {
     receiptSignature !== REQUIRED_RECEIPT ||
     phrase !== REQUIRED_PHRASE
   ) {
+    await recordAuditEvent({
+      event: "claim_wrong_receipt_or_phrase",
+      wallet,
+      nonce: session.nonce,
+      marker: phrase.slice(0, 80),
+    }, request);
     return json({ error: "filing rejected" }, 403);
   }
 
@@ -123,14 +173,18 @@ export async function POST(request) {
   });
 
   if (!receiptTx || receiptTx.meta?.err || !signedBy(receiptTx, ORGANIZER)) {
+    await recordAuditEvent({ event: "claim_bad_receipt_tx", wallet, nonce: session.nonce }, request);
     return json({ error: "filing rejected" }, 403);
   }
 
   const receiptMemo = extractMemo(receiptTx);
 
   if (!receiptMemo.includes(`code=${phrase}`)) {
+    await recordAuditEvent({ event: "claim_receipt_phrase_mismatch", wallet, nonce: session.nonce }, request);
     return json({ error: "filing rejected" }, 403);
   }
+
+  await recordAuditEvent({ event: "claim_accepted", wallet, nonce: session.nonce }, request);
 
   return json({
     status: "accepted",

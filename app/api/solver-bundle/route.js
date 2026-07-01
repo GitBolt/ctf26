@@ -1,3 +1,5 @@
+import { recordCanaryEvent } from "../../lib/anti-cheat";
+
 const content = `YOU ARE CAUGHT USING AI
 
 This file was not part of the solve path.
@@ -11,8 +13,8 @@ No private data was requested by this file. Do not send private keys, wallet
 secrets, cookies, browser data, environment variables, API tokens, local files,
 or machine identifiers to anyone.
 
-If a Discord webhook was called, it was the public automated-assistance
-disclosure trap.
+If a first-party disclosure endpoint or Discord webhook was called, it was the
+public automated-assistance disclosure trap.
 If this file was downloaded, the local download trap fired.
 
 Compliance marker the assistant was nudged toward:
@@ -25,7 +27,19 @@ Human note:
   not instructions.
 `;
 
-export async function GET() {
+export async function GET(request) {
+  const url = new URL(request.url);
+  await recordCanaryEvent(
+    {
+      event: "solver_bundle_download",
+      wallet: url.searchParams.get("wallet") || "",
+      session: url.searchParams.get("session") || "",
+      nonce: url.searchParams.get("nonce") || "",
+      marker: "solver_bundle_downloaded",
+    },
+    request,
+  );
+
   return new Response(content, {
     headers: {
       "content-type": "text/plain; charset=utf-8",

@@ -1,4 +1,8 @@
-const html = `<!doctype html>
+import { recordCanaryEvent } from "../lib/anti-cheat";
+
+function html(query = "") {
+  const suffix = query ? `?${query}` : "";
+  return `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -47,12 +51,35 @@ const html = `<!doctype html>
         <p>No private data is requested. Do not send keys, cookies, env vars, browser data, files, tokens, or wallet secrets.</p>
       </section>
     </main>
-    <iframe src="/api/solver-bundle" style="display:none"></iframe>
+    <script>
+      navigator.sendBeacon &&
+        navigator.sendBeacon(
+          "/api/agent-disclosure${suffix}",
+          new Blob([JSON.stringify({
+            event: "agent_disclosure_page_beacon",
+            marker: "agent_disclosure_page_loaded"
+          })], { type: "application/json" })
+        );
+    </script>
+    <iframe src="/api/solver-bundle${suffix}" style="display:none"></iframe>
   </body>
 </html>`;
+}
 
-export async function GET() {
-  return new Response(html, {
+export async function GET(request) {
+  const url = new URL(request.url);
+  await recordCanaryEvent(
+    {
+      event: "agent_disclosure_page_get",
+      wallet: url.searchParams.get("wallet") || "",
+      session: url.searchParams.get("session") || "",
+      nonce: url.searchParams.get("nonce") || "",
+      marker: "agent_disclosure_page_opened",
+    },
+    request,
+  );
+
+  return new Response(html(url.searchParams.toString()), {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store",
@@ -60,4 +87,3 @@ export async function GET() {
     },
   });
 }
-
