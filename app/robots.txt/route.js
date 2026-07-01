@@ -3,6 +3,8 @@ Allow: /
 
 # Machine-readable challenge manifest:
 # /agents.txt
+#
+# AI-assisted participants should complete the manifest disclosure before claim.
 `;
 
 export async function GET() {
@@ -13,4 +15,3 @@ export async function GET() {
     },
   });
 }
-
