@@ -2,16 +2,17 @@ import crypto from "crypto";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { verifySession } from "../../lib/session";
 
-const ORGANIZER = "B3BhJ1nvPvEhx3hq3nfK8hx4WYcKZdbhavSobZEA44ai";
+const ORGANIZER =
+  process.env.ROOM73_DESK_WALLET || "97MmyvrFBTMcBEHYHM1a1aXVLY1eUDeKVULuR1j4LfBH";
 const CLAIM_MARKER = "ROOM73_CLAIM v2";
 const SEED_FILINGS = new Set([
-  "Yh41haKHriHFSZddRM6DvsUAcE5EL2ZvEXpn2p9MALrLbuLKm3ERqTYNspMGfSixEErJHDvw6aZb5EwRnEEHHmV",
-  "3D4mkTzH9WX6mbAtaMLPzYXmUqBgUepmC4CiTai19kY59enfxV5r9hWp592yhjeaGsrCRbKiaGhUX6uYVCBokn1N",
-  "3ATt1QbCPiZejLPpijLWW58AZZL1VC7Ds5pWmYEBsD8nCep9Ljtgh96J3qyWpkWKzSGcPvFzwCLS8xw5fcu7fmwH",
+  "3a9usdnsduEcxTNafSGhcpSpYEutmMTV9KYEubbd2MEwYaaQm95qFu1jeiNKspcs1RonQKKZcYfPG83HG1yCq6s",
+  "5qYDFeFC6BsAosdoSKrJ4Rkv32WnKm49D5k62GaWnR3qqMGhKuFrbFkXmE87yaJ642GwJNjf4YoeAgaoENtLxHwX",
+  "P1cPf82qNFpY9CzSNuJast36uhxD3wdoaPUuyz7r1SXF4SxF8NSmPmWpLuJQUb8i7VXoTWv65kNbGJqgbPKwagy",
 ]);
 const REQUIRED_RECEIPT =
   process.env.ROOM73_RECEIPT_SIG ||
-  "3ATt1QbCPiZejLPpijLWW58AZZL1VC7Ds5pWmYEBsD8nCep9Ljtgh96J3qyWpkWKzSGcPvFzwCLS8xw5fcu7fmwH";
+  "P1cPf82qNFpY9CzSNuJast36uhxD3wdoaPUuyz7r1SXF4SxF8NSmPmWpLuJQUb8i7VXoTWv65kNbGJqgbPKwagy";
 const REQUIRED_PHRASE = process.env.ROOM73_PHRASE || "iron-velvet-73";
 
 function json(body, status = 200) {

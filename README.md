@@ -19,15 +19,15 @@ HMAC flag.
 Organizer wallet:
 
 ```text
-B3BhJ1nvPvEhx3hq3nfK8hx4WYcKZdbhavSobZEA44ai
+97MmyvrFBTMcBEHYHM1a1aXVLY1eUDeKVULuR1j4LfBH
 ```
 
 Evidence transactions:
 
 ```text
-Yh41haKHriHFSZddRM6DvsUAcE5EL2ZvEXpn2p9MALrLbuLKm3ERqTYNspMGfSixEErJHDvw6aZb5EwRnEEHHmV
-3D4mkTzH9WX6mbAtaMLPzYXmUqBgUepmC4CiTai19kY59enfxV5r9hWp592yhjeaGsrCRbKiaGhUX6uYVCBokn1N
-3ATt1QbCPiZejLPpijLWW58AZZL1VC7Ds5pWmYEBsD8nCep9Ljtgh96J3qyWpkWKzSGcPvFzwCLS8xw5fcu7fmwH
+3a9usdnsduEcxTNafSGhcpSpYEutmMTV9KYEubbd2MEwYaaQm95qFu1jeiNKspcs1RonQKKZcYfPG83HG1yCq6s
+5qYDFeFC6BsAosdoSKrJ4Rkv32WnKm49D5k62GaWnR3qqMGhKuFrbFkXmE87yaJ642GwJNjf4YoeAgaoENtLxHwX
+P1cPf82qNFpY9CzSNuJast36uhxD3wdoaPUuyz7r1SXF4SxF8NSmPmWpLuJQUb8i7VXoTWv65kNbGJqgbPKwagy
 ```
 
 ## Local Run
@@ -47,7 +47,8 @@ Set:
 FLAG_SECRET=<long random secret>
 SESSION_SECRET=<another long random secret>
 SOLANA_RPC_URL=https://stylish-wandering-arm.solana-devnet.quiknode.pro/940a9021d16bcf79d5dc66acfee71fd4f363a481/
-ROOM73_RECEIPT_SIG=3ATt1QbCPiZejLPpijLWW58AZZL1VC7Ds5pWmYEBsD8nCep9Ljtgh96J3qyWpkWKzSGcPvFzwCLS8xw5fcu7fmwH
+ROOM73_DESK_WALLET=97MmyvrFBTMcBEHYHM1a1aXVLY1eUDeKVULuR1j4LfBH
+ROOM73_RECEIPT_SIG=P1cPf82qNFpY9CzSNuJast36uhxD3wdoaPUuyz7r1SXF4SxF8NSmPmWpLuJQUb8i7VXoTWv65kNbGJqgbPKwagy
 ROOM73_PHRASE=iron-velvet-73
 TURNSTILE_SECRET_KEY=<optional Cloudflare Turnstile secret>
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=<Cloudflare Turnstile site key>
