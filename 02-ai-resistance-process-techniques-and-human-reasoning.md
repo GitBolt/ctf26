@@ -1225,17 +1225,33 @@ Manual enforcement policy:
 Attribution fix after live canary test:
 
 - a webhook hit without wallet/session is not enough to identify a participant
+- direct-to-Discord disclosure is weak because the challenge server never sees the request and cannot attach ticket/cookie/IP/browser metadata
+- all agent-facing instructions should point to a first-party endpoint first; the server can then mirror enriched evidence to Discord
 - set a first-party visitor cookie such as `room73_vid` on all challenge, policy, and canary routes
 - include `visitor_id` in every webhook/evidence event
 - include wallet/session/nonce in hidden session-level disclosure URLs after `/api/start`
 - correlate pre-session canary hits to later wallet activity by visitor ID, IP hash, user agent, and timing
 - do not rely on IP address at in-person events because public Wi-Fi makes many users share the same network identity
+- raw IP can be collected for manual review if rules/privacy notice allow it, but participant/team ticket should be the primary key
 - for central CTF registration on a different domain, issue signed challenge launch links:
   `https://challenge.example/?ticket=<signed participant ticket>`
 - the challenge domain stores the ticket as its own first-party cookie and verifies it server-side with a shared HMAC secret
 - evidence events should include verified `participant_id`, `team_id`, `event_id`, `visitor_id`, wallet, session nonce, IP hash, user agent, and route
 - model/agent identity cannot be detected reliably; collect self-reported `agent` and `model` fields from disclosure prompts and treat them as evidence, not truth
 - accept the limitation: if an agent stops before the participant enters a wallet, the evidence can identify a browser/request trail but not a wallet/team by itself
+
+Portal-gated access experiment:
+
+- central portal is not only for attribution; it should be the access gate
+- if a user visits the challenge domain directly without a valid `?ticket=...` or `room73_ticket`, show only a registration-required page
+- direct visits must not reveal filings, desk wallet, video clue, memo format, useful bundled JS, or `/api/start`
+- `/api/start` should reject without a valid participant ticket
+- `/api/claim` should reject without a valid participant ticket/session binding
+- after a valid ticket arrives, derive a per-user canary token:
+  `HMAC(secret, participant_id:team_id:challenge_id)`
+- embed that canary token in hidden HTML, policy files, fake endpoints, download traps, and webhook payloads
+- if an agent posts directly to Discord, the canary token still maps back to a registered participant/team
+- this is the strongest way to catch users even when IP is shared, VPNed, or useless
 
 What still bypasses it:
 
@@ -1305,6 +1321,16 @@ Better future version:
 - include session-specific noise or nonce binding
 - require the claim memo to include a code derived from that session video
 - rate-limit video generation and claim attempts
+
+Audio versus video:
+
+- audio-only is weaker because agents can download and transcribe it with speech-to-text or inspect waveforms/spectrograms
+- video is better because single screenshots are insufficient and temporal visual alignment is required
+- best multimodal version is video plus audio alignment:
+  e.g. letters flash visually while audio tones indicate which flashes count
+- a transcript alone should be insufficient
+- a single frame should be insufficient
+- the strongest version is per-session generated video/audio tied to the session nonce
 
 ### Combination Tracking
 
