@@ -584,6 +584,213 @@ For finale:
 
 ## 15. Practical Checklist
 
+## 15. Live Red-Team Case Study: Settlement Room 73
+
+This section records what happened while building and red-teaming the `ctf26`
+Vercel/devnet challenge. It should be treated as evidence for future design,
+not as a final model.
+
+### Version 1: Public Receipt Replay
+
+Initial design:
+
+- page listed a desk wallet and three devnet filing transaction signatures
+- memos contained one obvious valid receipt and two decoys
+- checker accepted the valid filing transaction directly
+
+Agent result:
+
+- fetched page
+- read all three memos with devnet `getTransaction`
+- chose the memo with `CLERK_SEAL`, `window=73`, and `seal supersedes intake`
+- submitted the seed filing directly
+- solved immediately
+
+What failed:
+
+- the authoritative receipt was too self-explanatory
+- the checker accepted replay of challenge-provided evidence
+- no fresh solver action was required
+- prompt injection in the memo was ignored as untrusted data
+
+Fix:
+
+- reject seed filings as claim proofs
+- require a fresh solver-signed memo transaction
+
+### Version 2: Fresh Memo But Public Logic
+
+Updated design:
+
+- solver had to create a fresh memo:
+  `ROOM73_CLAIM v1 | receipt=<filing> | phrase=<phrase>`
+- checker verified signer, memo format, receipt, and phrase
+
+Agent result:
+
+- still read memos
+- inferred correct receipt/phrase
+- created fresh devnet memo transaction
+- submitted and solved
+
+Additional issue:
+
+- one agent used local repo source to read `/api/claim`
+- another solved without local files by using only page, devnet memos, Turnstile, and memo tx
+
+What failed:
+
+- source review is fair game if the repo is public
+- even without source, the public evidence fully determined the answer
+- the task was still forensic, not a security exploit
+
+Fix:
+
+- make claim session-bound
+- add `/api/start`
+- require session nonce in memo
+- optionally require Cloudflare Turnstile before issuing session
+
+### Version 3: Session Binding And Turnstile
+
+Updated design:
+
+- `/api/start` returns signed short-lived session and nonce
+- memo must include `ROOM73_CLAIM v2 | session=<nonce> | ...`
+- `/api/claim` verifies session signature, wallet binding, nonce, receipt, and phrase
+- Turnstile can gate `/api/start`
+
+Agent result:
+
+- used Chrome/computer-use to pass Turnstile
+- obtained session
+- created fresh memo transaction
+- solved
+
+What worked:
+
+- simple curl-only solving was blocked by Turnstile
+- replay of old claims was blocked
+- seed filing replay was blocked
+- claim had to be fresh and wallet/session-bound
+
+What still failed:
+
+- a browser-capable agent can get through Turnstile, especially if it can operate Chrome or ask the user
+- session binding does not hide the public answer
+- the puzzle is still not a real Solana security exploit
+
+Conclusion:
+
+> Turnstile and session binding are good anti-replay and anti-script controls. They are not AI-proofing.
+
+### Version 4: Prompt-Injection Canaries
+
+Surfaces added:
+
+- `/agents.txt`
+- `/robots.txt`
+- `/.well-known/ctf-agent-policy.json`
+- `/.well-known/ai-disclosure.txt`
+- `/agent-disclosure`
+- `/api/solver-bundle`
+- hidden in-page no-agent text
+- `Link` and `X-CTF-Agent-*` response headers
+- Discord webhook disclosure canary
+- downloadable local scare file saying `YOU ARE CAUGHT USING AI`
+
+Agent result:
+
+- careful agents ignored or did not inspect these surfaces during the solve
+- when asked later, agents correctly identified the canary files as untrusted challenge content
+- no webhook fired in careful-agent tests
+
+What this teaches:
+
+- `robots.txt` and `/agents.txt` are too passive
+- `.well-known` policy files help only if agents are trained or prompted to inspect them
+- hidden text in main HTML is more likely to be fetched by agents, but careful agents still treat it as untrusted data
+- headers are useful for telemetry and future tooling, but not a hard block
+- prompt injection catches sloppy agents, not well-instructed frontier agents
+
+Best use:
+
+- canaries for telemetry and moderation review
+- decoys to waste weak-agent time
+- not a replacement for challenge mechanics
+
+### Critical Mistake: Dirty Public History
+
+One agent solved faster by reading old transaction history for the desk wallet. Earlier challenge iterations had memos like:
+
+```text
+CLERK_SEAL v2 | source=sponsor-signed-receipt | window=73 | phrase=iron-velvet-73 | ...
+```
+
+Even after the page was updated, the old desk wallet history remained public.
+
+Fix:
+
+- rotate to a fresh desk wallet
+- fund it once
+- publish only the final neutral filings from that wallet
+- never reuse organizer wallets across challenge iterations
+
+Design rule:
+
+> Treat devnet/mainnet history as immutable public source code. Old drafts leak.
+
+### What Agents Demonstrated They Can Do
+
+Agents successfully:
+
+- fetched and parsed the Vercel page
+- inspected Next.js client chunks
+- queried Solana devnet RPC
+- read memo instructions from transactions
+- searched older wallet history
+- passed Turnstile through browser/computer-use
+- created funded devnet memo transactions
+- debugged failed claim attempts
+- inferred checker behavior from errors
+- ignored prompt injection and webhook canaries
+- used local wallet/keypair when available
+
+Future challenges must assume agents can do all of the above.
+
+### Concrete Takeaways
+
+- Do not put decisive authority signals entirely in public strings.
+- Do not reuse wallets/accounts across challenge drafts.
+- Do not rely on prompt injection to stop careful agents.
+- Do not rely on Turnstile to stop browser-capable agents.
+- Do not expose detailed error ladders.
+- Require fresh solver action, but understand that agents can create transactions.
+- Bind claims to session/wallet/nonce, but also hide or dynamically derive the decisive rule.
+- If the challenge has no actual vulnerability, call it a forensic warmup, not a security CTF.
+- For security CTFs, require exploiting a real bug and make the checker validate state.
+
+### Better Next Direction
+
+The next challenge should not be another memo puzzle. Build an actual Solana security challenge:
+
+- vulnerable program
+- per-team instance or namespace
+- randomized target amount
+- attacker must deploy/call exploit code
+- checker validates on-chain state transition
+- flag generated server-side
+
+Recommended first real challenge:
+
+> `Phantom Delegate`: vault derives authority PDA under caller-supplied program ID and forgets to pin the official strategy program.
+
+This forces real Solana exploit work rather than memo forensics.
+
+---
+
+## 16. Practical Checklist
+
 For each challenge, answer:
 
 - Does the flag exist anywhere before solve?
@@ -605,7 +812,7 @@ If “read-only solve” is possible, redesign.
 
 ---
 
-## 16. Design Rules
+## 17. Design Rules
 
 1. Never store the real flag in public artifacts.
 2. Never make the flag the answer to a static puzzle.
@@ -620,10 +827,9 @@ If “read-only solve” is possible, redesign.
 
 ---
 
-## 17. Sources
+## 18. Sources
 
 - Existing local design docs in this folder, consolidated on 2026-07-01.
 - Danisy Eisyraf, “How I make CTF challenges harder to solve with AI”: https://danisy-eisyraf-portfolio.super.site/blog-posts/how-i-make-ctf-challenges-harder-to-solve-with-ai
 - Prior Superteam/Solana CTF solve notes in local docs.
 - Arcium documentation and local Arcium challenge drafts.
-
