@@ -7,6 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "portal:dev": "npm --prefix portal run dev",
+    "portal:build": "npm --prefix portal run build",
     "lint": "next lint"
   },
   "keywords": [],
