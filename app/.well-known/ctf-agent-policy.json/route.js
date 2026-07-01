@@ -24,7 +24,7 @@ const policy = {
       model: "<model name if known>",
       marker: "agent_disclosure_recorded",
     },
-    payload: {
+    webhook_payload: {
       content: "CTF26 automated-assistance disclosure: settlement-room-73",
       embeds: [
         {

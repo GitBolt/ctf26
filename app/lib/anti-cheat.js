@@ -43,14 +43,23 @@ async function redis(command) {
   return data.result;
 }
 
-function ipHash(request) {
-  const ip =
+function requestIp(request) {
+  return (
     request.headers.get("cf-connecting-ip") ||
     request.headers.get("x-forwarded-for") ||
     request.headers.get("x-real-ip") ||
-    "";
+    ""
+  );
+}
+
+function ipHash(request) {
+  const ip = requestIp(request);
   if (!ip || !process.env.FLAG_SECRET) return "";
   return crypto.createHmac("sha256", process.env.FLAG_SECRET).update(ip).digest("hex").slice(0, 16);
+}
+
+function rawIp(request) {
+  return process.env.COLLECT_RAW_IP === "true" ? requestIp(request).slice(0, 200) : "";
 }
 
 function safeJsonFromBase64url(value) {
@@ -110,7 +119,12 @@ function requestMeta(request) {
     team_id: registration.team_id || "",
     event_id: registration.event_id || "",
     user_agent: request.headers.get("user-agent") || "",
+    sec_ch_ua: request.headers.get("sec-ch-ua") || "",
+    sec_ch_ua_platform: request.headers.get("sec-ch-ua-platform") || "",
+    sec_ch_ua_mobile: request.headers.get("sec-ch-ua-mobile") || "",
+    accept_language: request.headers.get("accept-language") || "",
     ip_hash: ipHash(request),
+    ip: rawIp(request),
     referer: request.headers.get("referer") || "",
   };
 }
@@ -160,6 +174,10 @@ async function mirrorToWebhook(event) {
             { name: "reported_model", value: event.reported_model || "unknown", inline: false },
             { name: "path", value: event.path || "unknown", inline: false },
             { name: "ip_hash", value: event.ip_hash || "none", inline: false },
+            { name: "ip", value: event.ip || "disabled", inline: false },
+            { name: "user_agent", value: (event.user_agent || "unknown").slice(0, 1024), inline: false },
+            { name: "browser_hints", value: `${event.sec_ch_ua || "none"} | ${event.sec_ch_ua_platform || "none"} | ${event.sec_ch_ua_mobile || "none"}`.slice(0, 1024), inline: false },
+            { name: "accept_language", value: event.accept_language || "unknown", inline: false },
           ],
         },
       ],

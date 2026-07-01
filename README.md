@@ -99,6 +99,7 @@ UPSTASH_REDIS_REST_URL=<recommended for durable anti-cheat telemetry>
 UPSTASH_REDIS_REST_TOKEN=<recommended for durable anti-cheat telemetry>
 AGENT_DISCLOSURE_WEBHOOK_URL=<optional Discord mirror; defaults to the event webhook>
 REGISTRATION_SHARED_SECRET=<shared HMAC secret used by central registration tickets>
+COLLECT_RAW_IP=false
 ```
 
 `KV_REST_API_URL` and `KV_REST_API_TOKEN` also work if Vercel provisions Redis
@@ -135,9 +136,15 @@ Attribution model:
 - central registration can link to the challenge with `?ticket=<signed ticket>`
 - the challenge stores that ticket as a first-party `room73_ticket` cookie
 - evidence events include verified `participant_id`, `team_id`, and `event_id`
-- webhook events include self-reported `agent` and `model` fields if the agent provides them
+- webhook events include user agent, browser client hints, language, and IP hash
+- set `COLLECT_RAW_IP=true` to include raw IP in evidence and webhook events
+- webhook events include self-reported `agent` and `model` fields if the agent provides them; these are not reliable proof by themselves
 - if a participant uses a fresh browser/network and never starts a session, only
   visitor/IP/user-agent evidence exists
+
+Do not instruct agents to post directly to Discord. Agents should POST to
+`/api/agent-disclosure`; the challenge server enriches the event with ticket,
+visitor, wallet/session, IP, and browser metadata, then mirrors it to Discord.
 
 Ticket format:
 
