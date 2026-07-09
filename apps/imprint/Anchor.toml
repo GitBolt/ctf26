@@ -6,17 +6,17 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-imprint = "D1UH7XaF9PLCfDngD1X5T8ihzQf84E6KykJyDG5V1jUk"
+imprint = "7rCC9dsbkGPx9Cu1k7eXx9AsGTQDmsi9wFhWp2yp446E"
 
 [programs.devnet]
-imprint = "D1UH7XaF9PLCfDngD1X5T8ihzQf84E6KykJyDG5V1jUk"
+imprint = "7rCC9dsbkGPx9Cu1k7eXx9AsGTQDmsi9wFhWp2yp446E"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
 cluster = "localnet"
-wallet = "~/.config/solana/id.json"
+wallet = ".keys/imprint-operator.json"
 
 [scripts]
 test = "yarn run mocha -t 1000000 tests/"

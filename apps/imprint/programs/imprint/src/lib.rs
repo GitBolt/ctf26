@@ -6,7 +6,7 @@ use anchor_lang::{
 };
 use solana_sha256_hasher::{hash, hashv};
 
-declare_id!("D1UH7XaF9PLCfDngD1X5T8ihzQf84E6KykJyDG5V1jUk");
+declare_id!("7rCC9dsbkGPx9Cu1k7eXx9AsGTQDmsi9wFhWp2yp446E");
 
 const SECP256R1_PROGRAM_ID: Pubkey = pubkey!("Secp256r1SigVerify1111111111111111111111111");
 const PASSKEY_SIZE: usize = 33;
@@ -21,7 +21,7 @@ const SECP256R1_DATA_START: usize = 16;
 const SECP256R1_PUBKEY_SIZE: usize = 33;
 const SECP256R1_SIGNATURE_SIZE: usize = 64;
 const U16_MAX: u16 = u16::MAX;
-const REGISTRAR_ID: Pubkey = pubkey!("B3BhJ1nvPvEhx3hq3nfK8hx4WYcKZdbhavSobZEA44ai");
+const REGISTRAR_ID: Pubkey = pubkey!("GHPN2teVyKNzevsMR56MB5SAxgjqKVzNmX89PcU59RpR");
 const P256_HALF_ORDER_BE: [u8; 32] = [
     0x7f, 0xff, 0xff, 0xff, 0x80, 0x00, 0x00, 0x00, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xde, 0x73, 0x7d, 0x56, 0xd3, 0x8b, 0xcf, 0x42, 0x79, 0xdc, 0xe5, 0x61, 0x7e, 0x31, 0x92, 0xa8,
