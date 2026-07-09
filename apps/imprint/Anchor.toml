@@ -1,0 +1,23 @@
+[toolchain]
+package_manager = "yarn"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+imprint = "D1UH7XaF9PLCfDngD1X5T8ihzQf84E6KykJyDG5V1jUk"
+
+[programs.devnet]
+imprint = "D1UH7XaF9PLCfDngD1X5T8ihzQf84E6KykJyDG5V1jUk"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "yarn run mocha -t 1000000 tests/"
+setup-target = "node scripts/setup-target.js"

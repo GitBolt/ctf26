@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reward Sniper</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p>ctf26 / reward sniper</p>
+        <h1>dlmm-style market console</h1>
+        <p class="identity" id="identity">connecting…</p>
+      </header>
+      <section class="board" id="bins" aria-label="market bins"></section>
+      <section class="panels">
+        <article>
+          <h2>telemetry card</h2>
+          <pre id="telemetry">waiting for market state…</pre>
+        </article>
+        <article>
+          <h2>ticket terminal</h2>
+          <p>Pick a bin yourself, size funded liquidity, commit the exact action, then reveal it.</p>
+          <pre class="selection" id="selection"></pre>
+          <label for="liquidity">liquidity</label>
+          <input id="liquidity" type="number" min="1" max="1000" step="1" value="900" />
+          <button id="prepare" type="button">1 / prepare ticket voucher</button>
+          <button id="commit" type="button" disabled>2 / commit selected action</button>
+          <button id="reveal" type="button" disabled>3 / reveal selected action</button>
+          <p class="status" id="status" role="status"></p>
+        </article>
+        <article>
+          <h2>scoreboard</h2>
+          <pre id="scoreboard">waiting for scores…</pre>
+        </article>
+      </section>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

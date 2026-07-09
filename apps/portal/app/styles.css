@@ -1,0 +1,137 @@
+body {
+  margin: 0;
+  background: #f7f7f4;
+  color: #111;
+  font: 15px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+main {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 36px 18px;
+}
+
+header {
+  border-bottom: 1px solid #111;
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(28px, 5vw, 54px);
+  line-height: 1;
+  text-transform: lowercase;
+}
+
+h2 {
+  font-size: 22px;
+}
+
+.kicker {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.panel,
+.challenge,
+.identity,
+details {
+  border: 1px solid #111;
+  margin: 18px 0;
+  padding: 16px;
+}
+
+.panel {
+  max-width: 620px;
+}
+
+.challenge-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.challenge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.identity {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.identity span {
+  display: block;
+  color: #555;
+  font-size: 12px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.identity strong,
+pre {
+  overflow-wrap: anywhere;
+}
+
+.button,
+button {
+  border: 1px solid #111;
+  background: #111;
+  color: #fff;
+  cursor: pointer;
+  display: inline-block;
+  font: inherit;
+  margin-top: 16px;
+  padding: 9px 12px;
+  text-decoration: none;
+}
+
+.textlink {
+  color: #111;
+  display: inline-block;
+  margin-left: 12px;
+}
+
+.plain {
+  background: transparent;
+  color: #111;
+}
+
+.error {
+  border: 1px solid #b00000;
+  color: #b00000;
+  margin: 16px 0;
+  padding: 10px;
+}
+
+summary {
+  cursor: pointer;
+}
+
+pre {
+  white-space: pre-wrap;
+}
+
+@media (max-width: 720px) {
+  .challenge-grid,
+  .challenge,
+  .identity {
+    display: block;
+  }
+
+  .identity div + div {
+    margin-top: 12px;
+  }
+}

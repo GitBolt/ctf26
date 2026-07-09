@@ -1,0 +1,23 @@
+{
+  "name": "imprint-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "build": "next build",
+    "start": "next start -p 3002",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
+    "@noble/curves": "1.9.7",
+    "@noble/hashes": "1.8.0",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.2",
+    "@solana/web3.js": "^1.98.4",
+    "buffer": "^6.0.3",
+    "next": "^16.2.9",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  }
+}

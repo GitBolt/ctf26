@@ -1,0 +1,594 @@
+{
+  "address": "D1UH7XaF9PLCfDngD1X5T8ihzQf84E6KykJyDG5V1jUk",
+  "metadata": {
+    "name": "imprint",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "initialize_vault",
+      "discriminator": [
+        48,
+        191,
+        163,
+        44,
+        71,
+        129,
+        63,
+        164
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              },
+              {
+                "kind": "arg",
+                "path": "vault_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "vault_id",
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
+        },
+        {
+          "name": "registered_passkey",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        },
+        {
+          "name": "initial_lamports",
+          "type": "u64"
+        },
+        {
+          "name": "target",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "register_passkey",
+      "discriminator": [
+        16,
+        2,
+        121,
+        116,
+        194,
+        17,
+        247,
+        233
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "registrar",
+          "signer": true
+        },
+        {
+          "name": "passkey",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  115,
+                  115,
+                  107,
+                  101,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "passkey_seed"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "passkey_seed",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "passkey_pubkey",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        },
+        {
+          "name": "rp_id_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "withdraw_with_passkey",
+      "discriminator": [
+        94,
+        147,
+        49,
+        85,
+        45,
+        86,
+        209,
+        142
+      ],
+      "accounts": [
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "passkey"
+          ]
+        },
+        {
+          "name": "passkey",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  115,
+                  115,
+                  107,
+                  101,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "passkey_seed"
+              }
+            ]
+          }
+        },
+        {
+          "name": "destination",
+          "writable": true
+        },
+        {
+          "name": "instructions",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "passkey_seed",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "passkey_pubkey",
+          "type": {
+            "array": [
+              "u8",
+              33
+            ]
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "secp256r1_instruction_index",
+          "type": "u16"
+        },
+        {
+          "name": "client_data_json",
+          "type": "bytes"
+        },
+        {
+          "name": "authenticator_data",
+          "type": "bytes"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Passkey",
+      "discriminator": [
+        63,
+        187,
+        82,
+        162,
+        123,
+        174,
+        41,
+        68
+      ]
+    },
+    {
+      "name": "Vault",
+      "discriminator": [
+        211,
+        8,
+        232,
+        43,
+        2,
+        152,
+        117,
+        119
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "PasskeyRegistered",
+      "discriminator": [
+        54,
+        56,
+        64,
+        17,
+        116,
+        149,
+        43,
+        18
+      ]
+    },
+    {
+      "name": "VaultInitialized",
+      "discriminator": [
+        180,
+        43,
+        207,
+        2,
+        18,
+        71,
+        3,
+        75
+      ]
+    },
+    {
+      "name": "VaultWithdrawn",
+      "discriminator": [
+        238,
+        9,
+        219,
+        172,
+        188,
+        77,
+        72,
+        104
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "ClientDataTooLarge",
+      "msg": "clientDataJSON is too large"
+    },
+    {
+      "code": 6001,
+      "name": "AuthenticatorDataTooLarge",
+      "msg": "authenticatorData is too large"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidAuthenticatorData",
+      "msg": "authenticatorData is malformed"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidAmount",
+      "msg": "invalid withdraw amount"
+    },
+    {
+      "code": 6004,
+      "name": "InactivePasskey",
+      "msg": "passkey is inactive"
+    },
+    {
+      "code": 6005,
+      "name": "PasskeyAccountMismatch",
+      "msg": "passkey account does not match the supplied passkey pubkey"
+    },
+    {
+      "code": 6006,
+      "name": "PasskeyOwnerMismatch",
+      "msg": "withdraw must be signed by the wallet that owns the passkey account"
+    },
+    {
+      "code": 6007,
+      "name": "PasskeySeedMismatch",
+      "msg": "passkey PDA seed must be sha256(compressed passkey pubkey)"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidRegistrar",
+      "msg": "passkey registration must be approved by the event registrar"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidClientData",
+      "msg": "clientDataJSON does not exactly match the expected WebAuthn type and challenge"
+    },
+    {
+      "code": 6010,
+      "name": "RpIdHashMismatch",
+      "msg": "authenticatorData was produced for the wrong WebAuthn RP ID"
+    },
+    {
+      "code": 6011,
+      "name": "UserPresenceRequired",
+      "msg": "the WebAuthn assertion must prove user presence"
+    },
+    {
+      "code": 6012,
+      "name": "UserVerificationRequired",
+      "msg": "the WebAuthn assertion must prove user verification"
+    },
+    {
+      "code": 6013,
+      "name": "InvalidSecp256r1Instruction",
+      "msg": "secp256r1 verification instruction not found or malformed"
+    },
+    {
+      "code": 6014,
+      "name": "Secp256r1PubkeyMismatch",
+      "msg": "secp256r1 instruction verified the wrong passkey"
+    },
+    {
+      "code": 6015,
+      "name": "Secp256r1MessageMismatch",
+      "msg": "secp256r1 instruction verified the wrong message"
+    },
+    {
+      "code": 6016,
+      "name": "Secp256r1HighS",
+      "msg": "secp256r1 signature must use canonical low-S form"
+    },
+    {
+      "code": 6017,
+      "name": "InsufficientVaultLamports",
+      "msg": "vault has insufficient withdrawable lamports"
+    },
+    {
+      "code": 6018,
+      "name": "NonceOverflow",
+      "msg": "vault nonce overflow"
+    }
+  ],
+  "types": [
+    {
+      "name": "Passkey",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "passkey_pubkey",
+            "type": {
+              "array": [
+                "u8",
+                33
+              ]
+            }
+          },
+          {
+            "name": "rp_id_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "active",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PasskeyRegistered",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "passkey_pubkey",
+            "type": {
+              "array": [
+                "u8",
+                33
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Vault",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "registered_passkey",
+            "type": {
+              "array": [
+                "u8",
+                33
+              ]
+            }
+          },
+          {
+            "name": "vault_id",
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "target",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaultInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "registered_passkey",
+            "type": {
+              "array": [
+                "u8",
+                33
+              ]
+            }
+          },
+          {
+            "name": "target",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaultWithdrawn",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "destination",
+            "type": "pubkey"
+          },
+          {
+            "name": "passkey_pubkey",
+            "type": {
+              "array": [
+                "u8",
+                33
+              ]
+            }
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "target",
+            "type": "bool"
+          }
+        ]
+      }
+    }
+  ]
+}

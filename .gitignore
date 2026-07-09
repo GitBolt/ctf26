@@ -1,7 +1,17 @@
 node_modules
 .next
 out
+.env
+.env.*
+!.env.example
 .env*.local
 .vercel
 .local
+.anchor
+target
+dist
+coverage
+test-ledger
 npm-debug.log*
+*.log
+.DS_Store

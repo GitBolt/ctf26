@@ -1,0 +1,23 @@
+{
+  "license": "ISC",
+  "scripts": {
+    "build": "anchor build && cp target/idl/imprint.json web/lib/imprint-idl.json",
+    "test": "anchor test",
+    "deploy:devnet": "ANCHOR_PROVIDER_URL=${ANCHOR_PROVIDER_URL:-https://api.devnet.solana.com} anchor deploy --provider.cluster devnet",
+    "setup:target": "anchor run setup-target",
+    "web:dev": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build",
+    "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
+    "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
+    "@noble/curves": "1.9.7",
+    "@noble/hashes": "1.8.0"
+  },
+  "devDependencies": {
+    "chai": "^4.3.4",
+    "mocha": "^9.0.3",
+    "prettier": "^2.6.2"
+  }
+}
