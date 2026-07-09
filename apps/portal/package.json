@@ -1,0 +1,20 @@
+{
+  "name": "ctf-26-portal",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@ctf26/participant-ticket": "file:../../packages/participant-ticket",
+    "next": "^16.2.9",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "overrides": {
+    "postcss": "8.5.10"
+  }
+}

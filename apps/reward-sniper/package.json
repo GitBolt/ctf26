@@ -1,0 +1,11 @@
+{
+  "name": "reward-sniper",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "play": "node bin/reward-sniper.mjs",
+    "serve": "node src/server.mjs"
+  }
+}

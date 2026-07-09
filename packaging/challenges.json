@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "eventId": "ctf26",
+  "challenges": [
+    {
+      "id": "reward-sniper",
+      "delivery": "hosted",
+      "portalUrlEnv": "REWARD_SNIPER_URL",
+      "launchAudience": "reward-sniper",
+      "playerPaths": [
+        "apps/reward-sniper/web"
+      ],
+      "generatedPlayerPaths": [],
+      "strictPlayerRoots": [
+        "apps/reward-sniper/web"
+      ],
+      "organizerOnlyPaths": [
+        "apps/reward-sniper/bin",
+        "apps/reward-sniper/src",
+        "apps/reward-sniper/test"
+      ]
+    },
+    {
+      "id": "imprint",
+      "delivery": "hosted-onchain",
+      "portalUrlEnv": "IMPRINT_URL",
+      "launchAudience": "imprint",
+      "playerPaths": [],
+      "generatedPlayerPaths": [],
+      "strictPlayerRoots": [],
+      "organizerOnlyPaths": [
+        "apps/imprint/INTERNAL_ANSWER_KEY.md",
+        "apps/imprint/scripts",
+        "apps/imprint/tests"
+      ]
+    },
+    {
+      "id": "silent-patch",
+      "delivery": "attachment-onchain",
+      "portalUrlEnv": "SILENT_PATCH_URL",
+      "launchAudience": "silent-patch",
+      "playerPaths": [
+        "apps/silent-patch/repo"
+      ],
+      "generatedPlayerPaths": [],
+      "strictPlayerRoots": [
+        "apps/silent-patch/repo"
+      ],
+      "organizerOnlyPaths": [
+        "apps/silent-patch/bin",
+        "apps/silent-patch/programs",
+        "apps/silent-patch/src",
+        "apps/silent-patch/test",
+        "apps/silent-patch/tests"
+      ]
+    },
+    {
+      "id": "overclock",
+      "delivery": "attachment-localnet",
+      "portalUrlEnv": "OVERCLOCK_URL",
+      "launchAudience": "overclock",
+      "playerPaths": [
+        "apps/overclock/player-kit/README.md"
+      ],
+      "generatedPlayerPaths": [
+        "apps/overclock/player-kit/dist/overclock_vault.so"
+      ],
+      "strictPlayerRoots": [
+        "apps/overclock/player-kit"
+      ],
+      "organizerOnlyPaths": [
+        "apps/overclock/bin",
+        "apps/overclock/native/harness",
+        "apps/overclock/src",
+        "apps/overclock/test"
+      ]
+    }
+  ]
+}

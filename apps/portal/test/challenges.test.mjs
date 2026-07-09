@@ -1,0 +1,60 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  CHALLENGES,
+  challengeByKey,
+  challengeDestination,
+} from "../app/lib/challenges.mjs";
+
+test("challenge catalog has unique, launch-safe keys", () => {
+  assert.equal(CHALLENGES.length, 4);
+  assert.equal(new Set(CHALLENGES.map(({ key }) => key)).size, CHALLENGES.length);
+  for (const challenge of CHALLENGES) {
+    assert.match(challenge.key, /^[a-z0-9-]+$/);
+    assert.equal(challengeByKey(challenge.key), challenge);
+  }
+  assert.equal(challengeByKey("not-a-challenge"), null);
+});
+
+test("hosted destinations are ticketed and URL credentials are rejected", () => {
+  const imprint = challengeByKey("imprint");
+  const hosted = challengeDestination(imprint, {
+    IMPRINT_URL: "https://imprint.example/challenge?round=2",
+  });
+  assert.equal(hosted.ticketed, true);
+  assert.equal(hosted.url.toString(), "https://imprint.example/challenge?round=2");
+
+  assert.throws(
+    () =>
+      challengeDestination(imprint, {
+        IMPRINT_URL: "https://user:password@imprint.example/",
+      }),
+    /without credentials/,
+  );
+  assert.throws(
+    () =>
+      challengeDestination(imprint, {
+        NODE_ENV: "production",
+        IMPRINT_URL: "http://imprint.example/",
+      }),
+    /HTTPS in production/,
+  );
+  assert.throws(
+    () => challengeDestination(imprint, { NODE_ENV: "production" }),
+    /must be configured in production/,
+  );
+});
+
+test("CLI-only challenges stay on the local-kit board until hosted", () => {
+  const silentPatch = challengeByKey("silent-patch");
+  assert.deepEqual(challengeDestination(silentPatch, {}), {
+    url: null,
+    ticketed: false,
+  });
+
+  const hosted = challengeDestination(silentPatch, {
+    SILENT_PATCH_URL: "https://silent-patch.example/",
+  });
+  assert.equal(hosted.ticketed, true);
+});
