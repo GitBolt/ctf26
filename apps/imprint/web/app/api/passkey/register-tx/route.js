@@ -21,7 +21,7 @@ const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_PROGRAM_ID || idl.address
 );
 const REGISTRAR_ID = new PublicKey(
-  "B3BhJ1nvPvEhx3hq3nfK8hx4WYcKZdbhavSobZEA44ai"
+  "GHPN2teVyKNzevsMR56MB5SAxgjqKVzNmX89PcU59RpR"
 );
 
 function loadRegistrar() {

@@ -43,22 +43,29 @@ The test deploys locally and proves the intended exploit:
 Program deployed:
 
 ```text
-D1UH7XaF9PLCfDngD1X5T8ihzQf84E6KykJyDG5V1jUk
+7rCC9dsbkGPx9Cu1k7eXx9AsGTQDmsi9wFhWp2yp446E
 ```
 
 Current seeded devnet target:
 
 ```text
-authority: B3BhJ1nvPvEhx3hq3nfK8hx4WYcKZdbhavSobZEA44ai
-vault:     DsvTS8ouRA14WAsKxd2KvdgKhpxSZcbSX1qH9ok62bCj
+authority: GHPN2teVyKNzevsMR56MB5SAxgjqKVzNmX89PcU59RpR
+vault:     4VXGY2143vWpE3q1uQBExf7RoFnH6YpfZMGqdGPttwQB
 vault id:  target-vault-001
 ```
+
+**Key separation policy:** this program is deployed, upgraded, and administered entirely by a dedicated
+`.keys/imprint-operator.json` devnet keypair (gitignored, never committed). That same key is the
+`REGISTRAR_ID` compiled into the program and the vault-deployer authority. No personal/main wallet is
+the upgrade authority, registrar, or vault authority for this challenge. If the operator key ever needs
+more devnet SOL, fund it with a plain `solana transfer` from wherever — never reuse a personal wallet as
+the operator key itself.
 
 To redeploy:
 
 ```bash
 cd apps/imprint
-ANCHOR_PROVIDER_URL="<devnet rpc>" anchor deploy --provider.cluster devnet
+anchor deploy --provider.cluster devnet --provider.wallet .keys/imprint-operator.json
 ```
 
 The RPC endpoint above is only operator configuration for deploys/indexing. It is not part of the
@@ -69,13 +76,25 @@ To seed a fresh target:
 ```bash
 cd apps/imprint
 ANCHOR_PROVIDER_URL="<devnet rpc>" \
-ANCHOR_WALLET="$HOME/.config/solana/id.json" \
+ANCHOR_WALLET=".keys/imprint-operator.json" \
 INITIAL_SOL=0.5 \
 node scripts/setup-target.js
 ```
 
 Copy the printed `NEXT_PUBLIC_TARGET_AUTHORITY` and `NEXT_PUBLIC_TARGET_VAULT` into `web/.env.local` or
 Vercel env vars.
+
+To seed additional vaults for parallel internal testing (any exact-16-byte `VAULT_ID`, e.g. one per
+tester/team):
+
+```bash
+cd apps/imprint
+ANCHOR_PROVIDER_URL="<devnet rpc>" \
+ANCHOR_WALLET=".keys/imprint-operator.json" \
+INITIAL_SOL=0.5 \
+VAULT_ID="team-alpha-vault" \
+node scripts/setup-target.js
+```
 
 ## Web app
 
@@ -114,13 +133,13 @@ Set these for the web project:
 
 ```text
 NEXT_PUBLIC_RPC_URL=<operator-selected devnet rpc used by the hosted console>
-NEXT_PUBLIC_PROGRAM_ID=D1UH7XaF9PLCfDngD1X5T8ihzQf84E6KykJyDG5V1jUk
+NEXT_PUBLIC_PROGRAM_ID=7rCC9dsbkGPx9Cu1k7eXx9AsGTQDmsi9wFhWp2yp446E
 NEXT_PUBLIC_VAULT_ID=target-vault-001
 NEXT_PUBLIC_TARGET_AUTHORITY=<printed by setup-target>
 NEXT_PUBLIC_TARGET_VAULT=<printed by setup-target>
 IMPRINT_EXPECTED_ORIGIN=https://imprint.example.org
 IMPRINT_RP_ID=imprint.example.org
-REGISTRAR_KEYPAIR_JSON=<server-only registrar keypair json array>
+REGISTRAR_KEYPAIR_JSON=<contents of .keys/imprint-operator.json — server-only, never NEXT_PUBLIC_>
 # Recommended event policy; choose AAGUIDs only after validating the event-issued authenticators:
 IMPRINT_REQUIRE_ATTESTATION=true
 IMPRINT_REQUIRE_DEVICE_BOUND_PASSKEY=true
