@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-imprint = "7rCC9dsbkGPx9Cu1k7eXx9AsGTQDmsi9wFhWp2yp446E"
+imprint = "5EgXikx8uaGDDRdLdxzoLsDafSruHZnNnstE7bd8wH6B"
 
 [programs.devnet]
-imprint = "7rCC9dsbkGPx9Cu1k7eXx9AsGTQDmsi9wFhWp2yp446E"
+imprint = "5EgXikx8uaGDDRdLdxzoLsDafSruHZnNnstE7bd8wH6B"
 
 [registry]
 url = "https://api.apr.dev"

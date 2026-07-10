@@ -29,29 +29,34 @@ async function main() {
 
   const existing = await provider.connection.getAccountInfo(vault);
   if (existing) {
+    const currentLamports = await provider.connection.getBalance(vault, "confirmed");
     console.log("target vault already exists");
-    console.log(`NEXT_PUBLIC_TARGET_AUTHORITY=${provider.wallet.publicKey.toString()}`);
     console.log(`NEXT_PUBLIC_TARGET_VAULT=${vault.toString()}`);
+    console.log(`IMPRINT_TARGET_VAULT=${vault.toString()}`);
+    console.log(`IMPRINT_INITIAL_TARGET_LAMPORTS=${currentLamports}`);
+    console.log(`IMPRINT_MINIMUM_DRAIN_LAMPORTS=${initialLamports.toString()}`);
     return;
   }
 
   const tx = await program.methods
-    .initializeVault(Array.from(vaultId), Array.from(VICTIM_PASSKEY), initialLamports, true)
+    .initializeVault(Array.from(vaultId), Array.from(VICTIM_PASSKEY), initialLamports)
     .accounts({
       authority: provider.wallet.publicKey,
       vault,
     })
     .rpc();
+  const targetLamports = await provider.connection.getBalance(vault, "confirmed");
 
   console.log(`initialized target vault: ${tx}`);
   console.log(`authority: ${provider.wallet.publicKey.toString()}`);
   console.log(`vault: ${vault.toString()}`);
   console.log(`victim passkey: ${VICTIM_PASSKEY.toString("hex")}`);
-  console.log(`victim passkey seed: ${Buffer.from(sha256(VICTIM_PASSKEY)).toString("hex")}`);
   console.log("");
   console.log("put these in web/.env.local for a pre-seeded target:");
-  console.log(`NEXT_PUBLIC_TARGET_AUTHORITY=${provider.wallet.publicKey.toString()}`);
   console.log(`NEXT_PUBLIC_TARGET_VAULT=${vault.toString()}`);
+  console.log(`IMPRINT_TARGET_VAULT=${vault.toString()}`);
+  console.log(`IMPRINT_INITIAL_TARGET_LAMPORTS=${targetLamports}`);
+  console.log(`IMPRINT_MINIMUM_DRAIN_LAMPORTS=${initialLamports.toString()}`);
 }
 
 main().catch((error) => {

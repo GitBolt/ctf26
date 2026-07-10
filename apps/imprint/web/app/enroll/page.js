@@ -1,0 +1,57 @@
+"use client";
+
+import { useState } from "react";
+import { startRegistration } from "@simplewebauthn/browser";
+
+export default function EnrollmentPage() {
+  const [teamId, setTeamId] = useState("");
+  const [secret, setSecret] = useState("");
+  const [output, setOutput] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function enroll() {
+    setBusy(true);
+    setError("");
+    try {
+      const headers = {
+        "content-type": "application/json",
+        "x-imprint-enrollment-secret": secret,
+      };
+      const optionsResponse = await fetch("/api/admin/enroll/options", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ teamId }),
+      });
+      if (!optionsResponse.ok) throw new Error(await optionsResponse.text());
+      const response = await startRegistration({ optionsJSON: await optionsResponse.json() });
+      const completeResponse = await fetch("/api/admin/enroll/complete", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ response }),
+      });
+      if (!completeResponse.ok) throw new Error(await completeResponse.text());
+      setOutput(JSON.stringify(await completeResponse.json(), null, 2));
+    } catch (nextError) {
+      setError(nextError.message || String(nextError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main>
+      <header>
+        <div className="brand"><h1>imprint enrollment</h1></div>
+      </header>
+      <section className="access-panel">
+        <p>Organizer-only pre-event enrollment. Keep the assigned physical security key in view while enrolling.</p>
+        <label>team ID<input value={teamId} onChange={(event) => setTeamId(event.target.value)} /></label>
+        <label>enrollment secret<input type="password" value={secret} onChange={(event) => setSecret(event.target.value)} /></label>
+        <div className="actions"><button type="button" disabled={busy || !teamId || !secret} onClick={enroll}>enroll security key</button></div>
+        {error ? <p className="error">{error}</p> : null}
+        <pre>{output || "No roster entry generated."}</pre>
+      </section>
+    </main>
+  );
+}

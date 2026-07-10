@@ -5,7 +5,7 @@ import {
   expectedWebAuthnRpID,
 } from "../lib/webauthn-config.mjs";
 
-const request = { url: "http://localhost:3002/api/passkey/options" };
+const request = { url: "http://localhost:3002/api/passkey/claim/options" };
 
 test("local development derives WebAuthn configuration from the request", () => {
   const env = { NODE_ENV: "development" };
