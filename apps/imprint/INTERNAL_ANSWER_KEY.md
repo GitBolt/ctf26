@@ -28,8 +28,8 @@ Because that check is absent, a solver can use any valid passkey account they ow
 vault's withdrawal challenge with that passkey, so the vault's configured `registered_passkey` is ignored.
 
 In the hosted IMPRINT deployment, passkey registration happens through organizer pre-enrollment only.
-The player can only claim the team-assigned credential and must provide a real assertion with the physical
-security key at claim time.
+The player can only claim the team-assigned credential and must provide a real user-verifying platform
+passkey assertion at claim time.
 
 ## Intended Patch
 
@@ -38,7 +38,7 @@ any lamports move.
 
 ## Intended Solve
 
-1. Claim the team-assigned physical key through `/api/passkey/claim`.
+1. Claim the team-assigned platform passkey through `/api/passkey/claim`.
 2. Read the target vault account and note that its `registered_passkey` differs from your claimed
    key.
 3. Build the withdrawal challenge for the target vault, solver destination, chosen amount, and current

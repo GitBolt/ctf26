@@ -6,35 +6,34 @@ function normalizedAAGUID(value) {
 
 export function requireEnrollmentOperator(request, env = process.env) {
   if (env.IMPRINT_ENROLLMENT_ENABLED !== "true") {
-    throw new Error("event security-key enrollment is disabled");
+    throw new Error("event passkey enrollment is disabled");
   }
   const secret = env.IMPRINT_ENROLLMENT_ADMIN_SECRET;
   if (typeof secret !== "string" || Buffer.byteLength(secret) < 32) {
     throw new Error("IMPRINT_ENROLLMENT_ADMIN_SECRET must contain at least 32 bytes");
   }
   if (request.headers.get("x-imprint-enrollment-secret") !== secret) {
-    throw new Error("event security-key enrollment is unauthorized");
+    throw new Error("event passkey enrollment is unauthorized");
   }
 }
 
-export function enforceHardwareEnrollment(registrationInfo, env = process.env) {
-  if (!registrationInfo || registrationInfo.fmt === "none") {
-    throw new Error("direct hardware attestation is required for event enrollment");
-  }
-  if (
-    registrationInfo.credentialDeviceType !== "singleDevice" ||
-    registrationInfo.credentialBackedUp
-  ) {
-    throw new Error("a non-backed-up, single-device security key is required");
+export function enforcePlatformEnrollment(registrationInfo, env = process.env) {
+  if (!registrationInfo) throw new Error("a verified platform passkey is required");
+  // Enrollment is an organizer-controlled ceremony. Platform credentials may use
+  // fmt:none and may be synced; the admin secret and in-person biometric prompt
+  // are the trust boundary. Public/player registration remains disabled.
+  if (registrationInfo.credentialDeviceType !== "singleDevice" &&
+      registrationInfo.credentialDeviceType !== "multiDevice") {
+    throw new Error("unsupported passkey device type");
   }
   const allowed = String(env.IMPRINT_ENROLLMENT_ALLOWED_AAGUIDS || "")
     .split(",")
     .map(normalizedAAGUID)
     .filter(Boolean);
-  if (!allowed.length || allowed.some((value) => !AAGUID_PATTERN.test(value))) {
-    throw new Error("IMPRINT_ENROLLMENT_ALLOWED_AAGUIDS must contain approved hardware AAGUIDs");
+  if (allowed.some((value) => !AAGUID_PATTERN.test(value))) {
+    throw new Error("IMPRINT_ENROLLMENT_ALLOWED_AAGUIDS contains an invalid AAGUID");
   }
-  if (!allowed.includes(normalizedAAGUID(registrationInfo.aaguid))) {
-    throw new Error("security key AAGUID is not approved for this event");
+  if (allowed.length && !allowed.includes(normalizedAAGUID(registrationInfo.aaguid))) {
+    throw new Error("passkey AAGUID is not approved for this event");
   }
 }

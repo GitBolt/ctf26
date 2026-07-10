@@ -45,10 +45,10 @@ export default function EnrollmentPage() {
         <div className="brand"><h1>imprint enrollment</h1></div>
       </header>
       <section className="access-panel">
-        <p>Organizer-only pre-event enrollment. Keep the assigned physical security key in view while enrolling.</p>
+        <p>Organizer-only enrollment. The participant must be present for the Touch ID, Face ID, or Windows Hello prompt.</p>
         <label>team ID<input value={teamId} onChange={(event) => setTeamId(event.target.value)} /></label>
         <label>enrollment secret<input type="password" value={secret} onChange={(event) => setSecret(event.target.value)} /></label>
-        <div className="actions"><button type="button" disabled={busy || !teamId || !secret} onClick={enroll}>enroll security key</button></div>
+        <div className="actions"><button type="button" disabled={busy || !teamId || !secret} onClick={enroll}>enroll platform passkey</button></div>
         {error ? <p className="error">{error}</p> : null}
         <pre>{output || "No roster entry generated."}</pre>
       </section>

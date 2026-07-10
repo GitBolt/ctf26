@@ -314,7 +314,7 @@ export default function Home() {
       const optionsResponse = await fetch("/api/passkey/claim/options", { method: "POST" });
       if (!optionsResponse.ok) throw new Error(await optionsResponse.text());
       const optionsJSON = await optionsResponse.json();
-      notify("info", "requesting an assertion from the event security key");
+      notify("info", "requesting a Touch ID, Face ID, or passkey assertion");
       const assertionResponse = await startAuthentication({ optionsJSON });
       const response = await fetch("/api/passkey/claim", {
         method: "POST",
@@ -337,7 +337,7 @@ export default function Home() {
       };
       storePasskey(registeredPasskey);
       setPasskey(registeredPasskey);
-      notify("success", "event security key claimed on-chain", sig);
+      notify("success", "platform passkey claimed on-chain", sig);
       await refresh();
     } finally {
       setBusy(false);
@@ -482,16 +482,16 @@ export default function Home() {
           hint={
             passkeyState
               ? "claimed on-chain"
-              : "use the physical event security key assigned to your team"
+              : "use the platform passkey assigned to your team"
           }
           status={step2Status}
           isOpen={expandedStep === 2}
           onToggle={() => toggleStep(2)}
         >
           <p className="note">
-            Claiming requires a live assertion from the non-backed-up physical
-            security key assigned to your team. The key must be present for the
-            browser prompt.
+            Claiming requires a live user-verifying passkey assertion. Use Touch
+            ID, Face ID, Windows Hello, or another platform passkey during the
+            organizer enrollment ceremony and again when claiming.
           </p>
           {passkey ? (
             <dl>
@@ -516,7 +516,7 @@ export default function Home() {
               onClick={() => guarded(claimEventPasskey)}
               disabled={busy || accessState !== "ready" || !wallet || !!passkeyState}
             >
-              claim event security key
+              claim platform passkey
             </button>
           </div>
         </Step>
