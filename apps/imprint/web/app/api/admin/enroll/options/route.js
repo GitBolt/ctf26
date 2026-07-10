@@ -23,11 +23,10 @@ export async function POST(request) {
       userDisplayName: `IMPRINT ${teamId}`,
       attestationType: "direct",
       authenticatorSelection: {
-        authenticatorAttachment: "cross-platform",
+      authenticatorAttachment: "platform",
         residentKey: "discouraged",
         userVerification: "required",
       },
-      preferredAuthenticatorType: "securityKey",
       supportedAlgorithmIDs: [-7],
     });
     const jar = await cookies();

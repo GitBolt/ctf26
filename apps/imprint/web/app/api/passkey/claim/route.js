@@ -40,13 +40,6 @@ export async function POST(request) {
       },
     });
     if (!verification.verified) throw new Error("security-key assertion was not verified");
-    if (
-      verification.authenticationInfo.credentialDeviceType !== "singleDevice" ||
-      verification.authenticationInfo.credentialBackedUp
-    ) {
-      throw new Error("a non-backed-up event security key is required");
-    }
-
     const ownerPubkey = new PublicKey(owner);
     const passkeySeed = Buffer.from(sha256(credential.passkeyPubkey));
     const [passkey] = PublicKey.findProgramAddressSync(
