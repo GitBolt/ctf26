@@ -162,3 +162,33 @@ loop impossible.
 verification flaw) whose exploitation *requires a hardware-auth touch (passkey) + wallet approve*,
 delivered with a WebGL/venue-local parameter, relatively scored, on-site and proctored. Depth and
 anti-AI in the same real primitive — see `04-flagship-design.md`.
+
+---
+
+## 9. Key custody: no personal wallet in a challenge, ever
+
+Every challenge that deploys/administers real on-chain programs (registrar, upgrade authority, vault
+deployer, instancer, checker signer, etc.) must run on a **dedicated, challenge-scoped keypair** —
+generated fresh for that challenge, gitignored, never a personal or main dev wallet.
+
+- **Why:** a personal wallet baked into a program (as upgrade authority, a hardcoded registrar constant,
+  a vault-deployer authority, ...) mixes real-world identity/funds with challenge infrastructure. It's a
+  security smell (the wallet that can rug the challenge is also the operator's personal wallet), an ops
+  risk (can't hand off or rotate independently), and it leaks personal on-chain identity into what should
+  be disposable event infra.
+- **How to apply:** for every new challenge, before the first devnet deploy, generate one dedicated
+  operator keypair (`.keys/<challenge>-operator.json`, gitignored — add both `.keys` and `*-keypair.json`
+  to that app's `.gitignore`). Use it as the program's upgrade authority, any hardcoded
+  registrar/admin/instancer constant, and the deployer/authority for any seeded accounts. If it needs
+  funding, send a plain SOL transfer from wherever — never reuse a personal wallet as the operator key
+  itself, and never let a personal wallet sign, own, or appear as an authority anywhere in a challenge's
+  on-chain state.
+- **Verify before shipping:** grep the repo (source, `Anchor.toml`, IDLs, env files, docs) for any
+  personal wallet pubkey and confirm zero hits outside plain funding-transfer records. This is a launch
+  gate alongside the string-leak/answer-key checks in each challenge's build-review pass.
+- **Precedent:** IMPRINT's `B3Bh...44ai` (personal wallet) was originally the compiled `REGISTRAR_ID`,
+  the vault authority, and the program upgrade authority all at once. Fixed by generating
+  `.keys/imprint-operator.json`, redeploying the program fresh under it (new program ID, since a clean
+  operator-only deploy is simpler and more certain than transferring authority off a personal wallet),
+  and reseeding the target vault under the operator. The personal wallet's only remaining role is the
+  plain SOL transfer that funded the operator.

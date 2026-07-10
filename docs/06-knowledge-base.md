@@ -234,8 +234,8 @@ Why it is good:
 
 Risk:
 
-- virtual authenticators and remote help. Mitigate with on-site enrollment, attestation policy, UV
-  required, wallet approval, and prize-contender replay/proctoring.
+- virtual authenticators and remote help. Mitigate with organizer-pre-enrolled physical keys, a fixed
+  credential roster, live assertion at key claim, wallet approval, and prize-contender replay/proctoring.
 
 ### 3. SIGNET
 

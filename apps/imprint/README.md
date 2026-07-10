@@ -1,176 +1,175 @@
-# IMPRINT
+# IMPRINT v2 — operator runbook
 
-Passkey-gated Solana vault CTF.
+IMPRINT is a passkey-gated Solana vault challenge. Its intended on-chain vulnerability remains the
+missing binding between a vault's stored P-256 key and the supplied registered key during withdrawal.
+The event boundary is intentionally outside that bug: only an organizer-pre-enrolled, physical event
+security key can become a registered passkey account, and the final assertion requires that device.
 
-The challenge surface:
+An agent can inspect the program and prepare a transaction. It cannot finish autonomously because it
+does not possess the event-issued hardware key or its user-presence action.
 
-- vaults store a registered compressed P-256 passkey pubkey;
-- passkey registration must be approved by the event registrar;
-- registration stores the P-256 key and RP ID hash proven by the verified WebAuthn attestation;
-- withdraw requires the passkey owner's Solana wallet signature plus a valid secp256r1/WebAuthn
-  assertion with user-presence and user-verification flags over the current vault withdraw challenge;
-- the win condition is a real on-chain withdrawal from the seeded target vault.
+## Security model
+
+- **No public registration endpoint.** Player-created WebAuthn registrations, including `fmt: "none"`,
+  are never accepted by the live service.
+- **Physical key roster.** Before the event, an organizer enrolls one non-backed-up external security
+  key per team. The resulting credential ID and COSE public key are held in the server-only
+  `IMPRINT_CREDENTIAL_ROSTER_JSON` setting.
+- **Portal-bound claim.** A team arrives with a signed portal ticket, proves possession of its assigned
+  physical key, and receives the registrar-co-signed on-chain registration transaction.
+- **Exact-target checking.** The server issues a flag only after the configured canonical target—not a
+  player-created lookalike—has lost the configured net amount in a transaction signed by that team's
+  claimed passkey-owner wallet.
+
+The old deployed program, target, and registrations are unsafe. Do not reuse any of them for v2.
 
 ## Layout
 
 ```text
-programs/imprint/        Anchor program
-tests/imprint.js         local exploit test
-scripts/setup-target.js  devnet/local target seeding script
-web/                     Next.js player console
+programs/imprint/        Anchor program; intended vault-to-passkey binding bug
+tests/imprint.js         local exploit and negative tests
+scripts/setup-target.js  organizer-only canonical target seeding
+web/                     player console, physical-key claim flow, server checker
+web/app/enroll/          organizer-only, pre-event roster enrollment screen
 ```
 
-## Local verification
+## Fresh v2 deployment
 
-```bash
-cd apps/imprint
-yarn build
-yarn test
-npm --prefix web test
-npm --prefix web run build
-```
+1. Disable the old IMPRINT Vercel deployment or at minimum remove its registration and target access.
+   Existing software-created passkey accounts remain valid on its old program, so changing web
+   variables alone is not a repair.
 
-The test deploys locally and proves the intended exploit:
+2. Generate a **fresh program keypair**, a dedicated registrar keypair, and a dedicated operator/target
+   funder. Do not reuse the old program ID, target vault, or registrar key.
 
-1. register attacker passkey;
-2. initialize target vault with a different victim passkey;
-3. build a secp256r1 precompile instruction for the attacker passkey;
-4. call `withdraw_with_passkey`;
-5. confirm the target vault pays the attacker destination.
+   Suggested commands (example):
 
-## Devnet deployment
+   ```bash
+   cd apps/imprint
+   cp target/deploy/imprint-keypair.json target/deploy/imprint-keypair-v1-backup.json
+   solana-keygen new --no-bip39-passphrase --outfile target/deploy/imprint-keypair.json
 
-Program deployed:
+   mkdir -p .keys
+   solana-keygen new --no-bip39-passphrase --outfile .keys/imprint-registrar-v2.json
+   solana-keygen new --no-bip39-passphrase --outfile .keys/imprint-operator-v2.json
+   ```
 
-```text
-7rCC9dsbkGPx9Cu1k7eXx9AsGTQDmsi9wFhWp2yp446E
-```
+   Then update these compile-time values in source before build/deploy:
 
-Current seeded devnet target:
+   - `declare_id!` in `programs/imprint/src/lib.rs`
+   - `REGISTRAR_ID` in `programs/imprint/src/lib.rs`
+   - `REGISTRAR_ID` in `web/lib/registrar.mjs`
+   - `imprint =` entry in `Anchor.toml`
 
-```text
-authority: GHPN2teVyKNzevsMR56MB5SAxgjqKVzNmX89PcU59RpR
-vault:     4VXGY2143vWpE3q1uQBExf7RoFnH6YpfZMGqdGPttwQB
-vault id:  target-vault-001
-```
+   After editing `lib.rs`, run `anchor keys sync` (or equivalent update) so `declare_id!` and
+   the deploy keypair line up.
 
-**Key separation policy:** this program is deployed, upgraded, and administered entirely by a dedicated
-`.keys/imprint-operator.json` devnet keypair (gitignored, never committed). That same key is the
-`REGISTRAR_ID` compiled into the program and the vault-deployer authority. No personal/main wallet is
-the upgrade authority, registrar, or vault authority for this challenge. If the operator key ever needs
-more devnet SOL, fund it with a plain `solana transfer` from wherever — never reuse a personal wallet as
-the operator key itself.
+3. Update all compile-time values before building:
 
-To redeploy:
+   - `declare_id!` in `programs/imprint/src/lib.rs` with the fresh program ID;
+   - `[programs.devnet].imprint` in `Anchor.toml` with that same ID;
+   - `REGISTRAR_ID` in `programs/imprint/src/lib.rs` and `web/lib/registrar.mjs` with the fresh
+     registrar public key.
 
-```bash
-cd apps/imprint
-anchor deploy --provider.cluster devnet --provider.wallet .keys/imprint-operator.json
-```
+4. Build and deploy the program, then copy its regenerated IDL into the web project:
 
-The RPC endpoint above is only operator configuration for deploys/indexing. It is not part of the
-challenge. Solvers can use any working devnet RPC for their own scripts.
+   ```bash
+   cd apps/imprint
+   npm run build
+   ANCHOR_PROVIDER_URL="<devnet-rpc>" \
+   ANCHOR_WALLET=".keys/imprint-operator-v2.json" \
+   anchor deploy --provider.cluster devnet
+   ```
 
-To seed a fresh target:
+5. Seed one fresh canonical target. The seeding script prints both the public target address and the
+   exact checker-balance values.
 
-```bash
-cd apps/imprint
-ANCHOR_PROVIDER_URL="<devnet rpc>" \
-ANCHOR_WALLET=".keys/imprint-operator.json" \
-INITIAL_SOL=0.5 \
-node scripts/setup-target.js
-```
+   ```bash
+   cd apps/imprint
+   ANCHOR_PROVIDER_URL="<devnet-rpc>" \
+   ANCHOR_WALLET=".keys/imprint-operator-v2.json" \
+   INITIAL_SOL=0.5 \
+   node scripts/setup-target.js
+   ```
 
-Copy the printed `NEXT_PUBLIC_TARGET_AUTHORITY` and `NEXT_PUBLIC_TARGET_VAULT` into `web/.env.local` or
-Vercel env vars.
+   Preserve the printed `IMPRINT_INITIAL_TARGET_LAMPORTS`; it includes the account's actual balance.
+   `IMPRINT_MINIMUM_DRAIN_LAMPORTS` should normally be the prize deposit printed by the script, not
+   gross transaction volume.
 
-To seed additional vaults for parallel internal testing (any exact-16-byte `VAULT_ID`, e.g. one per
-tester/team):
+## Pre-event physical-key enrollment
 
-```bash
-cd apps/imprint
-ANCHOR_PROVIDER_URL="<devnet rpc>" \
-ANCHOR_WALLET=".keys/imprint-operator.json" \
-INITIAL_SOL=0.5 \
-VAULT_ID="team-alpha-vault" \
-node scripts/setup-target.js
-```
+Use one approved external FIDO2 security-key model per team. Keep the device in the organizer's view
+throughout enrollment and hand it to the team only after the roster entry is recorded. Do not use
+platform, synced, backed-up, or software passkeys.
 
-## Web app
+1. Temporarily deploy the web app with `IMPRINT_ENROLLMENT_ENABLED=true`, a strong
+   `IMPRINT_ENROLLMENT_ADMIN_SECRET`, and the exact hardware AAGUID allowlist.
+2. Open `https://<imprint-host>/enroll` on an organizer-controlled machine. Enter the one-time admin
+   secret and team ID, then create the credential with that team's assigned physical key.
+3. Copy the returned JSON record into the server-only `IMPRINT_CREDENTIAL_ROSTER_JSON` array. One record
+   is required for every team; credential IDs and P-256 keys must be unique.
+4. Redeploy with `IMPRINT_ENROLLMENT_ENABLED=false` (or remove the enrollment routes in the production
+   deployment) and rotate/delete the enrollment admin secret.
 
-Local:
+The enrollment interface is an organizer ceremony, not a participant feature. Its secret must never
+be supplied to a player browser, checked into the repository, or configured on the live event project.
 
-```bash
-cd apps/imprint/web
-npm install
-npm run dev
-```
+## Vercel configuration
 
-Then open:
-
-```text
-http://localhost:3002
-```
-
-The browser flow:
-
-1. connect any injected Solana wallet on devnet;
-2. create a platform passkey through the server-issued WebAuthn challenge;
-3. register the passkey on-chain with a registrar-partial-signed transaction, then the wallet co-signs;
-4. inspect the target and derive a withdrawal challenge from the program and live account state;
-5. use the generic assertion workbench to sign that challenge with the passkey;
-6. construct and submit the exploit transaction independently.
-
-The player console deliberately does not assemble or submit `withdraw_with_passkey`: doing so would
-turn the intended account-binding bug into a one-click solve.
-
-`localhost` is a valid secure WebAuthn origin, so local testing works without HTTPS. A deployed site
-must use HTTPS.
-
-## Vercel env
-
-Set these for the web project:
-
-```text
-NEXT_PUBLIC_RPC_URL=<operator-selected devnet rpc used by the hosted console>
-NEXT_PUBLIC_PROGRAM_ID=7rCC9dsbkGPx9Cu1k7eXx9AsGTQDmsi9wFhWp2yp446E
-NEXT_PUBLIC_VAULT_ID=target-vault-001
-NEXT_PUBLIC_TARGET_AUTHORITY=<printed by setup-target>
-NEXT_PUBLIC_TARGET_VAULT=<printed by setup-target>
-IMPRINT_EXPECTED_ORIGIN=https://imprint.example.org
-IMPRINT_RP_ID=imprint.example.org
-REGISTRAR_KEYPAIR_JSON=<contents of .keys/imprint-operator.json — server-only, never NEXT_PUBLIC_>
-# Recommended event policy; choose AAGUIDs only after validating the event-issued authenticators:
-IMPRINT_REQUIRE_ATTESTATION=true
-IMPRINT_REQUIRE_DEVICE_BOUND_PASSKEY=true
-IMPRINT_ALLOWED_AAGUIDS=<comma-separated allowlist>
-```
-
-Build command:
-
-```bash
-npm run build
-```
-
-Root directory in Vercel:
+Set the Vercel root directory to:
 
 ```text
 apps/imprint/web
 ```
 
-## Notes
+Use `npm run build` as the build command. Set every variable below in the **production** environment;
+none of the unprefixed values may be exposed to the browser.
 
-- `web/.env.local` is intentionally ignored.
-- After changing the program, run `yarn build` from `apps/imprint` to rebuild and sync the IDL into
-  `web/lib/imprint-idl.json`.
-- The registrar key is intentionally server-only. Do not expose it as `NEXT_PUBLIC_*`. For production,
-  use a dedicated registrar wallet, not the program upgrade authority.
-- The optional authenticator policy is deliberately permissive when its variables are unset so local
-  platform-passkey development keeps working. For an event, configure all three policy variables and
-  validate the chosen devices' attestation chains/AAGUIDs before relying on them as a hardware boundary.
-- `Passkey` accounts now include the verified RP ID hash. After upgrading an older deployment, legacy
-  passkey registrations must be recreated; their smaller account layout cannot satisfy withdrawals.
-- The hosted console needs an RPC endpoint to read accounts and submit transactions, but participants
-  do not need to use that endpoint. Player scripts should work with any healthy devnet RPC.
-- For a real event, use per-team target vaults or a checker service that validates the drain and emits
-  a server-side HMAC flag.
+```text
+NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com
+NEXT_PUBLIC_PROGRAM_ID=<fresh-v2-program-id>
+NEXT_PUBLIC_VAULT_ID=target-vault-001
+NEXT_PUBLIC_TARGET_VAULT=<printed-by-setup-target>
+
+IMPRINT_EXPECTED_ORIGIN=https://imprint.example.org
+IMPRINT_RP_ID=imprint.example.org
+
+CHALLENGE_TICKET_SECRET=<same-32+-byte-value-as-portal-CHALLENGE_TICKET_SECRET_IMPRINT>
+IMPRINT_SESSION_SECRET=<independent-random-32+-byte-secret>
+IMPRINT_FLAG_SECRET=<independent-random-32+-byte-secret>
+
+IMPRINT_CREDENTIAL_ROSTER_JSON=<complete-organizer-generated-array>
+REGISTRAR_KEYPAIR_JSON=<fresh-registrar-keypair-json>
+
+IMPRINT_TARGET_VAULT=<printed-by-setup-target>
+IMPRINT_INITIAL_TARGET_LAMPORTS=<printed-by-setup-target>
+IMPRINT_MINIMUM_DRAIN_LAMPORTS=<printed-by-setup-target>
+
+IMPRINT_ENROLLMENT_ENABLED=false
+```
+
+The portal's `CHALLENGE_TICKET_SECRET_IMPRINT` must match this app's `CHALLENGE_TICKET_SECRET` exactly.
+`NEXT_PUBLIC_TARGET_VAULT` and `IMPRINT_TARGET_VAULT` must also match; the checker rejects a mismatch.
+
+## Mandatory launch checks
+
+Run these before opening the portal link:
+
+```bash
+npm --prefix apps/imprint/web test
+npm --prefix apps/imprint/web run build
+npm --prefix apps/imprint test
+```
+
+Then perform a human-only red-team test on the fresh deployment:
+
+1. Launch through the portal and claim one assigned hardware key.
+2. Confirm that the key claim causes a physical device prompt and fails with no device present.
+3. Attempt a forged `fmt: "none"` registration against the old public paths; both paths must be 404.
+4. Attempt to claim with a non-rostered hardware or software key; it must fail before a registrar-signed
+   transaction is returned.
+5. Create a player-controlled vault and drain it; `/api/solve` must reject it.
+6. Complete the intended exploit against the exact fresh target using the assigned hardware key; the
+   checker must return one deterministic server-side flag.
+
+Only after all six checks pass should the portal's `IMPRINT_URL` be pointed at the fresh deployment.

@@ -19,8 +19,10 @@ security core, no static answer, state-transition/replay checker, and distinct a
 - Core: secp256r1/WebAuthn owner-binding miss in a passkey-controlled Solana vault.
 - Built: Anchor program, WebAuthn registration/assertion web app, registrar co-sign flow, devnet
   deployment, target seeding, exploit/negative tests.
-- Anti-agent layer: physical passkey touch + Solana wallet approval + on-site registration policy.
-- Status: strongest end-to-end build in the repo. Residual caveat: no AAGUID/root allowlist yet.
+- Anti-agent layer: organizer-pre-enrolled physical security key + live key assertion + Solana wallet
+  approval. The player service accepts no public WebAuthn registration.
+- Status: v2 requires a fresh program/target deployment and a canonical-target HMAC checker. The old
+  self-registration deployment must not be reused.
 
 ### SIGNET
 
@@ -78,7 +80,7 @@ Known remaining work before a real public event:
 - Signet: deploy real per-team stale programs and host the repo archive with PR/review-style
   navigation.
 - DRIFT: replace compact bytecode runtime with stripped native SBF and `litesvm`/`bankrun`.
-- IMPRINT: add optional AAGUID/root attestation allowlist if the event wants virtual-authenticator
-  resistance without relying mainly on proctoring.
+- IMPRINT: pre-enroll the issued physical key roster, disable the organizer enrollment route before the
+  event, and run the human-vs-autonomous red-team check against the fresh target.
 - All challenges: run the required playtest matrix: human-driven, AI-assisted human, and autonomous
   agent attempt.

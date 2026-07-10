@@ -1,5 +1,5 @@
 {
-  "address": "7rCC9dsbkGPx9Cu1k7eXx9AsGTQDmsi9wFhWp2yp446E",
+  "address": "5EgXikx8uaGDDRdLdxzoLsDafSruHZnNnstE7bd8wH6B",
   "metadata": {
     "name": "imprint",
     "version": "0.1.0",
@@ -78,10 +78,6 @@
         {
           "name": "initial_lamports",
           "type": "u64"
-        },
-        {
-          "name": "target",
-          "type": "bool"
         }
       ]
     },
@@ -518,10 +514,6 @@
             "type": "u64"
           },
           {
-            "name": "target",
-            "type": "bool"
-          },
-          {
             "name": "bump",
             "type": "u8"
           }
@@ -549,10 +541,6 @@
                 33
               ]
             }
-          },
-          {
-            "name": "target",
-            "type": "bool"
           }
         ]
       }
@@ -582,10 +570,6 @@
           {
             "name": "amount",
             "type": "u64"
-          },
-          {
-            "name": "target",
-            "type": "bool"
           }
         ]
       }

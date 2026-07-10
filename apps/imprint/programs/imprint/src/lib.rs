@@ -6,7 +6,7 @@ use anchor_lang::{
 };
 use solana_sha256_hasher::{hash, hashv};
 
-declare_id!("7rCC9dsbkGPx9Cu1k7eXx9AsGTQDmsi9wFhWp2yp446E");
+declare_id!("5EgXikx8uaGDDRdLdxzoLsDafSruHZnNnstE7bd8wH6B");
 
 const SECP256R1_PROGRAM_ID: Pubkey = pubkey!("Secp256r1SigVerify1111111111111111111111111");
 const PASSKEY_SIZE: usize = 33;
@@ -21,7 +21,7 @@ const SECP256R1_DATA_START: usize = 16;
 const SECP256R1_PUBKEY_SIZE: usize = 33;
 const SECP256R1_SIGNATURE_SIZE: usize = 64;
 const U16_MAX: u16 = u16::MAX;
-const REGISTRAR_ID: Pubkey = pubkey!("GHPN2teVyKNzevsMR56MB5SAxgjqKVzNmX89PcU59RpR");
+const REGISTRAR_ID: Pubkey = pubkey!("AdtCf3S1zEHZ14js7G7vqN5EDatSGC9SxSTDotJBEvJF");
 const P256_HALF_ORDER_BE: [u8; 32] = [
     0x7f, 0xff, 0xff, 0xff, 0x80, 0x00, 0x00, 0x00, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xde, 0x73, 0x7d, 0x56, 0xd3, 0x8b, 0xcf, 0x42, 0x79, 0xdc, 0xe5, 0x61, 0x7e, 0x31, 0x92, 0xa8,
@@ -67,7 +67,6 @@ pub mod imprint {
         vault_id: [u8; VAULT_ID_SIZE],
         registered_passkey: [u8; PASSKEY_SIZE],
         initial_lamports: u64,
-        target: bool,
     ) -> Result<()> {
         let authority = ctx.accounts.authority.key();
         let vault_key = ctx.accounts.vault.key();
@@ -75,7 +74,6 @@ pub mod imprint {
         ctx.accounts.vault.vault_id = vault_id;
         ctx.accounts.vault.registered_passkey = registered_passkey;
         ctx.accounts.vault.nonce = 0;
-        ctx.accounts.vault.target = target;
         ctx.accounts.vault.bump = ctx.bumps.vault;
 
         if initial_lamports > 0 {
@@ -98,7 +96,6 @@ pub mod imprint {
             vault: vault_key,
             authority,
             registered_passkey,
-            target,
         });
 
         Ok(())
@@ -207,7 +204,6 @@ pub mod imprint {
             destination: ctx.accounts.destination.key(),
             passkey_pubkey,
             amount,
-            target: ctx.accounts.vault.target,
         });
 
         Ok(())
@@ -286,12 +282,11 @@ pub struct Vault {
     pub registered_passkey: [u8; PASSKEY_SIZE],
     pub vault_id: [u8; VAULT_ID_SIZE],
     pub nonce: u64,
-    pub target: bool,
     pub bump: u8,
 }
 
 impl Vault {
-    pub const SPACE: usize = 8 + 32 + PASSKEY_SIZE + VAULT_ID_SIZE + 8 + 1 + 1;
+    pub const SPACE: usize = 8 + 32 + PASSKEY_SIZE + VAULT_ID_SIZE + 8 + 1;
 }
 
 #[event]
@@ -305,7 +300,6 @@ pub struct VaultInitialized {
     pub vault: Pubkey,
     pub authority: Pubkey,
     pub registered_passkey: [u8; PASSKEY_SIZE],
-    pub target: bool,
 }
 
 #[event]
@@ -314,7 +308,6 @@ pub struct VaultWithdrawn {
     pub destination: Pubkey,
     pub passkey_pubkey: [u8; PASSKEY_SIZE],
     pub amount: u64,
-    pub target: bool,
 }
 
 #[error_code]

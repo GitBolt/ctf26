@@ -22,6 +22,9 @@ const SIGNATURE_SIZE = 64;
 const U16_MAX = 0xffff;
 const TEST_RP_ID = "localhost";
 const TEST_RP_ID_HASH = Buffer.from(sha256(Buffer.from(TEST_RP_ID)));
+const EVENT_REGISTRAR = Keypair.fromSecretKey(
+  Uint8Array.from(require("../.keys/imprint-registrar-v2.json")),
+);
 
 function writeU16LE(buf, offset, value) {
   buf.writeUInt16LE(value, offset);
@@ -204,17 +207,17 @@ describe("imprint", () => {
       )
       .accounts({
         owner: organizer.publicKey,
-        registrar: organizer.publicKey,
+        registrar: EVENT_REGISTRAR.publicKey,
         passkey: attackerPasskeyPda,
       })
+      .signers([EVENT_REGISTRAR])
       .rpc();
 
     await program.methods
       .initializeVault(
         targetVaultId,
         Array.from(victimPasskey.publicKey),
-        initialLamports,
-        true
+        initialLamports
       )
       .accounts({
         authority: organizer.publicKey,

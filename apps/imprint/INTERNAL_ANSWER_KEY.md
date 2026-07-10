@@ -24,9 +24,12 @@ require!(
 );
 ```
 
-Because that check is absent, a solver can register their own passkey through the event registrar,
-sign the target vault's withdrawal challenge with that passkey, and withdraw from a vault whose
-registered passkey is different.
+Because that check is absent, a solver can use any valid passkey account they own and sign the target
+vault's withdrawal challenge with that passkey, so the vault's configured `registered_passkey` is ignored.
+
+In the hosted IMPRINT deployment, passkey registration happens through organizer pre-enrollment only.
+The player can only claim the team-assigned credential and must provide a real assertion with the physical
+security key at claim time.
 
 ## Intended Patch
 
@@ -35,8 +38,9 @@ any lamports move.
 
 ## Intended Solve
 
-1. Create/register a real passkey.
-2. Read the target vault account and notice its `registered_passkey` differs from the solver's passkey.
+1. Claim the team-assigned physical key through `/api/passkey/claim`.
+2. Read the target vault account and note that its `registered_passkey` differs from your claimed
+   key.
 3. Build the withdrawal challenge for the target vault, solver destination, chosen amount, and current
    nonce.
 4. Use WebAuthn `navigator.credentials.get` to produce a P-256 assertion over that challenge.

@@ -4,10 +4,8 @@ import * as anchor from "@coral-xyz/anchor";
 import { Buffer } from "buffer";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
-import { startRegistration } from "@simplewebauthn/browser";
 import {
   Connection,
-  LAMPORTS_PER_SOL,
   PublicKey,
   SYSVAR_INSTRUCTIONS_PUBKEY,
   SystemProgram,
@@ -20,10 +18,6 @@ export const PROGRAM_ID = new PublicKey(
 );
 export const DEFAULT_VAULT_ID =
   process.env.NEXT_PUBLIC_VAULT_ID || "target-vault-001";
-export const VICTIM_PASSKEY = Uint8Array.from([
-  2, 98, 54, 222, 160, 85, 143, 166, 44, 15, 155, 56, 178, 7, 216, 12, 251, 16,
-  35, 101, 217, 240, 229, 122, 70, 175, 184, 77, 57, 69, 88, 70, 3,
-]);
 
 const P256_ORDER = BigInt(
   "0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"
@@ -76,14 +70,12 @@ export function vaultPda(authority, vaultId = DEFAULT_VAULT_ID) {
   )[0];
 }
 
-export function targetVault(walletPublicKey) {
-  if (process.env.NEXT_PUBLIC_TARGET_VAULT) {
-    return new PublicKey(process.env.NEXT_PUBLIC_TARGET_VAULT);
+export function targetVault() {
+  const target = String(process.env.NEXT_PUBLIC_TARGET_VAULT || "").trim();
+  if (!target) {
+    throw new Error("NEXT_PUBLIC_TARGET_VAULT is required for the player console");
   }
-  if (process.env.NEXT_PUBLIC_TARGET_AUTHORITY) {
-    return vaultPda(process.env.NEXT_PUBLIC_TARGET_AUTHORITY);
-  }
-  return vaultPda(walletPublicKey);
+  return new PublicKey(target);
 }
 
 export function base64UrlToBuffer(value) {
@@ -153,22 +145,6 @@ function bigintTo32(value) {
   return leftPad32(raw);
 }
 
-export async function createPasskey() {
-  const optionsResponse = await fetch("/api/passkey/options", {
-    method: "POST",
-  });
-  if (!optionsResponse.ok) {
-    throw new Error(await optionsResponse.text());
-  }
-  const optionsJSON = await optionsResponse.json();
-  const registrationResponse = await startRegistration({ optionsJSON });
-
-  return {
-    credentialId: registrationResponse.rawId,
-    registrationResponse,
-  };
-}
-
 export async function getAssertion({ credentialId, challenge }) {
   if (!window.PublicKeyCredential || !navigator.credentials?.get) {
     throw new Error("this browser does not support WebAuthn passkeys");
@@ -199,10 +175,6 @@ export async function getAssertion({ credentialId, challenge }) {
   ]);
 
   return { authenticatorData, clientDataJSON, signature, message };
-}
-
-export function solToLamports(sol) {
-  return Math.floor(Number(sol) * LAMPORTS_PER_SOL);
 }
 
 export {

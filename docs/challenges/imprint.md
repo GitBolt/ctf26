@@ -1,6 +1,6 @@
 # Challenge Spec — IMPRINT (passkey-gated Solana exploit)
 
-Status: **WORKING BUILD — Challenge 2 of 4 (hardware-auth)** · Updated: 2026-07-10 · Codename: IMPRINT
+Status: **WORKING BUILD v2 — Challenge 2 of 4 (hardware-auth)** · Updated: 2026-07-10 · Codename: IMPRINT
 
 **One line:** a real, deep Solana security bug in a **passkey-controlled smart vault** — where the
 winning exploit action **requires a physical passkey touch (Face ID / Touch ID / YubiKey)** that an
@@ -58,8 +58,9 @@ withdraw(vault, amount, destination)?;                          // ...so ANY reg
 
 - **Vault program source + IDL** (understanding the verification is fair; forging the hardware touch is
   not) — or a black-box variant with only the WebAuthn/precompile interface, for a harder cohort.
-- A **passkey enrollment web app** (WebAuthn `create` / `get`) — teams register their own passkey
-  **on-site** (attested) and get a vault.
+- A **pre-enrolled event security key** per team. Organizer staff enroll the physical key before the
+  round; players can only claim that credential through a live WebAuthn assertion, never create a new
+  registration through the player service.
 - A generic assertion workbench that signs a player-supplied 32-byte challenge. It deliberately does
   not derive the withdrawal challenge, assemble the secp256r1 instruction, or submit the exploit.
 - A **funded devnet Solana wallet** per team + a registered escrow the scoreboard watches. Phantom,
@@ -72,8 +73,8 @@ withdraw(vault, amount, destination)?;                          // ...so ANY reg
 
 ## 4. Solve (floor → ceiling)
 
-- **Floor:** enroll a passkey, create a vault, do a legit passkey-signed withdraw. Learn the flow +
-  the secp256r1/WebAuthn model (real, current Solana knowledge).
+- **Floor:** claim the assigned physical event key, inspect the canonical target, and do a legitimate
+  passkey-signed action. Learn the secp256r1/WebAuthn model.
 - **Mid:** probe the verification — does it bind the challenge? the owner? Is `s` checked? Form the
   hypothesis (AI may help reason here — fine).
 - **Ceiling:** exploit the binding flaw — authenticate with **your own passkey (a physical touch)** and,
@@ -84,11 +85,11 @@ withdraw(vault, amount, destination)?;                          // ...so ANY reg
 
 ## 5. Anti-AI mechanisms (unique mix) + honest caveats
 
-1. **★ Passkey biometric touch (the anchor).** The exploit's authorization is a WebAuthn assertion from
-   a secure element requiring physical user verification. An autonomous agent — even computer-use —
-   **cannot produce Face ID / a YubiKey tap.** Strongest software gate available.
+1. **★ Event-issued physical key (the anchor).** The exploit's authorization is a WebAuthn assertion
+   from a pre-enrolled, non-backed-up external security key requiring user verification. An autonomous
+   agent cannot create a roster credential or produce the key's physical presence action.
 2. **Wallet human-approve** for the submit tx — a second agent-hostile action.
-3. **On-site enrollment + attestation + proctoring** closes the virtual-authenticator gap.
+3. **Organizer-only enrollment and a fixed credential roster** close the virtual-authenticator gap.
 4. **Optional venue-local parameter** can bind the high-value drain to the live room, but it should not
    be presented as the core anti-AI mechanism.
 
@@ -96,8 +97,9 @@ withdraw(vault, amount, destination)?;                          // ...so ANY reg
 - The precompile verifies *any* P-256 sig, so the bug must **not** be "accepts any P-256 sig" — an agent
   would just software-sign. The bug must require authenticating with a **real registered hardware
   passkey**, where the *binding* flaw is misused. That keeps the human touch load-bearing.
-- Residual risk: browser **virtual authenticators** (devtools fake passkeys). Close with **on-site
-  enrollment under attestation** (platform authenticator, UV required) + **proctoring**.
+- A WebAuthn `fmt:"none"` response, a P-256 key, or UP/UV bytes alone are not hardware provenance.
+  They must never create a player registration. Staff provision the roster from the actual event keys
+  before launch; the player service has no registration route.
 - A **human driving an AI** (human touches the passkey + approves; AI helped find the bug) succeeds —
   and that's the intended, allowed meta. Honest bar: *autonomous loop can't complete*, not "impossible."
 
@@ -116,8 +118,9 @@ withdraw(vault, amount, destination)?;                          // ...so ANY reg
 
 - **Anchor vault** verifying the secp256r1 precompile (instruction introspection of the
   `Secp256r1SigVerify…` ix) + the planted binding bug + a **correct-patch reference** for grading.
-- **WebAuthn enrollment/assert web app** (platform authenticator, `userVerification: "required"`,
-  attestation captured on-site).
+- **Organizer-only hardware enrollment + player claim/assert web app.** The enrollment screen is
+  disabled during the round; the player claim path accepts only the pre-enrolled credential for the
+  portal-authenticated team.
 - Optional **venue-local parameter** for the per-round challenge value if playtesting shows we need a
   second room-bound action.
 - Escrows + indexer + scoreboard; Solana wallet connect + approve for submit.
@@ -125,11 +128,11 @@ withdraw(vault, amount, destination)?;                          // ...so ANY reg
   duplicate/missing precompile ix, virtual-authenticator rejection. The verification path *itself* must
   be airtight except for the one planted bug.
 
-The built registration route derives the on-chain P-256 key only from the credential COSE key returned
-by successful WebAuthn verification. It never trusts the client convenience `response.publicKey`.
-Withdrawals also enforce the stored RP-ID hash, UP and UV flags, exact challenge field, low-S form, and
-the enrolled wallet's Solana signature. Production still requires validated authenticator models and
-attestation roots, a dedicated registrar distinct from upgrade authority, and per-team target vaults.
+The claim route derives the on-chain P-256 key only from the organizer roster's credential COSE key;
+it never accepts a player-supplied registration key. Withdrawals enforce the stored RP-ID hash, UP and
+UV flags, exact challenge field, low-S form, and the enrolled wallet's Solana signature. The checker
+accepts only the exact organizer-seeded target address and net reserve loss, never a player-controlled
+`target` flag.
 
 ---
 
@@ -137,7 +140,7 @@ attestation roots, a dedicated registrar distinct from upgrade authority, and pe
 
 1. Which **binding-bug variant** (owner-binding recommended — clearest to explain and exploit).
 2. **White-box vs black-box** source (white-box is fine; black-box raises difficulty for elite cohort).
-3. Exact **virtual-authenticator mitigation** (attestation policy + proctoring depth).
+3. Confirm the exact issued hardware-key model, AAGUIDs, and enrollment ceremony before ordering keys.
 4. Whether to include a venue-local parameter for the high-value drain.
 
 ### Alternate bug variants for later cohorts
