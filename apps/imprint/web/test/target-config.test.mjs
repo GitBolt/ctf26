@@ -19,12 +19,13 @@ test("requires an exact canonical target and a net-drain threshold", () => {
 
 test("rejects a client-visible target that disagrees with the checker target", () => {
   assert.throws(
-    () => eventTarget({
-      IMPRINT_TARGET_VAULT: vault,
-      NEXT_PUBLIC_TARGET_VAULT: "SysvarC1ock11111111111111111111111111111111",
-      IMPRINT_INITIAL_TARGET_LAMPORTS: "10",
-      IMPRINT_MINIMUM_DRAIN_LAMPORTS: "11",
-    }),
-    /NEXT_PUBLIC_TARGET_VAULT must match/,
+    () =>
+      eventTarget({
+        IMPRINT_TARGET_VAULT: vault,
+        NEXT_PUBLIC_TARGET_VAULT: "SysvarC1ock11111111111111111111111111111111",
+        IMPRINT_INITIAL_TARGET_LAMPORTS: "10",
+        IMPRINT_MINIMUM_DRAIN_LAMPORTS: "11",
+      }),
+    /NEXT_PUBLIC_TARGET_VAULT must match/
   );
 });

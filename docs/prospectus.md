@@ -50,6 +50,11 @@ Because agentic AI is now good at source review and exploit scripting, the compe
 3. **Honest, not hype.** We don't claim "AI-proof." We **validate by playtest** — all-human vs
    AI-assisted vs autonomous-agent teams — and share the data.
 
+4. **An enforceable integrity program.** Challenge resistance is backed by precise participant rules,
+   explicit acknowledgement, immediate flag submission, privacy-bounded solve telemetry, author-led
+   technical verification for suspicious/prize-contending solves, consistent evidence thresholds, and
+   an appeal process. Timing, canaries, and writing style are review signals—not automatic guilt.
+
 The principle: keep the security bug **real and deep**, then put the anti-AI in the **access/action
 layer**. Asking ChatGPT a question is fine; handing the whole problem to an autonomous agent should not
 be enough to finish or win.

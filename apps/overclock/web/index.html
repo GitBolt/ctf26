@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#121819" />
+    <meta name="description" content="DRIFT native SBF analysis workspace" />
+    <title>DRIFT — Program analysis workspace</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <nav class="topbar" aria-label="DRIFT workspace">
+        <a class="wordmark" href="/" aria-label="DRIFT home">DRIFT</a>
+        <div class="session-state" id="session-state">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="session-label">Connecting</span>
+        </div>
+      </nav>
+
+      <header class="hero">
+        <div>
+          <p class="kicker">Native SBF analysis</p>
+          <h1>Make the sealed vault pay.</h1>
+        </div>
+        <p class="hero-copy">
+          You have one unfamiliar program, one funded target, and an exact replay
+          boundary. Reconstruct the behavior and submit a profitable trace.
+        </p>
+      </header>
+
+      <section class="notice" id="notice" role="status" aria-live="polite">
+        <div class="notice-mark" aria-hidden="true">↳</div>
+        <div>
+          <strong id="notice-title">Establishing your team session</strong>
+          <p id="notice-copy">Keep this tab open while the challenge launch is verified.</p>
+        </div>
+      </section>
+
+      <section class="workspace" id="workspace" hidden>
+        <section class="target-panel" aria-labelledby="target-heading">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Canonical target</p>
+              <h2 id="target-heading">Your replay environment</h2>
+            </div>
+            <a class="button button-primary" href="/artifact/drift_vault.so" download>
+              Download SBF
+              <span aria-hidden="true">↓</span>
+            </a>
+          </div>
+
+          <dl class="target-grid">
+            <div class="target-wide">
+              <dt>Program ID</dt>
+              <dd id="program-id">—</dd>
+            </div>
+            <div class="target-wide">
+              <dt>Artifact SHA-256</dt>
+              <dd id="program-sha">—</dd>
+            </div>
+            <div>
+              <dt>Reserve</dt>
+              <dd id="reserve">—</dd>
+            </div>
+            <div>
+              <dt>Required net drain</dt>
+              <dd id="threshold">—</dd>
+            </div>
+            <div>
+              <dt>Starting balance</dt>
+              <dd id="starting-balance">—</dd>
+            </div>
+            <div>
+              <dt>Trace limit</dt>
+              <dd><span id="trace-limit">—</span> steps</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="submission-panel" aria-labelledby="submission-heading">
+          <div class="section-heading submission-heading">
+            <div>
+              <p class="section-label">Exact replay</p>
+              <h2 id="submission-heading">Test a trace</h2>
+            </div>
+            <p>Your trace always starts from a fresh copy of this target.</p>
+          </div>
+
+          <label class="editor-label" for="trace-input">Submission JSON</label>
+          <div class="editor-wrap">
+            <textarea
+              id="trace-input"
+              name="trace"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              aria-describedby="trace-help"
+            >{
+  "steps": []
+}</textarea>
+          </div>
+          <p class="editor-help" id="trace-help">
+            Integer values must use canonical decimal strings. Unknown fields and
+            unsupported operations are rejected.
+          </p>
+
+          <div class="action-row">
+            <button class="button button-secondary" id="replay-button" type="button">
+              <span data-button-label>Run unscored replay</span>
+            </button>
+            <button class="button button-primary" id="submit-button" type="button">
+              <span data-button-label>Submit scored trace</span>
+              <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="result-panel" id="result-panel" aria-labelledby="result-heading" hidden>
+          <div class="section-heading result-heading">
+            <div>
+              <p class="section-label" id="result-label">Replay output</p>
+              <h2 id="result-heading">Checker result</h2>
+            </div>
+            <span class="result-status" id="result-status">Complete</span>
+          </div>
+          <pre id="result-output" tabindex="0"></pre>
+        </section>
+      </section>
+
+      <footer>
+        <span>Exact execution: published ELF in LiteSVM</span>
+        <span>Client-reported balances are never trusted</span>
+      </footer>
+    </main>
+  </body>
+</html>

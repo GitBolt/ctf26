@@ -9,6 +9,7 @@ export const MAX_TTL_SECONDS = 10 * 60;
 
 const CLOCK_SKEW_SECONDS = 30;
 const ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export class ParticipantTicketError extends Error {
   constructor(code, message) {
@@ -38,6 +39,14 @@ function requireSecret(secret) {
     fail("invalid_secret", "ticket secret must contain at least 32 bytes");
   }
   return secret;
+}
+
+function requireEmail(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized.length > 254 || !EMAIL_PATTERN.test(normalized)) {
+    fail("invalid_claim", "email is invalid");
+  }
+  return normalized;
 }
 
 function requireTimestamp(value, field) {
@@ -113,10 +122,11 @@ export function issueParticipantTicket(claims, secret, options = {}) {
     iat: now,
     exp: now + ttlSeconds,
     jti: requireIdentifier(
-      options.jti || crypto.randomBytes(18).toString("base64url"),
+      options.jti || `jti_${crypto.randomBytes(18).toString("base64url")}`,
       "jti",
     ),
   };
+  if (claims.email) body.email = requireEmail(claims.email);
 
   const payload = encodeJson(body);
   const signature = signatureFor(payload, secret).toString("base64url");
@@ -173,6 +183,7 @@ export function verifyParticipantTicket(token, secret, options = {}) {
   requireIdentifier(body.participant_id, "participant_id");
   requireIdentifier(body.team_id, "team_id");
   requireIdentifier(body.jti, "jti");
+  if (body.email !== undefined) requireEmail(body.email);
   const issuedAt = requireTimestamp(body.iat, "iat");
   const expiresAt = requireTimestamp(body.exp, "exp");
 

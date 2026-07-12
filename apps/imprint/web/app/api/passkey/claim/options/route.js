@@ -1,7 +1,10 @@
 import { cookies } from "next/headers";
 import { generateAuthenticationOptions } from "@simplewebauthn/server";
 
-import { IMPRINT_SESSION_COOKIE, verifyChallengeSession } from "@/lib/challenge-session.mjs";
+import {
+  IMPRINT_SESSION_COOKIE,
+  verifyChallengeSession,
+} from "@/lib/challenge-session.mjs";
 import { credentialForTeam } from "@/lib/credential-roster.mjs";
 import { expectedWebAuthnRpID } from "@/lib/webauthn-config.mjs";
 
@@ -11,7 +14,9 @@ const CLAIM_CHALLENGE_COOKIE = "imprint_claim_challenge";
 export async function POST(request) {
   try {
     const jar = await cookies();
-    const session = verifyChallengeSession(jar.get(IMPRINT_SESSION_COOKIE)?.value);
+    const session = verifyChallengeSession(
+      jar.get(IMPRINT_SESSION_COOKIE)?.value
+    );
     const credential = credentialForTeam(session.teamId);
     const options = await generateAuthenticationOptions({
       rpID: expectedWebAuthnRpID(request),
@@ -33,7 +38,9 @@ export async function POST(request) {
     });
     return Response.json(options);
   } catch (error) {
-    return new Response(error.message || "security-key claim was denied", { status: 403 });
+    return new Response(error.message || "security-key claim was denied", {
+      status: 403,
+    });
   }
 }
 

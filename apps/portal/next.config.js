@@ -1,9 +1,12 @@
-const path = require("path");
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const directory = path.dirname(fileURLToPath(import.meta.url));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   turbopack: {
-    root: path.join(__dirname, "../.."),
+    root: path.join(directory, "../.."),
   },
   async headers() {
     return [
@@ -23,4 +26,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+export default nextConfig;

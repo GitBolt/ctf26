@@ -1,6 +1,6 @@
 # Challenge Spec — DRIFT (no-source RE + runtime/time exploit on a per-team localnet)
 
-Status: **DRAFT — Challenge candidate (4th / RE + runtime)** · Updated: 2026-07-09 · Codename: DRIFT
+Status: **FINALIZED FOR EVENT HOSTING — Challenge 4 of 4 (RE + runtime)** · Updated: 2026-07-11 · Codename: DRIFT
 
 **One line:** you get a per-team **local Solana network** and a **closed-source (bytecode-only) program**
 running on it. Reverse-engineer the program, realize it trusts the `Clock` sysvar for value-critical
@@ -269,30 +269,37 @@ exist and the "you own the clock" insight is fully expressible.
 
 ---
 
-## 10. Build plan (milestones)
+## 10. Final implementation
 
-1. **Program v1:** native vault (`deposit`/`accrue`/`withdraw`) with the clock-trusting unchecked accrual
-   + a correct-patch reference. Tests: normal accrual, forward-inflate, rewind-underflow drain.
-2. **Strip + verify:** apply §6 profile; run the `strings`/sol-azy leak gate; confirm no symbols/strings.
-3. **Harness:** `litesvm`/`bankrun` template that loads the `.so`, seeds a per-team vault, funds the
-   attacker, and lets the participant submit txs + control the clock.
-4. **Per-team gen:** randomize rate/reserve/threshold into seeded accounts; map team → target.
-5. **Checker:** deterministic replay of a submitted exploit against a canonical instance → HMAC flag.
-6. **Player kit:** exploit template, harness README, hint ladder, a short "reversing sBPF" primer link.
-7. **Playtest:** human beta + AI-assisted beta; confirm the `strings`/no-source gate holds and the time
-   insight is the real barrier; tune program size so RE is judgment not grind.
+The event implementation is under `apps/overclock/` (the directory name is retained for repository
+history; every player-facing name is DRIFT):
+
+1. **Native SBF:** non-Anchor `deposit`/`accrue`/`withdraw` program with the clock-trust flaw.
+2. **Artifact gate:** deterministic `cargo build-sbf`, SBF architecture check, forbidden-string scan,
+   stripped `player-kit/dist/drift_vault.so`, and SHA-256 manifest.
+3. **Exact checker:** LiteSVM loads the exact published ELF and seeds a deterministic per-team vault,
+   position, attacker, rate, reserve, threshold, and Clock.
+4. **Anti-degenerate invariant:** reserve drain, attacker profit, and net withdrawals must agree and
+   cross the threshold; gross volume and self-funding do not count.
+5. **Replay boundary:** only bounded canonical program operations and a declared Clock schedule are
+   representable; arbitrary account/program mutation is rejected.
+6. **Authenticated service:** portal-ticket team binding, HttpOnly sessions, body/trace limits,
+   replay/submit rate limits, concurrency cap, checker timeout, and server-only HMAC flags.
+7. **Player boundary:** stripped ELF, hash manifest, generic transport client, and brief only. No source,
+   IDL, model, checker, reference trace, or organizer hints enter the kit.
+8. **Hosting:** a multi-stage Dockerfile compiles the release checker and runs the unprivileged Node
+   service with health checks. Final portal URL wiring is deliberately deferred to slate integration.
 
 ---
 
-## 11. Open decisions (for review)
+## 11. Final decisions and remaining launch gate
 
-- **Bug emphasis:** lead with forward-inflate (simpler) or the rewind-underflow (cooler, needs
-  `litesvm`/`bankrun`)? Default: ship both vectors; intended solve is "you control the clock."
-- **Harness substrate:** `litesvm`/`bankrun` (recommended, arbitrary clock) vs `solana-test-validator`
-  (forward-only). 
-- **Randomization depth:** account-data only (simple) vs per-team compiled constant (more RE per team).
-- **Program size / difficulty:** how many instructions and how much noise around the bug — enough to make
-  RE non-trivial, not so much it's grind.
-- **Slate position:** 4th challenge, or does it replace one of the current three (it's the most
-  "classic CTF" of the set — RE/pwn — and the most distinct)?
-- **In-person gate:** rely on "defend your solve" for prize contention, or add a proctored final step.
+- Both forward inflation and rewind-underflow are valid; the core realization is environmental Clock
+  control.
+- LiteSVM is authoritative because exact arbitrary Clock replay is required.
+- Per-team randomization is account/config data; every team reverses the same artifact while exploit
+  constants and thresholds differ.
+- DRIFT occupies the fourth RE/runtime slot and remains distinct from the other challenges.
+- The only unresolved launch gate is measured playtesting: human-only, AI-assisted human, and fully
+  autonomous attempts. Tune hints or rate limits from evidence; do not redesign the bug without a
+  concrete playtest failure.

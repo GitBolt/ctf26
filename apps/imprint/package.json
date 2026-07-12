@@ -7,8 +7,8 @@
     "setup:target": "anchor run setup-target",
     "web:dev": "npm --prefix web run dev",
     "web:build": "npm --prefix web run build",
-    "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
-    "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
+    "lint:fix": "prettier \"scripts/**/*.js\" \"tests/**/*.js\" \"web/app/**/*.{js,css}\" \"web/lib/**/*.{js,mjs}\" \"web/test/**/*.{js,mjs}\" README.md -w",
+    "lint": "prettier \"scripts/**/*.js\" \"tests/**/*.js\" \"web/app/**/*.{js,css}\" \"web/lib/**/*.{js,mjs}\" \"web/test/**/*.{js,mjs}\" README.md --check"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",

@@ -2,10 +2,13 @@
   "name": "ctf-26-portal",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev -p 3001",
-    "build": "next build",
+    "build:packages": "node scripts/build-player-packages.mjs",
+    "build": "npm run build:packages && next build",
     "start": "next start -p 3001",
+    "pretest": "npm run build:packages",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {

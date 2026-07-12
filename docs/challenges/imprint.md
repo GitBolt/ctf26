@@ -1,6 +1,9 @@
 # Challenge Spec — IMPRINT (passkey-gated Solana exploit)
 
-Status: **WORKING BUILD v2 — Challenge 2 of 4 (platform-passkey auth)** · Updated: 2026-07-10 · Codename: IMPRINT
+Status: **COMPLETE / LOCKED — Challenge 2 of 4 (platform-passkey auth)** · Updated: 2026-07-11 · Codename: IMPRINT
+
+Do not redesign or reopen this challenge. Its remaining checklist is event operations only: final
+roster enrollment, target capacity funding, and clean-room human QA.
 
 **One line:** a real, deep Solana security bug in a **passkey-controlled smart vault** — where the
 winning exploit action **requires a live user-verifying passkey prompt (Face ID / Touch ID / Windows Hello)** that an
@@ -143,6 +146,21 @@ accepts only the exact organizer-seeded target address and net reserve loss, nev
 2. **White-box vs black-box** source (white-box is fine; black-box raises difficulty for elite cohort).
 3. Confirm the supported platform browsers, AAGUIDs (if allowlisted), and enrollment ceremony before launch.
 4. Whether to include a venue-local parameter for the high-value drain.
+
+## 9. Finalization note
+
+The fresh devnet instance, rostered platform-passkey gate, canonical target, server checker, and
+production deployment are complete. A non-state-changing breadcrumb transaction is attached to the
+canonical vault history:
+
+```text
+2eTzrCb8XmhpazExTPvvqTp6zzxHVd6vSbBpRDnM1LMYvpBD8AYSgCiTqcgP8pKNAbzeKznk7p8ev5t8ctu5C7sc
+```
+
+Its memo is intentionally indirect: “The vault listens to what comes immediately before it.” It is a
+discovery aid for explorers, not a required solve step. Remaining work is limited to final slate review
+and portal integration; do not redesign IMPRINT during that pass unless a playtest finds a concrete
+failure.
 
 ### Alternate bug variants for later cohorts
 

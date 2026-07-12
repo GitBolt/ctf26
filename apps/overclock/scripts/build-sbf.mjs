@@ -6,10 +6,11 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const buildDir = join(root, "native", "target", "deploy");
-const artifactName = "overclock_vault.so";
-const builtArtifact = join(buildDir, artifactName);
+const builtArtifactName = "overclock_vault.so";
+const playerArtifactName = "drift_vault.so";
+const builtArtifact = join(buildDir, builtArtifactName);
 const playerDist = join(root, "player-kit", "dist");
-const playerArtifact = join(playerDist, artifactName);
+const playerArtifact = join(playerDist, playerArtifactName);
 
 // Never leave a stale attachment behind after a failed build.
 await rm(playerDist, { recursive: true, force: true });
@@ -38,7 +39,7 @@ if (bytes[18] !== 0x07 || bytes[19] !== 0x01) {
 }
 const leaked = bytes
   .toString("latin1")
-  .match(/unix|timestamp|elapsed|interest|last_ts|reserve|vault|balance/i);
+  .match(/unix|timestamp|elapsed|interest|last_ts|reserve|vault|balance|clock/i);
 if (leaked) throw new Error(`SBF strings gate found forbidden challenge term: ${leaked[0]}`);
 
 // Publish only the stripped ELF. cargo-build-sbf also emits a deployment keypair; that organizer
@@ -47,4 +48,4 @@ await mkdir(playerDist, { recursive: true });
 await copyFile(builtArtifact, playerArtifact);
 
 const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
-console.log(`wrote player-kit/dist/${artifactName} (${bytes.length} bytes, sha256 ${sha256})`);
+console.log(`wrote player-kit/dist/${playerArtifactName} (${bytes.length} bytes, sha256 ${sha256})`);

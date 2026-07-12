@@ -27,10 +27,15 @@ export function compressedP256FromCOSE(cosePublicKey) {
   }
   const x = point.slice(1, 33);
   const y = point.slice(33, 65);
-  return Buffer.concat([Buffer.from([y[31] & 1 ? 0x03 : 0x02]), Buffer.from(x)]);
+  return Buffer.concat([
+    Buffer.from([y[31] & 1 ? 0x03 : 0x02]),
+    Buffer.from(x),
+  ]);
 }
 
-export function parseCredentialRoster(raw = process.env.IMPRINT_CREDENTIAL_ROSTER_JSON) {
+export function parseCredentialRoster(
+  raw = process.env.IMPRINT_CREDENTIAL_ROSTER_JSON
+) {
   if (!raw) {
     throw new Error("IMPRINT_CREDENTIAL_ROSTER_JSON is required");
   }
@@ -41,7 +46,9 @@ export function parseCredentialRoster(raw = process.env.IMPRINT_CREDENTIAL_ROSTE
     throw new Error("IMPRINT_CREDENTIAL_ROSTER_JSON must be valid JSON");
   }
   if (!Array.isArray(entries) || entries.length === 0) {
-    throw new Error("IMPRINT_CREDENTIAL_ROSTER_JSON must contain at least one credential");
+    throw new Error(
+      "IMPRINT_CREDENTIAL_ROSTER_JSON must contain at least one credential"
+    );
   }
 
   const teams = new Set();
@@ -51,38 +58,54 @@ export function parseCredentialRoster(raw = process.env.IMPRINT_CREDENTIAL_ROSTE
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
       throw new Error(`credential roster entry ${index} must be an object`);
     }
-    const teamId = requireText(entry.teamId, `credential roster entry ${index}.teamId`);
+    const teamId = requireText(
+      entry.teamId,
+      `credential roster entry ${index}.teamId`
+    );
     if (!TEAM_ID_PATTERN.test(teamId) || teams.has(teamId)) {
-      throw new Error(`credential roster entry ${index}.teamId is invalid or duplicated`);
+      throw new Error(
+        `credential roster entry ${index}.teamId is invalid or duplicated`
+      );
     }
     teams.add(teamId);
 
     const credentialId = requireText(
       entry.credentialId,
-      `credential roster entry ${index}.credentialId`,
+      `credential roster entry ${index}.credentialId`
     );
-    if (!BASE64URL_PATTERN.test(credentialId) || credentialIds.has(credentialId)) {
-      throw new Error(`credential roster entry ${index}.credentialId is invalid or duplicated`);
+    if (
+      !BASE64URL_PATTERN.test(credentialId) ||
+      credentialIds.has(credentialId)
+    ) {
+      throw new Error(
+        `credential roster entry ${index}.credentialId is invalid or duplicated`
+      );
     }
     credentialIds.add(credentialId);
 
     const cosePublicKey = parseBase64url(
       entry.credentialPublicKeyCoseBase64,
-      `credential roster entry ${index}.credentialPublicKeyCoseBase64`,
+      `credential roster entry ${index}.credentialPublicKeyCoseBase64`
     );
     const passkeyPubkey = compressedP256FromCOSE(cosePublicKey);
     if (passkeyPubkey.length !== P256_COMPRESSED_POINT_SIZE) {
-      throw new Error(`credential roster entry ${index} has an invalid P-256 key`);
+      throw new Error(
+        `credential roster entry ${index} has an invalid P-256 key`
+      );
     }
     const publicKeyHex = passkeyPubkey.toString("hex");
     if (passkeyPubkeys.has(publicKeyHex)) {
-      throw new Error(`credential roster entry ${index} reuses a passkey public key`);
+      throw new Error(
+        `credential roster entry ${index} reuses a passkey public key`
+      );
     }
     passkeyPubkeys.add(publicKeyHex);
 
     const counter = entry.counter ?? 0;
     if (!Number.isSafeInteger(counter) || counter < 0) {
-      throw new Error(`credential roster entry ${index}.counter must be a non-negative integer`);
+      throw new Error(
+        `credential roster entry ${index}.counter must be a non-negative integer`
+      );
     }
     const transports = Array.isArray(entry.transports)
       ? entry.transports.filter((value) => typeof value === "string")
@@ -99,9 +122,9 @@ export function parseCredentialRoster(raw = process.env.IMPRINT_CREDENTIAL_ROSTE
 }
 
 export function credentialForTeam(teamId, env = process.env) {
-  const credential = parseCredentialRoster(env.IMPRINT_CREDENTIAL_ROSTER_JSON).find(
-    (entry) => entry.teamId === teamId,
-  );
+  const credential = parseCredentialRoster(
+    env.IMPRINT_CREDENTIAL_ROSTER_JSON
+  ).find((entry) => entry.teamId === teamId);
   if (!credential) {
     throw new Error("no event-issued security key is assigned to this team");
   }

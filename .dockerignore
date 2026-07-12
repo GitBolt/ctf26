@@ -1,0 +1,15 @@
+.git
+.DS_Store
+.vscode
+**/.next
+**/.vercel
+**/node_modules
+**/target
+**/.anchor
+**/.keys
+**/test-ledger
+**/*-keypair.json
+**/.env
+**/.env.*
+!**/.env.example
+**/*.rs.bk

@@ -27,6 +27,20 @@ Never market a challenge as "anti-AI" or "human-only." Claim only: *an autonomou
 the loop; AI-assisted, human-driven play can.* And **prove it by playtest** (all-human vs AI-assisted vs
 all-autonomous-agent; the leaderboard split is the evidence).
 
+### The complete event-integrity model
+
+Challenge design alone cannot protect a live competition. The program has three coordinated pillars:
+
+1. **Prevent:** make autonomous completion expensive or structurally incomplete.
+2. **Detect:** retain privacy-bounded, explainable evidence that identifies solves needing review.
+3. **Adjudicate and operate:** publish precise rules, staff reviews, test technical understanding,
+   preserve evidence, apply consistent sanctions, and provide appeals.
+
+Do not collapse these into one mechanism. A passkey can prevent autonomous completion but does not
+detect agent use elsewhere. A canary is a lead, not proof. A fast solve may be brilliant. Enforcement
+is a documented decision over corroborating evidence, not an automatic classifier. The operational
+system is specified in `10-event-integrity-enforcement.md`.
+
 ---
 
 ## 2. The key model: two layers
@@ -124,6 +138,13 @@ loop *structurally* incompletable. Technical gates + proctoring together, not ei
    vault"), never the *method* ("read the PR history" / "you control the clock"). Signposting converts an
    agent's intent-gap into a to-do list it can execute. Learner orientation goes through a **paid hint
    ladder**, not the default framing.
+8. **Instrument for review, not surveillance theater.** Record team-bound launches, hints, submissions,
+   checker outcomes, and safe canary events. Define access and retention before the event; never collect
+   secrets or invasive device data.
+9. **No single heuristic proves agent use.** Timing, prose style, user agents, canary hits, and plausible
+   wrong flags are review triggers. Corroborate them and allow a technical solve defense and appeal.
+10. **Design adjudication before launch.** Every challenge needs an expected human workflow, known
+    alternate paths, author-owned defense questions, a safe reproduction variant, and a reviewer.
 
 ---
 

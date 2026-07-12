@@ -6,9 +6,12 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-quarry_vault = "GYoRyyds3mQP2DKf2QLARgU6io8Fs6vYN4iGDJAsbk9b"
-quarry_vault_fixed = "52EPhyEqX4v6k3X5cYAun72uNhQLcpgRfBF59MGTLH1W"
-attacker_strategy = "HFvQEna9LSuPd2pNp1psDw1PT12h6bPnCRKsLzD3KTzS"
+attacker_strategy = "BAnD14nexs2Cpb7ZRbvpFCfWZ114641FkwxH5CPxxznZ"
+quarry_vault = "9xN3K7QfVtkUhFUgVawMuNvWPePvfrmnDmBGDxpo3grD"
+quarry_vault_fixed = "HzXXcU1Jvy2c8twFMAwjCKbX3A43sbLwCbYKaTk47KPE"
+
+[registry]
+url = "https://api.apr.dev"
 
 [provider]
 cluster = "localnet"
@@ -16,4 +19,3 @@ wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "npx mocha -t 1000000 tests/"
-

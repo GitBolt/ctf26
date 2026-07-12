@@ -10,11 +10,41 @@ import {
 test("challenge catalog has unique, launch-safe keys", () => {
   assert.equal(CHALLENGES.length, 4);
   assert.equal(new Set(CHALLENGES.map(({ key }) => key)).size, CHALLENGES.length);
+  assert.equal(
+    new Set(CHALLENGES.map(({ audience }) => audience)).size,
+    CHALLENGES.length,
+  );
   for (const challenge of CHALLENGES) {
     assert.match(challenge.key, /^[a-z0-9-]+$/);
+    assert.match(challenge.audience, /^[a-z0-9-]+$/);
     assert.equal(challengeByKey(challenge.key), challenge);
+    assert.ok(challenge.starts.length >= 1);
+    for (const start of challenge.starts) {
+      assert.ok(["launch", "download", "instructions", "physical"].includes(start.kind));
+      assert.equal(typeof start.label, "string");
+      if (start.kind !== "launch") assert.equal(typeof start.href, "string");
+    }
   }
   assert.equal(challengeByKey("not-a-challenge"), null);
+});
+
+test("Reward Sniper treats the briefing package and timed market as separate first-class starts", () => {
+  const reward = challengeByKey("reward-sniper");
+  assert.deepEqual(reward.starts.map(({ kind }) => kind), ["download", "launch"]);
+  assert.equal(reward.starts[0].href, "/packages/reward-sniper-player.zip");
+  assert.equal(reward.starts[1].label, "Open live market");
+});
+
+test("route slugs and signed ticket audiences stay intentionally distinct", () => {
+  assert.deepEqual(
+    Object.fromEntries(CHALLENGES.map(({ key, audience }) => [key, audience])),
+    {
+      "reward-sniper": "reward-sniper",
+      imprint: "imprint",
+      "silent-patch": "signet",
+      overclock: "overclock",
+    },
+  );
 });
 
 test("hosted destinations are ticketed and URL credentials are rejected", () => {

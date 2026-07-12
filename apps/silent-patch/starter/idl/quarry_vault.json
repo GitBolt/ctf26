@@ -1,0 +1,25 @@
+{
+  "address": "9xN3K7QfVtkUhFUgVawMuNvWPePvfrmnDmBGDxpo3grD",
+  "metadata": {
+    "name": "quarry_vault",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
+  "instructions": [
+    {
+      "name": "execute_strategy",
+      "discriminator": [164, 197, 251, 183, 219, 177, 85, 161],
+      "accounts": [
+        { "name": "vault" },
+        { "name": "vault_authority" },
+        { "name": "reserve", "writable": true },
+        { "name": "destination", "writable": true },
+        { "name": "strategy_program" },
+        { "name": "token_program", "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" }
+      ],
+      "args": [
+        { "name": "amount", "type": "u64" }
+      ]
+    }
+  ]
+}

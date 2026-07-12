@@ -23,7 +23,7 @@ const U16_MAX = 0xffff;
 const TEST_RP_ID = "localhost";
 const TEST_RP_ID_HASH = Buffer.from(sha256(Buffer.from(TEST_RP_ID)));
 const EVENT_REGISTRAR = Keypair.fromSecretKey(
-  Uint8Array.from(require("../.keys/imprint-registrar-v2.json")),
+  Uint8Array.from(require("../.keys/imprint-registrar-v2.json"))
 );
 
 function writeU16LE(buf, offset, value) {
@@ -508,6 +508,24 @@ describe("imprint", () => {
 
     await expectReject(
       provider.sendAndConfirm(new Transaction().add(ix), []),
+      "InvalidSecp256r1Instruction"
+    );
+  });
+
+  it("requires the secp256r1 verification to immediately precede the withdrawal", async () => {
+    const setup = await setupCase();
+    const assertion = validAssertion(setup);
+    const ix = await withdrawIx({ setup, assertion, index: 0 });
+
+    await expectReject(
+      provider.sendAndConfirm(
+        new Transaction().add(
+          validPrecompile(setup, assertion),
+          validPrecompile(setup, assertion),
+          ix
+        ),
+        []
+      ),
       "InvalidSecp256r1Instruction"
     );
   });

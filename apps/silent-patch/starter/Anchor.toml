@@ -1,0 +1,13 @@
+[toolchain]
+package_manager = "npm"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.devnet]
+player_strategy = "Fg6PaFpoGXkYsidMpWxqSWYqGiZDFpcckZ5TF5YF9eG3"
+
+[provider]
+cluster = "devnet"
+wallet = "./team-wallet-keypair.json"

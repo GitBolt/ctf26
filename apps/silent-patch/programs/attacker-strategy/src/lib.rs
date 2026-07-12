@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
-declare_id!("HFvQEna9LSuPd2pNp1psDw1PT12h6bPnCRKsLzD3KTzS");
+declare_id!("BAnD14nexs2Cpb7ZRbvpFCfWZ114641FkwxH5CPxxznZ");
 
 #[program]
 pub mod attacker_strategy {

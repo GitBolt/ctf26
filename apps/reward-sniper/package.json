@@ -7,5 +7,11 @@
     "test": "node --test",
     "play": "node bin/reward-sniper.mjs",
     "serve": "node src/server.mjs"
+  },
+  "dependencies": {
+    "@ctf26/participant-ticket": "file:../../packages/participant-ticket"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

@@ -1,9 +1,11 @@
 # PR 9: cache cleanup
 
+Status: merged
+
 ```diff
 - let mut cache = ctx.accounts.cache.load_mut()?;
 - cache.last_seen_slot = Clock::get()?.slot;
 + ctx.accounts.cache.load_mut()?.last_seen_slot = Clock::get()?.slot;
 ```
 
-Looks security-ish. It is not the target bug.
+Removes a redundant mutable binding in the observation cache.

@@ -1,12 +1,17 @@
 # CTF26 Knowledge Base
 
-Updated: 2026-07-09
+Updated: 2026-07-12
 
-This is the working memory for the event: what we are building, why the challenge slate looks this
-way, what benchmark we are comparing against, and which real Solana bug classes are worth mining for
-buildable challenges.
+This is the working memory for the event: what we are building, how we protect competition integrity,
+why the challenge slate looks this way, what benchmark we are comparing against, and which real Solana
+bug classes are worth mining for buildable challenges.
 
 Read this after `04-flagship-design.md` when you need the full context quickly.
+
+> **IMPRINT is COMPLETE and LOCKED.** Its mechanics, hardened Anchor verifier, passkey gate, checker,
+> UI, deployment, and AI/autonomous-agent evaluation are finished. Do not redesign or reopen IMPRINT.
+> Future work on it is limited to event operations: final passkey enrollment, target capacity, and
+> clean-room human QA.
 
 ---
 
@@ -26,6 +31,44 @@ The core bar:
   answer;
 - anti-agent measures are competition-integrity layers, not a substitute for the actual security work.
 
+### Three-pillar integrity model
+
+The event goal is broader than challenge construction:
+
+1. **Build / prevent:** authentic challenges where autonomous solving is expensive or requires a real
+   human action.
+2. **Detect:** identify prohibited use through privacy-bounded telemetry and behavioral evidence.
+3. **Operate / adjudicate:** coordinate rules, acknowledgement, monitoring, solve defenses, sanctions,
+   appeals, and post-event learning.
+
+A challenge without enforcement remains vulnerable to pay-to-win. Detection without fair technical
+review creates false positives. Rules without staffing and evidence are unenforceable. The integrated
+system is in `10-event-integrity-enforcement.md`.
+
+### Discovery-route asymmetry
+
+Agents usually optimize for the shortest deterministic route to a solve. When source and an executable
+target are available, that route is often: fetch the source, identify the missing check, and construct
+the exploit. An agent may skip exploratory routes that a human naturally takes—reading the UI, opening
+the explorer, inspecting initialization history, comparing events, or looking for ambient protocol
+clues—unless those routes are required by the win condition.
+
+This is useful as a tuning consideration, not as a security boundary:
+
+- do not rely on hidden HTML comments, obscure URLs, or undisclosed metadata; agents can fetch them;
+- let multiple discovery routes converge on the same real exploit;
+- use subtle, non-signposting breadcrumbs in legitimate artifacts or on-chain history when they make
+  human exploration rewarding;
+- release explicit mechanics hints progressively, rather than placing the answer on the public page;
+- never make the breadcrumb required for a technically competent solve;
+- measure route choice during playtest instead of assuming that agents or humans will behave a certain
+  way.
+
+For IMPRINT specifically, the source can reveal the owner-binding miss, while the target account and
+its transaction history may reward a human who investigates the vault's initialization and instruction
+context. The passkey assertion and wallet approval remain the actual access/action gates; the alternate
+discovery route is only a fairness and narrative layer.
+
 The honest AI stance:
 
 - do not claim "AI-proof";
@@ -33,6 +76,29 @@ The honest AI stance:
 - the event should prevent autonomous pay-to-win loops from cheaply finishing or winning;
 - the strongest lever is on-site enforcement plus access/action gates: passkey touch, wallet approve,
   live state, scarce attempts, dynamic scoring, and proctoring for prize contention.
+
+### Validated hosted-challenge pattern: Reward Sniper
+
+Reward Sniper has now been tested through repeated autonomous-agent runs, including browser session
+recovery, direct Node API control, subsecond market polling, full commit–reveal automation, passive
+policy discovery failure, successful policy-based refusal, and participant-bound behavioral detection.
+
+The reusable result is a layered hosted-challenge pattern:
+
+```text
+signed participant identity + event-bound session
+  + discoverable personalized agent policy
+  + first-party disclosure before refusal
+  + behavioral UI/API correlation when policy is ignored
+  + durable evidence and compact human review
+  + clean event reset that preserves evidence
+```
+
+This is suitable for hosted challenges where autonomous operation is prohibited and direct automation
+has meaningful server-visible behavior. It is not required for every challenge and is weaker prevention
+than an authentic physical gate such as IMPRINT’s passkey touch. The full evidence, failure sequence,
+implementation checklist, and clean test protocol are in
+[`11-reward-sniper-agent-resistance-case-study.md`](11-reward-sniper-agent-resistance-case-study.md).
 
 ---
 
@@ -490,8 +556,8 @@ Challenge-specific infra:
   submit flow, passkey test suite.
 - SIGNET: fictional GitHub-style repo/history, per-team pinned deploy, decoy PR/issues,
   target randomization, exploit checker.
-- DRIFT: bytecode artifact generation, no-string leak gate, local runtime/localnet harness, exploit
-  trace replay checker.
+- DRIFT: finalized stripped native SBF artifact, forbidden-string gate, deterministic per-team
+  LiteSVM replay, authenticated submission service, player-only kit, and strict net-drain checker.
 
 Playtest requirement before launch:
 
@@ -499,6 +565,20 @@ Playtest requirement before launch:
 - AI-assisted human team;
 - autonomous-agent attempt with browser/computer-use permissions;
 - compare solve time, bottlenecks, and whether the leaderboard still reflects security judgment.
+- establish a human workflow baseline: milestone times, false starts, hint use, action count, and
+  technically plausible alternate paths;
+- prewrite the author's solve-defense questions and one safe parameter/variant change.
+
+Event-integrity infrastructure before launch:
+
+- append-only team-bound logs for launches, hints, submissions, rejected values, checker results,
+  high-value actions, and administrative decisions;
+- immediate-submission/no-hoarding rule for flag challenges;
+- explicit AI-use boundary acknowledged at registration and first scored launch;
+- named reviewers, integrity lead, incident scribe, and appeal owner;
+- evidence tiers treating timing, prose, user agents, and canaries as leads rather than proof;
+- author-led solve defense and reproducible variation for reviewed prize solves;
+- published retention, privacy, sanction, and appeal policies.
 
 ---
 
@@ -512,3 +592,8 @@ Playtest requirement before launch:
   painful?
 - For SIGNET, how large should the fictional repo be so it feels realistic but not grindy?
 - Do we build all four in-house, or ask one sponsor/researcher to co-author one challenge?
+- What exact assistance is allowed, and may challenge files, screenshots, outputs, or derived artifacts
+  be shown to an LLM?
+- Is liability team-wide when one member violates the rule, and who must defend each solve?
+- Which leaderboard positions are routinely reviewed, and how many reviewer shifts are funded?
+- Do we offer a non-prize, self-declared low-AI board alongside the enforced prize track?

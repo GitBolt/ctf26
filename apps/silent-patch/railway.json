@@ -1,0 +1,17 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "apps/silent-patch/Dockerfile.railway",
+    "watchPatterns": [
+      "apps/silent-patch/**",
+      "packages/participant-ticket/**"
+    ]
+  },
+  "deploy": {
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 120,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+}

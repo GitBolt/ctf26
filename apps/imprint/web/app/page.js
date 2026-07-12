@@ -255,7 +255,14 @@ export default function Home() {
 
   useEffect(() => {
     const ticket = new URLSearchParams(window.location.search).get("ticket");
-    const request = ticket
+    const testTeam = new URLSearchParams(window.location.search).get("test_team");
+    const request = testTeam
+      ? fetch("/api/session", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ directTest: true, teamId: testTeam }),
+        })
+      : ticket
       ? fetch("/api/session", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -265,7 +272,8 @@ export default function Home() {
     request
       .then(async (response) => {
         if (!response.ok) throw new Error(await response.text());
-        if (ticket) window.history.replaceState({}, "", window.location.pathname);
+        if (ticket || testTeam)
+          window.history.replaceState({}, "", window.location.pathname);
         setAccessState("ready");
       })
       .catch((error) => {

@@ -1,4 +1,7 @@
-.anchor/
+.keys/
+*-keypair.json
 target/
+.anchor/
 node_modules/
-
+public/signet-starter.tar.gz
+.DS_Store

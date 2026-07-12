@@ -1,6 +1,6 @@
 # Challenge Spec — Reward Sniper (DLMM-style, Meteora sponsor candidate)
 
-Status: **FINAL — Challenge 1 of 4 (dynamic DeFi) / Meteora sponsor candidate** · Updated: 2026-07-08
+Status: **FINAL — Challenge 1 of 4 (dynamic DeFi) / Meteora sponsor candidate** · Updated: 2026-07-12
 
 > **Identity in the 4-challenge slate (`04`, `00`):** the **dynamic DeFi / KOTH** challenge. The core
 > player task is simple: understand a DLMM-style reward-accounting flaw, then write searcher logic that
@@ -9,6 +9,13 @@ Status: **FINAL — Challenge 1 of 4 (dynamic DeFi) / Meteora sponsor candidate*
 > Source-first discovery is out of v1 (`§6`), so the live solve is **black-box behavioral**, not
 > white-box. Real-CTF lineage: DEF CON attack/defense + Dev Cave-style dynamic KOTH + live DeFi
 > searcher games + `minions-in-16k`-style granular scoring.
+
+> **Validated integrity implementation:** repeated live agent tests produced the event’s reusable hosted
+> challenge pattern: signed participant identity, event-bound sessions, discoverable personalized policy,
+> first-party disclosure, independent UI/API behavioral correlation, durable organizer evidence, and safe
+> reset/archive operations. This is documented separately in
+> [`../11-reward-sniper-agent-resistance-case-study.md`](../11-reward-sniper-agent-resistance-case-study.md)
+> so the security/game spec does not become an anti-cheat implementation manual.
 
 A live, relatively-scored, Solana-native challenge. Teams compete as **searchers/liquidators** in a
 purpose-built **DLMM-style liquidity-mining market** on a private validator. The core is a real

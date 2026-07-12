@@ -6,7 +6,7 @@ const STATE_COOKIE = "ctf26_oauth_state";
 const TICKET_SECRET_ENV = Object.freeze({
   "reward-sniper": "CHALLENGE_TICKET_SECRET_REWARD_SNIPER",
   imprint: "CHALLENGE_TICKET_SECRET_IMPRINT",
-  "silent-patch": "CHALLENGE_TICKET_SECRET_SILENT_PATCH",
+  signet: "CHALLENGE_TICKET_SECRET_SILENT_PATCH",
   overclock: "CHALLENGE_TICKET_SECRET_OVERCLOCK",
 });
 
@@ -99,6 +99,7 @@ export function createChallengeTicket(user, audience) {
       eventId: "ctf26",
       participantId: user.participant_id,
       teamId: user.team_id || user.participant_id,
+      email: user.email,
     },
     secret(secretEnv),
   );

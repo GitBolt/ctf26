@@ -129,7 +129,7 @@ fn scored_checker_requires_a_real_solve_and_a_server_secret() {
     let solved = submission(team_id, reference_rewind_steps(team_id));
     let output = check_submission(default_program_path(), &solved, &[0x5a; 32]).unwrap();
     assert!(output.ok);
-    assert!(output.flag.starts_with("CTF26{overclock_"));
+    assert!(output.flag.starts_with("CTF26{drift_"));
 
     let unsolved = submission("native-unsolved", vec![Step::Accrue]);
     assert!(check_submission(default_program_path(), &unsolved, &[0x5a; 32]).is_err());

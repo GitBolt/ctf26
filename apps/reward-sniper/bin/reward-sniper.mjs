@@ -16,8 +16,8 @@ import {
 
 const command = process.argv[2] || "demo";
 const market = createMarket("cli-round");
-registerTeam(market, "team-a", "delayed-bin-touch");
-registerTeam(market, "team-b", "noisy-reward-rate");
+registerTeam(market, "team-a");
+registerTeam(market, "team-b");
 
 if (command === "inspect") {
   console.log(JSON.stringify(inspectMarket(market, "team-a"), null, 2));

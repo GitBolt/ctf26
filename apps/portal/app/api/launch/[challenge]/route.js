@@ -58,11 +58,11 @@ export async function GET(request, { params }) {
 
   let ticket;
   try {
-    ticket = createChallengeTicket(user, challenge.key);
+    ticket = createChallengeTicket(user, challenge.audience);
   } catch {
     return noStore(
       NextResponse.json(
-        { error: "challenge ticket signing is not configured" },
+        { error: "challenge launch is not configured" },
         { status: 503 },
       ),
     );

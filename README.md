@@ -14,7 +14,7 @@ ctf-26/
     ├── reward-sniper/        # DLMM-style market/KOTH simulator + checker
     ├── imprint/              # Anchor passkey vault challenge + web console
     ├── silent-patch/         # stale-deployment archaeology pack + checker
-    ├── overclock/            # bytecode/localnet runtime harness + checker
+    ├── overclock/            # DRIFT native SBF RE challenge + exact replay service
     ├── portal/               # central registration portal (Next.js)
     └── settlement-room-73/   # older memo-forensics prototype kept as reference
 ```
@@ -24,6 +24,8 @@ ctf-26/
 - **Design & direction:** [`docs/`](docs/) — read [`docs/README.md`](docs/README.md) first.
   Current flagship design: [`docs/04-flagship-design.md`](docs/04-flagship-design.md).
 - **Consolidated working memory:** [`docs/06-knowledge-base.md`](docs/06-knowledge-base.md).
+- **Current internal staging status:** [`docs/08-staging-runbook.md`](docs/08-staging-runbook.md).
+- **Clean-room human/AI launch gate:** [`docs/09-clean-room-playtest.md`](docs/09-clean-room-playtest.md).
 - **Sponsorship status & message archive:** [`docs/05-sponsorship.md`](docs/05-sponsorship.md).
 
 ## Running the apps
@@ -62,8 +64,9 @@ npm run play -- demo-exploit
 ```bash
 cd apps/overclock
 npm test
-npm run play -- target
-npm run play -- demo-exploit
+npm run target -- team-local
+npm run demo -- team-local       # organizer-only reference
+npm run serve                    # authenticated event service on :3020
 ```
 
 ### Portal
@@ -102,9 +105,12 @@ check:packaging` rejects catalog drift and common secret/answer/solver files.
 
 ## Deploy note
 
-The web surfaces deploy as separate projects where needed. Set each Vercel project's **Root
-Directory** to the relevant app, for example `apps/portal` or `apps/imprint/web`. CLI/localnet
-challenges (`silent-patch`, `overclock`) are currently local kits with deterministic checkers.
+The portal and IMPRINT web console deploy as separate Vercel projects rooted at `apps/portal` and
+`apps/imprint/web`. Reward Sniper, SIGNET, and DRIFT run as long-lived Railway services; the shared
+Redis instance provides atomic replay/rate-limit state for SIGNET and DRIFT, while Reward Sniper uses
+one persistent Railway volume and exactly one writer replica. See
+[`docs/08-staging-runbook.md`](docs/08-staging-runbook.md) for live URLs, verified proofs, and the
+manual gates that remain before an event release.
 
 ## Challenge design notes (Settlement Room 73)
 

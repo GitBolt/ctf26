@@ -10,7 +10,7 @@ use {
     solana_instruction::{Instruction, account_meta::AccountMeta},
     solana_keypair::Keypair,
     solana_message::Message,
-    solana_sdk_ids::system_program,
+    solana_sdk_ids::{system_program, sysvar::clock as clock_sysvar},
     solana_signer::Signer,
     solana_transaction::Transaction,
     std::{
@@ -271,7 +271,7 @@ impl ReplayHarness {
             program_sha256: self.program_sha256.clone(),
             execution: "litesvm-exact-sbf",
             exact_replay_ready: true,
-            production_ready: false,
+            production_ready: true,
             rate: self.config.rate.to_string(),
             reserve: self.config.reserve.to_string(),
             threshold: self.config.threshold.to_string(),
@@ -289,6 +289,7 @@ impl ReplayHarness {
                 AccountMeta::new(self.attacker.pubkey(), true),
                 AccountMeta::new(self.vault, false),
                 AccountMeta::new(self.position, false),
+                AccountMeta::new_readonly(clock_sysvar::id(), false),
                 AccountMeta::new_readonly(system_program::id(), false),
             ],
             data,
@@ -299,7 +300,10 @@ impl ReplayHarness {
     fn send_accrue(&mut self) -> Result<()> {
         let instruction = Instruction {
             program_id: self.program_id,
-            accounts: vec![AccountMeta::new(self.position, false)],
+            accounts: vec![
+                AccountMeta::new(self.position, false),
+                AccountMeta::new_readonly(clock_sysvar::id(), false),
+            ],
             data: vec![1],
         };
         self.send(instruction, false)
@@ -408,7 +412,7 @@ impl ReplayHarness {
 }
 
 pub fn default_program_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../player-kit/dist/overclock_vault.so")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../player-kit/dist/drift_vault.so")
 }
 
 pub fn parse_submission(bytes: &[u8]) -> Result<Submission> {
@@ -587,7 +591,7 @@ fn flag_for(team_id: &str, result: &ReplayResult, secret: &[u8]) -> Result<Strin
     mac.update(b"\0");
     mac.update(result.reserve_drain.as_bytes());
     let digest = mac.finalize().into_bytes();
-    Ok(format!("CTF26{{overclock_{}}}", hex(&digest[..12])))
+    Ok(format!("CTF26{{drift_{}}}", hex(&digest[..12])))
 }
 
 fn hex(bytes: &[u8]) -> String {
