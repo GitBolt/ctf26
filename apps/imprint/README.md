@@ -1,5 +1,10 @@
 # IMPRINT v2 — operator runbook
 
+Current state: implementation and local validation are complete. The canonical devnet program and
+target are live, while the verifier hardening in this working tree still requires one program upgrade
+before the updated web checker is deployed. The production credential roster also remains an organizer
+ceremony for the final participant list.
+
 IMPRINT is a passkey-gated Solana vault challenge. Its intended on-chain vulnerability remains the
 missing binding between a vault's stored P-256 key and the supplied registered key during withdrawal.
 The event boundary is intentionally outside that bug: only an organizer-enrolled platform passkey can
@@ -23,6 +28,24 @@ does not possess the event-issued hardware key or its user-presence action.
   claimed passkey-owner wallet.
 
 The old deployed program, target, and registrations are unsafe. Do not reuse any of them for v2.
+
+## Canonical v2 devnet state
+
+These identifiers were verified against devnet on 2026-07-11:
+
+```text
+program                 5EgXikx8uaGDDRdLdxzoLsDafSruHZnNnstE7bd8wH6B
+upgrade authority       DWtP6GyDdye8hcpogEiAaGN2mJAVdvZV8TmsjFy9Mr4
+registrar               AdtCf3S1zEHZ14js7G7vqN5EDatSGC9SxSTDotJBEvJF
+canonical target vault  7p4iZ7pbm8zZf9y6g9b4GkEmD4QvGR4qLMefbgJAUjQe
+target vault id         target-vault-001
+initial target balance  501572960 lamports
+required transaction drain  500000000 lamports
+```
+
+The target account is owned by the canonical program, has nonce `0`, and holds the expected seeded
+balance. Do not substitute the older `7rCC…` program or `4VXG…` target still found in historical local
+configuration.
 
 ## Layout
 
@@ -82,20 +105,68 @@ web/app/enroll/          organizer-only, pre-event roster enrollment screen
    anchor deploy --provider.cluster devnet
    ```
 
-5. Seed one fresh canonical target. The seeding script prints both the public target address and the
-   exact checker-balance values.
+   For the existing canonical v2 program, use the explicit upgrade path below instead of creating a
+   third program identity. The checked-in `.keys/imprint-operator-v2.json` must resolve to
+   `DWtP6…`, and it must have enough devnet SOL to fund the temporary program buffer (about 2 SOL at
+   the current binary size) plus fees. The CLI automatically extends the program-data account because
+   the hardened binary is larger than its current allocation.
+
+   ```bash
+   cd apps/imprint
+   npm run build
+
+   test "$(solana address -k .keys/imprint-operator-v2.json)" = \
+     "DWtP6GyDdye8hcpogEiAaGN2mJAVdvZV8TmsjFy9Mr4"
+
+   solana program deploy target/deploy/imprint.so \
+     --program-id 5EgXikx8uaGDDRdLdxzoLsDafSruHZnNnstE7bd8wH6B \
+     --upgrade-authority .keys/imprint-operator-v2.json \
+     --fee-payer .keys/imprint-operator-v2.json \
+     --url devnet \
+     --commitment confirmed \
+     --use-rpc
+   ```
+
+   After upgrading, run
+   `solana program show 5EgXikx8uaGDDRdLdxzoLsDafSruHZnNnstE7bd8wH6B -u devnet` and confirm its
+   authority is still `DWtP6GyDdye8hcpogEiAaGN2mJAVdvZV8TmsjFy9Mr4`. The account layouts and
+   instruction arguments did not change, so the canonical target and existing rostered passkey
+   accounts require no migration.
+
+5. Seed one canonical target with enough reserve for every intended full solve. All teams share this
+   address, so capacity must be provisioned explicitly: `SOLVE_CAPACITY × MINIMUM_DRAIN_SOL`. The
+   script prints both the public target address and exact checker values.
 
    ```bash
    cd apps/imprint
    ANCHOR_PROVIDER_URL="<devnet-rpc>" \
    ANCHOR_WALLET=".keys/imprint-operator-v2.json" \
-   INITIAL_SOL=0.5 \
+   MINIMUM_DRAIN_SOL=0.5 \
+   SOLVE_CAPACITY=<maximum-full-solves> \
    node scripts/setup-target.js
    ```
 
-   Preserve the printed `IMPRINT_INITIAL_TARGET_LAMPORTS`; it includes the account's actual balance.
-   `IMPRINT_MINIMUM_DRAIN_LAMPORTS` should normally be the prize deposit printed by the script, not
-   gross transaction volume.
+   To replenish the existing canonical target in place, fund `.keys/imprint-operator-v2.json` with
+   enough devnet SOL and rerun the same command with `TOP_UP_EXISTING=true`. Preserve the printed
+   `IMPRINT_INITIAL_TARGET_LAMPORTS`; it includes the account's actual balance.
+   `IMPRINT_MINIMUM_DRAIN_LAMPORTS` is the required loss in each submitted transaction, not cumulative
+   historic volume. The currently deployed target has capacity `1`; it must be topped up for a
+   multi-solver round.
+
+   ```bash
+   cd apps/imprint
+   export IMPRINT_SOLVE_CAPACITY=10 # replace 10 with the event's maximum full solves
+
+   ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \
+   ANCHOR_WALLET=.keys/imprint-operator-v2.json \
+   MINIMUM_DRAIN_SOL=0.5 \
+   SOLVE_CAPACITY="$IMPRINT_SOLVE_CAPACITY" \
+   TOP_UP_EXISTING=true \
+   node scripts/setup-target.js
+   ```
+
+   From the current one-solve reserve, the top-up costs `0.5 × (IMPRINT_SOLVE_CAPACITY - 1)` devnet
+   SOL. The script exits non-zero if the resulting reserve cannot support the requested capacity.
 
 ## Organizer platform-passkey enrollment
 
@@ -129,12 +200,12 @@ none of the unprefixed values may be exposed to the browser.
 
 ```text
 NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com
-NEXT_PUBLIC_PROGRAM_ID=<fresh-v2-program-id>
+NEXT_PUBLIC_PROGRAM_ID=5EgXikx8uaGDDRdLdxzoLsDafSruHZnNnstE7bd8wH6B
 NEXT_PUBLIC_VAULT_ID=target-vault-001
-NEXT_PUBLIC_TARGET_VAULT=<printed-by-setup-target>
+NEXT_PUBLIC_TARGET_VAULT=7p4iZ7pbm8zZf9y6g9b4GkEmD4QvGR4qLMefbgJAUjQe
 
-IMPRINT_EXPECTED_ORIGIN=https://imprint.example.org
-IMPRINT_RP_ID=imprint.example.org
+IMPRINT_EXPECTED_ORIGIN=https://imprint-sage.vercel.app
+IMPRINT_RP_ID=imprint-sage.vercel.app
 
 CHALLENGE_TICKET_SECRET=<same-32+-byte-value-as-portal-CHALLENGE_TICKET_SECRET_IMPRINT>
 IMPRINT_SESSION_SECRET=<independent-random-32+-byte-secret>
@@ -143,15 +214,18 @@ IMPRINT_FLAG_SECRET=<independent-random-32+-byte-secret>
 IMPRINT_CREDENTIAL_ROSTER_JSON=<complete-organizer-generated-array>
 REGISTRAR_KEYPAIR_JSON=<fresh-registrar-keypair-json>
 
-IMPRINT_TARGET_VAULT=<printed-by-setup-target>
-IMPRINT_INITIAL_TARGET_LAMPORTS=<printed-by-setup-target>
-IMPRINT_MINIMUM_DRAIN_LAMPORTS=<printed-by-setup-target>
+IMPRINT_TARGET_VAULT=7p4iZ7pbm8zZf9y6g9b4GkEmD4QvGR4qLMefbgJAUjQe
+IMPRINT_INITIAL_TARGET_LAMPORTS=501572960
+IMPRINT_MINIMUM_DRAIN_LAMPORTS=500000000
 
 IMPRINT_ENROLLMENT_ENABLED=false
 ```
 
 The portal's `CHALLENGE_TICKET_SECRET_IMPRINT` must match this app's `CHALLENGE_TICKET_SECRET` exactly.
 `NEXT_PUBLIC_TARGET_VAULT` and `IMPRINT_TARGET_VAULT` must also match; the checker rejects a mismatch.
+After a capacity top-up, replace `IMPRINT_INITIAL_TARGET_LAMPORTS` with the new value printed by
+`setup-target.js`. Do not change the WebAuthn origin or RP ID after enrollment; existing platform
+credentials are scoped to `imprint-sage.vercel.app`.
 
 ## Mandatory launch checks
 
@@ -160,6 +234,7 @@ Run these before opening the portal link:
 ```bash
 npm --prefix apps/imprint/web test
 npm --prefix apps/imprint/web run build
+npm --prefix apps/imprint run lint
 npm --prefix apps/imprint test
 ```
 

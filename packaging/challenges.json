@@ -8,11 +8,16 @@
       "portalUrlEnv": "REWARD_SNIPER_URL",
       "launchAudience": "reward-sniper",
       "playerPaths": [
-        "apps/reward-sniper/web"
+        "apps/reward-sniper/web/index.html",
+        "apps/reward-sniper/web/main.js",
+        "apps/reward-sniper/web/style.css",
+        "apps/reward-sniper/player-kit"
       ],
-      "generatedPlayerPaths": [],
+      "generatedPlayerPaths": [
+        "apps/portal/public/packages/reward-sniper-player.zip"
+      ],
       "strictPlayerRoots": [
-        "apps/reward-sniper/web"
+        "apps/reward-sniper/player-kit"
       ],
       "organizerOnlyPaths": [
         "apps/reward-sniper/bin",
@@ -40,15 +45,20 @@
       "portalUrlEnv": "SILENT_PATCH_URL",
       "launchAudience": "silent-patch",
       "playerPaths": [
+        "apps/silent-patch/public",
         "apps/silent-patch/repo"
       ],
-      "generatedPlayerPaths": [],
+      "generatedPlayerPaths": [
+        "apps/silent-patch/public/signet-starter.tar.gz"
+      ],
       "strictPlayerRoots": [
+        "apps/silent-patch/public",
         "apps/silent-patch/repo"
       ],
       "organizerOnlyPaths": [
         "apps/silent-patch/bin",
         "apps/silent-patch/programs",
+        "apps/silent-patch/scripts",
         "apps/silent-patch/src",
         "apps/silent-patch/test",
         "apps/silent-patch/tests"
@@ -60,17 +70,26 @@
       "portalUrlEnv": "OVERCLOCK_URL",
       "launchAudience": "overclock",
       "playerPaths": [
-        "apps/overclock/player-kit/README.md"
+        "apps/overclock/web",
+        "apps/overclock/player-kit/README.md",
+        "apps/overclock/player-kit/client.mjs",
+        "apps/overclock/player-kit/manifest.json"
       ],
       "generatedPlayerPaths": [
-        "apps/overclock/player-kit/dist/overclock_vault.so"
+        "apps/overclock/player-kit/dist/drift_vault.so"
       ],
       "strictPlayerRoots": [
         "apps/overclock/player-kit"
       ],
       "organizerOnlyPaths": [
+        "apps/overclock/Dockerfile",
+        "apps/overclock/HINTS.md",
+        "apps/overclock/README.md",
         "apps/overclock/bin",
         "apps/overclock/native/harness",
+        "apps/overclock/native/program",
+        "apps/overclock/scripts",
+        "apps/overclock/service.env.example",
         "apps/overclock/src",
         "apps/overclock/test"
       ]

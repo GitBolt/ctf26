@@ -1,7 +1,9 @@
 use anchor_lang::{
     prelude::*,
     solana_program::{
-        program::invoke, system_instruction, sysvar::instructions::load_instruction_at_checked,
+        program::invoke,
+        system_instruction,
+        sysvar::instructions::{load_current_index_checked, load_instruction_at_checked},
     },
 };
 use solana_sha256_hasher::{hash, hashv};
@@ -155,11 +157,7 @@ pub mod imprint {
         );
 
         require!(
-            json_string_field_equals(&client_data_json, b"type", b"webauthn.get"),
-            ImprintError::InvalidClientData
-        );
-        require!(
-            json_string_field_equals(&client_data_json, b"challenge", &expected_challenge),
+            valid_client_data(&client_data_json, &expected_challenge),
             ImprintError::InvalidClientData
         );
 
@@ -375,6 +373,13 @@ fn verify_secp256r1_instruction(
     expected_pubkey: &[u8; PASSKEY_SIZE],
     expected_message: &[u8],
 ) -> Result<()> {
+    let current_instruction_index = load_current_index_checked(instructions)
+        .map_err(|_| error!(ImprintError::InvalidSecp256r1Instruction))?;
+    require!(
+        secp256r1_instruction_index.checked_add(1) == Some(current_instruction_index),
+        ImprintError::InvalidSecp256r1Instruction
+    );
+
     let ix = load_instruction_at_checked(secp256r1_instruction_index as usize, instructions)
         .map_err(|_| error!(ImprintError::InvalidSecp256r1Instruction))?;
 
@@ -467,19 +472,274 @@ fn read_slice(data: &[u8], offset: usize, len: usize) -> Result<&[u8]> {
     Ok(&data[offset..end])
 }
 
-fn json_string_field_equals(json: &[u8], field: &[u8], value: &[u8]) -> bool {
-    if field.is_empty() || value.is_empty() {
+fn valid_client_data(json: &[u8], expected_challenge: &[u8]) -> bool {
+    if expected_challenge.is_empty() {
         return false;
     }
 
-    let mut needle = Vec::with_capacity(field.len().saturating_add(value.len()).saturating_add(5));
-    needle.push(b'"');
-    needle.extend_from_slice(field);
-    needle.extend_from_slice(b"\":\"");
-    needle.extend_from_slice(value);
-    needle.push(b'"');
+    let mut cursor = JsonCursor::new(json);
+    cursor.skip_whitespace();
+    if !cursor.consume(b'{') {
+        return false;
+    }
+    cursor.skip_whitespace();
 
-    json.windows(needle.len()).any(|window| window == needle)
+    let mut type_seen = false;
+    let mut challenge_seen = false;
+    if cursor.consume(b'}') {
+        return false;
+    }
+
+    loop {
+        cursor.skip_whitespace();
+        let key = match cursor.parse_unescaped_string() {
+            Some(key) => key,
+            None => return false,
+        };
+        cursor.skip_whitespace();
+        if !cursor.consume(b':') {
+            return false;
+        }
+        cursor.skip_whitespace();
+
+        if key == b"type" {
+            if type_seen {
+                return false;
+            }
+            type_seen = true;
+            if cursor.parse_unescaped_string() != Some(b"webauthn.get".as_slice()) {
+                return false;
+            }
+        } else if key == b"challenge" {
+            if challenge_seen {
+                return false;
+            }
+            challenge_seen = true;
+            if cursor.parse_unescaped_string() != Some(expected_challenge) {
+                return false;
+            }
+        } else if !cursor.skip_value(0) {
+            return false;
+        }
+
+        cursor.skip_whitespace();
+        if cursor.consume(b'}') {
+            break;
+        }
+        if !cursor.consume(b',') {
+            return false;
+        }
+    }
+
+    cursor.skip_whitespace();
+    type_seen && challenge_seen && cursor.is_finished()
+}
+
+struct JsonCursor<'a> {
+    data: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> JsonCursor<'a> {
+    fn new(data: &'a [u8]) -> Self {
+        Self { data, offset: 0 }
+    }
+
+    fn is_finished(&self) -> bool {
+        self.offset == self.data.len()
+    }
+
+    fn peek(&self) -> Option<u8> {
+        self.data.get(self.offset).copied()
+    }
+
+    fn consume(&mut self, expected: u8) -> bool {
+        if self.peek() != Some(expected) {
+            return false;
+        }
+        self.offset += 1;
+        true
+    }
+
+    fn skip_whitespace(&mut self) {
+        while matches!(self.peek(), Some(b' ' | b'\n' | b'\r' | b'\t')) {
+            self.offset += 1;
+        }
+    }
+
+    fn parse_unescaped_string(&mut self) -> Option<&'a [u8]> {
+        if !self.consume(b'"') {
+            return None;
+        }
+        let start = self.offset;
+        while let Some(byte) = self.peek() {
+            match byte {
+                b'"' => {
+                    let end = self.offset;
+                    self.offset += 1;
+                    return Some(&self.data[start..end]);
+                }
+                b'\\' | 0x00..=0x1f => return None,
+                _ => self.offset += 1,
+            }
+        }
+        None
+    }
+
+    fn skip_string(&mut self) -> bool {
+        if !self.consume(b'"') {
+            return false;
+        }
+        while let Some(byte) = self.peek() {
+            self.offset += 1;
+            match byte {
+                b'"' => return true,
+                0x00..=0x1f => return false,
+                b'\\' => {
+                    let escaped = match self.peek() {
+                        Some(value) => value,
+                        None => return false,
+                    };
+                    self.offset += 1;
+                    if escaped == b'u' {
+                        for _ in 0..4 {
+                            if !matches!(self.peek(), Some(b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F'))
+                            {
+                                return false;
+                            }
+                            self.offset += 1;
+                        }
+                    } else if !matches!(
+                        escaped,
+                        b'"' | b'\\' | b'/' | b'b' | b'f' | b'n' | b'r' | b't'
+                    ) {
+                        return false;
+                    }
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+
+    fn skip_value(&mut self, depth: u8) -> bool {
+        if depth > 12 {
+            return false;
+        }
+        self.skip_whitespace();
+        match self.peek() {
+            Some(b'"') => self.skip_string(),
+            Some(b'{') => self.skip_object(depth + 1),
+            Some(b'[') => self.skip_array(depth + 1),
+            Some(b't') => self.consume_literal(b"true"),
+            Some(b'f') => self.consume_literal(b"false"),
+            Some(b'n') => self.consume_literal(b"null"),
+            Some(b'-' | b'0'..=b'9') => self.skip_number(),
+            _ => false,
+        }
+    }
+
+    fn skip_object(&mut self, depth: u8) -> bool {
+        if !self.consume(b'{') {
+            return false;
+        }
+        self.skip_whitespace();
+        if self.consume(b'}') {
+            return true;
+        }
+        loop {
+            self.skip_whitespace();
+            if !self.skip_string() {
+                return false;
+            }
+            self.skip_whitespace();
+            if !self.consume(b':') || !self.skip_value(depth) {
+                return false;
+            }
+            self.skip_whitespace();
+            if self.consume(b'}') {
+                return true;
+            }
+            if !self.consume(b',') {
+                return false;
+            }
+        }
+    }
+
+    fn skip_array(&mut self, depth: u8) -> bool {
+        if !self.consume(b'[') {
+            return false;
+        }
+        self.skip_whitespace();
+        if self.consume(b']') {
+            return true;
+        }
+        loop {
+            if !self.skip_value(depth) {
+                return false;
+            }
+            self.skip_whitespace();
+            if self.consume(b']') {
+                return true;
+            }
+            if !self.consume(b',') {
+                return false;
+            }
+        }
+    }
+
+    fn consume_literal(&mut self, literal: &[u8]) -> bool {
+        let end = match self.offset.checked_add(literal.len()) {
+            Some(end) => end,
+            None => return false,
+        };
+        if self.data.get(self.offset..end) != Some(literal) {
+            return false;
+        }
+        self.offset = end;
+        true
+    }
+
+    fn skip_number(&mut self) -> bool {
+        self.consume(b'-');
+        match self.peek() {
+            Some(b'0') => {
+                self.offset += 1;
+                if matches!(self.peek(), Some(b'0'..=b'9')) {
+                    return false;
+                }
+            }
+            Some(b'1'..=b'9') => {
+                while matches!(self.peek(), Some(b'0'..=b'9')) {
+                    self.offset += 1;
+                }
+            }
+            _ => return false,
+        }
+
+        if self.consume(b'.') {
+            if !matches!(self.peek(), Some(b'0'..=b'9')) {
+                return false;
+            }
+            while matches!(self.peek(), Some(b'0'..=b'9')) {
+                self.offset += 1;
+            }
+        }
+
+        if matches!(self.peek(), Some(b'e' | b'E')) {
+            self.offset += 1;
+            if matches!(self.peek(), Some(b'+' | b'-')) {
+                self.offset += 1;
+            }
+            if !matches!(self.peek(), Some(b'0'..=b'9')) {
+                return false;
+            }
+            while matches!(self.peek(), Some(b'0'..=b'9')) {
+                self.offset += 1;
+            }
+        }
+        true
+    }
 }
 
 fn base64url_no_pad(data: &[u8]) -> Vec<u8> {
@@ -512,4 +772,33 @@ fn base64url_no_pad(data: &[u8]) -> Vec<u8> {
     }
 
     out
+}
+
+#[cfg(test)]
+mod client_data_tests {
+    use super::valid_client_data;
+
+    const CHALLENGE: &[u8] = b"xFf8m4rNzuXPGkYjE6vHh4lCrfY8zQw4Yax9fMhj2N8";
+
+    #[test]
+    fn accepts_a_complete_browser_client_data_object() {
+        let json = br#"{"type":"webauthn.get","challenge":"xFf8m4rNzuXPGkYjE6vHh4lCrfY8zQw4Yax9fMhj2N8","origin":"https://imprint.example.org","crossOrigin":false}"#;
+        assert!(valid_client_data(json, CHALLENGE));
+    }
+
+    #[test]
+    fn rejects_duplicate_or_nested_security_fields() {
+        let duplicate = br#"{"type":"webauthn.get","challenge":"wrong","challenge":"xFf8m4rNzuXPGkYjE6vHh4lCrfY8zQw4Yax9fMhj2N8"}"#;
+        let nested = br#"{"type":"webauthn.get","challenge":"wrong","extra":{"challenge":"xFf8m4rNzuXPGkYjE6vHh4lCrfY8zQw4Yax9fMhj2N8"}}"#;
+        assert!(!valid_client_data(duplicate, CHALLENGE));
+        assert!(!valid_client_data(nested, CHALLENGE));
+    }
+
+    #[test]
+    fn rejects_escaped_security_keys_and_trailing_data() {
+        let escaped = br#"{"type":"webauthn.get","ch\u0061llenge":"xFf8m4rNzuXPGkYjE6vHh4lCrfY8zQw4Yax9fMhj2N8"}"#;
+        let trailing = br#"{"type":"webauthn.get","challenge":"xFf8m4rNzuXPGkYjE6vHh4lCrfY8zQw4Yax9fMhj2N8"}[]"#;
+        assert!(!valid_client_data(escaped, CHALLENGE));
+        assert!(!valid_client_data(trailing, CHALLENGE));
+    }
 }

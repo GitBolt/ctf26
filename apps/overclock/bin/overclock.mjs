@@ -14,7 +14,7 @@ if (command === "target") {
         reserve: net.vault.reserve.toString(),
         threshold: net.threshold.toString(),
         attackerStartingBalance: net.initialAttackerBalance.toString(),
-        artifact: "player-kit/dist/overclock_vault.so",
+        artifact: "player-kit/dist/drift_vault.so",
         execution: "javascript-model-oracle-only",
         productionReady: false,
       },

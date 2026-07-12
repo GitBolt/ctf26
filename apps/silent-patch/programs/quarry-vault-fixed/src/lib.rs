@@ -4,7 +4,7 @@ use anchor_lang::{
 };
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
-declare_id!("52EPhyEqX4v6k3X5cYAun72uNhQLcpgRfBF59MGTLH1W");
+declare_id!("HzXXcU1Jvy2c8twFMAwjCKbX3A43sbLwCbYKaTk47KPE");
 
 const TEAM_SEED_LEN: usize = 16;
 // First eight bytes of sha256("global:execute"), the public strategy ABI.

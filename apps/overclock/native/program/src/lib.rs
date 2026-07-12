@@ -42,6 +42,7 @@ fn deposit(program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> Progra
     let authority = next_account_info(&mut accounts)?;
     let vault = next_account_info(&mut accounts)?;
     let position = next_account_info(&mut accounts)?;
+    let clock = next_account_info(&mut accounts)?;
     let system = next_account_info(&mut accounts)?;
     require_no_extra_accounts(&mut accounts)?;
 
@@ -52,7 +53,7 @@ fn deposit(program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> Progra
         return Err(ProgramError::IncorrectProgramId);
     }
 
-    let now = Clock::get()?.unix_timestamp as u64;
+    let now = read_timestamp(clock)?;
     {
         let data = position.try_borrow_data()?;
         let principal = read_u64(&data, 72)?;
@@ -81,6 +82,7 @@ fn deposit(program_id: &Pubkey, accounts: &[AccountInfo], amount: u64) -> Progra
 fn accrue(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let mut accounts = accounts.iter();
     let position = next_account_info(&mut accounts)?;
+    let clock = next_account_info(&mut accounts)?;
     require_no_extra_accounts(&mut accounts)?;
 
     if !position.is_writable || position.owner != program_id || position.data_len() != POSITION_LEN
@@ -97,7 +99,7 @@ fn accrue(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let balance = read_u64(&data, 80)?;
     let last_ts = read_u64(&data, 88)?;
     let rate = read_u64(&data, 96)?;
-    let now = Clock::get()?.unix_timestamp as u64;
+    let now = read_timestamp(clock)?;
 
     // Intentionally vulnerable: adversarial/non-monotonic Clock values wrap into unbacked yield.
     let elapsed = now.wrapping_sub(last_ts);
@@ -197,6 +199,13 @@ where
         return Err(ProgramError::InvalidArgument);
     }
     Ok(())
+}
+
+fn read_timestamp(clock: &AccountInfo) -> Result<u64, ProgramError> {
+    if clock.key != &solana_program::sysvar::clock::id() {
+        return Err(ProgramError::InvalidArgument);
+    }
+    Ok(Clock::from_account_info(clock)?.unix_timestamp as u64)
 }
 
 fn read_amount(payload: &[u8]) -> Result<u64, ProgramError> {

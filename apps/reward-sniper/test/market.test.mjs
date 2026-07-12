@@ -14,6 +14,7 @@ import {
   scoreboard,
   simulateBestTicket,
   snapshot,
+  swap,
   verifyVoucher,
 } from "../src/market.mjs";
 
@@ -24,7 +25,7 @@ test("sniper ticket captures stale reward that fresh liquidity should not earn",
   const voucher = issueVoucher(market, "team-a", { binId: best.binId, nonce: "ticket-n1" });
   const result = claimWithSniperTicket(market, "team-a", best.binId, 900, voucher);
 
-  assert.equal(result.fairReward, 0);
+  assert.equal(Object.hasOwn(result, "fairReward"), false);
   assert.ok(result.extracted > 0);
   assert.equal(result.ticketsRemaining, 2);
 });
@@ -111,13 +112,15 @@ test("a matching but invalid reveal fails only at batch settlement", () => {
   assert.equal(inspectMarket(market, "team-a").team.tickets, 3);
 });
 
-test("telemetry is useful but incomplete", () => {
+test("telemetry combines noisy, partial observations without exposing an outcome label", () => {
   const market = createMarket("test-telemetry");
-  registerTeam(market, "team-a", "delayed-bin-touch");
+  registerTeam(market, "team-a");
   const view = inspectMarket(market, "team-a");
 
-  assert.equal(view.team.telemetry.kind, "delayed-bin-touch");
+  assert.equal(view.team.telemetry.rewardSamples.length, 3);
+  assert.equal(typeof view.team.telemetry.flow.direction, "string");
   assert.ok(view.team.telemetry.touches.length < view.bins.length);
+  assert.equal(Object.hasOwn(view.bins[0], "window"), false);
 });
 
 test("scoreboard is relative share of extracted reward", () => {
@@ -206,4 +209,91 @@ test("vouchers are one-shot and each team resolves at most one action per tick",
     300,
     issueVoucher(market, "team-a", { binId: 1, nonce: "third-voucher" }),
   );
+});
+
+test("round rotation changes the market and replenishes scarce team resources", () => {
+  const market = createMarket("rotating-round", { roundTicks: 4 });
+  registerTeam(market, "team-a");
+  const initialBins = market.bins.map((bin) => ({ id: bin.id, liquidity: bin.liquidity }));
+  const voucher = issueVoucher(market, "team-a", { binId: 0, nonce: "round-one-voucher" });
+  claimWithSniperTicket(market, "team-a", 0, 800, voucher);
+
+  assert.equal(inspectMarket(market, "team-a").team.tickets, 2);
+  assert.ok(inspectMarket(market, "team-a").team.roundEscrow > 0);
+  advanceTick(market, 4);
+
+  const view = inspectMarket(market, "team-a");
+  assert.equal(view.round, 2);
+  assert.equal(view.team.tickets, 3);
+  assert.equal(view.team.liquidityBalance, 3_000);
+  assert.equal(view.team.roundEscrow, 0);
+  assert.ok(view.team.escrow > 0);
+  assert.notDeepEqual(market.bins.map((bin) => ({ id: bin.id, liquidity: bin.liquidity })), initialBins);
+});
+
+test("bounded events discard practice extraction and aggregate normalized scored rounds", () => {
+  const market = createMarket("bounded-event", { roundTicks: 4, practiceRounds: 1, scoredRounds: 3 });
+  registerTeam(market, "team-a");
+  registerTeam(market, "team-b");
+
+  claimWithSniperTicket(market, "team-a", 0, 500, issueVoucher(market, "team-a", { binId: 0, nonce: "practice-a" }));
+  assert.equal(inspectMarket(market, "team-a").event.stage, "practice");
+  advanceTick(market, 4);
+  assert.equal(inspectMarket(market, "team-a").team.escrow, 0);
+  assert.equal(inspectMarket(market, "team-a").event.stage, "live");
+
+  claimWithSniperTicket(market, "team-a", 1, 500, issueVoucher(market, "team-a", { binId: 1, nonce: "scored-a-1" }));
+  advanceTick(market, 4);
+  claimWithSniperTicket(market, "team-b", -1, 500, issueVoucher(market, "team-b", { binId: -1, nonce: "scored-b-2" }));
+  advanceTick(market, 4);
+  claimWithSniperTicket(market, "team-a", 2, 500, issueVoucher(market, "team-a", { binId: 2, nonce: "scored-a-3" }));
+  claimWithSniperTicket(market, "team-b", -2, 500, issueVoucher(market, "team-b", { binId: -2, nonce: "scored-b-3" }));
+  advanceTick(market, 4);
+
+  const view = inspectMarket(market, "team-a");
+  const scores = scoreboard(market);
+  assert.equal(view.event.stage, "complete");
+  assert.equal(view.event.completedScoredRounds, 3);
+  assert.equal(scores[0].roundShares.length, 3);
+  assert.equal(scores[1].roundShares.length, 3);
+  assert.equal(scores.find((row) => row.teamId === "team-a").successfulScoredRounds, 2);
+  assert.equal(scores.find((row) => row.teamId === "team-a").qualified, true);
+  assert.equal(scores.find((row) => row.teamId === "team-b").successfulScoredRounds, 2);
+  assert.equal(scores.find((row) => row.teamId === "team-b").qualified, true);
+  assert.throws(() => issueVoucher(market, "team-a", { binId: 0, nonce: "after-complete" }), /event is complete/);
+});
+
+test("rank one in an empty rehearsal does not validate a one-round-only extraction", () => {
+  const market = createMarket("solo-validation", { roundTicks: 4, scoredRounds: 3 });
+  registerTeam(market, "solo-team");
+
+  advanceTick(market, 8);
+  claimWithSniperTicket(
+    market,
+    "solo-team",
+    0,
+    1_000,
+    issueVoucher(market, "solo-team", { binId: 0, nonce: "solo-final-round" }),
+  );
+  advanceTick(market, 4);
+
+  const [solo] = scoreboard(market);
+  assert.equal(solo.rank, 1);
+  assert.equal(solo.successfulScoredRounds, 1);
+  assert.equal(solo.requiredSuccessfulRounds, 2);
+  assert.equal(solo.qualified, false);
+});
+
+test("a market swap settles the departing bin while preserving destination backlog", () => {
+  const market = createMarket("pressure-swap");
+  registerTeam(market, "team-a");
+  const before = inspectMarket(market, "team-a");
+  const target = before.bins.find((bin) => bin.id === 2);
+  assert.ok(target.staleTicks > 0);
+
+  const result = swap(market, "team-a", 2);
+  const after = inspectMarket(market, "team-a");
+  assert.equal(result.activeBin, 2);
+  assert.equal(after.bins.find((bin) => bin.id === 0).staleTicks, 0);
+  assert.equal(after.bins.find((bin) => bin.id === 2).staleTicks, target.staleTicks);
 });

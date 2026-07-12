@@ -1146,6 +1146,12 @@ Best use:
 
 ### Version 4.1: First-Party Anti-Cheat Evidence Collection
 
+> **Validated descendant:** Reward Sniper later implemented and live-tested the complete hosted version
+> of this idea: signed participant email, event-bound personalized markers, conventional policy discovery,
+> disclosure-first refusal, browser/API behavioral correlation, durable organizer evidence, Discord
+> mirroring, and evidence-preserving resets. See
+> [`11-reward-sniper-agent-resistance-case-study.md`](11-reward-sniper-agent-resistance-case-study.md).
+
 Problem:
 
 - Discord webhook and download traps can catch or scare some agents
@@ -1470,3 +1476,41 @@ If “read-only solve” is possible, redesign.
 - Kaggle competition documentation on cheating enforcement: https://www.kaggle.com/docs/competitions
 - Palo Alto Unit 42, “Fooling AI Agents: Web-Based Indirect Prompt Injection Observed in the Wild”: https://unit42.paloaltonetworks.com/ai-agent-prompt-injection/
 - Red Canary AI-powered threats report: https://redcanary.com/threat-detection-report/trends/ai-cybersecurity/
+- Sylvie, “Lessons Learned From RITSEC CTF” (2026-04-07): https://sylvie.fyi/posts/ritsec-2026/
+
+---
+
+## 22. RITSEC 2026 enforcement case study
+
+RITSEC's retrospective adds evidence from a real event that attempted to enforce an LLM rule at scale.
+The organizers report roughly 800 participating teams and a little over 100 disqualifications, while
+acknowledging that manual review covered mainly leaderboard leaders. Treat these as organizer-reported
+outcomes, not an independently audited detection rate.
+
+New lessons for this event:
+
+- **Immediate submission improves evidence.** RITSEC prohibited flag hoarding, making solve timelines
+  more interpretable. Use this for flag challenges; KOTH actions/reveals are already timestamped.
+- **Human-time baselines are review triggers.** Measure multi-stage human workflows and unusually
+  compressed sequences, but never disqualify for speed alone.
+- **Wrong flags carry evidence.** Log exact rejected submissions and distinguish typos, public examples,
+  decoys, random guesses, and plausible thematic values with no technical derivation. The last category
+  warrants rapid review, not automatic guilt.
+- **Authors conduct better solve defenses.** Genuine solvers can usually reconstruct observations,
+  false starts, decisions, and mechanism. Test adaptive understanding with a small variation instead of
+  grading prose style.
+- **Prompt injection is depreciating.** RITSEC deliberately omitted it because competent agents ignore
+  it. Our canaries remain optional telemetry, never a core barrier or deterministic proof.
+- **Teams can have mixed compliance.** Rules must state team liability and require provenance/named
+  contributors for reviewed solves.
+- **Acknowledgement matters.** Some appellants said they had not read the rules. Require explicit
+  acceptance at registration and first scored launch.
+- **Review capacity is infrastructure.** Preassign reviewers, shifts, evidence access, response targets,
+  and an appeal owner; telemetry does not interpret itself.
+- **A voluntary low-AI board is a separate option.** KalmarCTF's non-prize self-declaration may support
+  community norms, but cannot replace prize-track enforcement.
+
+RITSEC sometimes treated an obviously hallucinated flag or blatantly AI-written submission as immediate
+DQ evidence. Our safer standard is immediate containment/review for a high-confidence event, followed by
+author-led verification and appeal. Text style alone is never sufficient. The derived operational model
+is in `10-event-integrity-enforcement.md`.

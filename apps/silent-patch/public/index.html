@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0d131b" />
+    <meta name="description" content="SIGNET assigned vault recovery console." />
+    <title>SIGNET — Vault recovery console</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" type="module"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to challenge</a>
+
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="/" aria-label="SIGNET challenge home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 28 28" role="img">
+              <path d="M7.5 5.5h8.8a4.2 4.2 0 0 1 0 8.4h-4.6a4.2 4.2 0 0 0 0 8.4h8.8" />
+              <path d="M10.5 9.7h7.8M9.7 18.1h7.8" />
+            </svg>
+          </span>
+          <span>SIGNET</span>
+        </a>
+
+        <div class="topbar-context" aria-label="Session status">
+          <span class="connection" id="connection-status">
+            <span class="status-dot" aria-hidden="true"></span>
+            Connecting
+          </span>
+          <span class="team-label" id="team-label">Team —</span>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="page-shell">
+      <section class="hero" aria-labelledby="challenge-title">
+        <div class="hero-copy">
+          <p class="context-label">Assigned vault recovery</p>
+          <h1 id="challenge-title">Move the reserve.</h1>
+          <p class="hero-description">
+            Recover the required QRY amount from your assigned vault into the registered team escrow.
+            The checker accepts one finalized Solana transaction as proof.
+          </p>
+        </div>
+
+        <div class="objective" aria-label="Recovery objective">
+          <span class="objective-label">Required recovery</span>
+          <strong id="threshold-value" class="objective-value">— QRY</strong>
+          <span id="objective-state" class="objective-state">Waiting for target</span>
+        </div>
+      </section>
+
+      <div id="global-message" class="message" role="status" aria-live="polite" hidden></div>
+
+      <section class="workspace" aria-label="Challenge workspace">
+        <div class="primary-column">
+          <section class="panel target-panel" aria-labelledby="target-heading">
+            <div class="panel-heading">
+              <div>
+                <p class="context-label">Live assignment</p>
+                <h2 id="target-heading">Target manifest</h2>
+              </div>
+              <button class="icon-button" id="refresh-target" type="button" aria-label="Refresh target state" title="Refresh target state">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M15.7 6.2A6.4 6.4 0 1 0 16 13" />
+                  <path d="M15.7 2.8v3.8h-3.8" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="balance-stage">
+              <div class="balance-block">
+                <span>Vault reserve</span>
+                <strong id="reserve-balance">—</strong>
+                <small id="reserve-account-short">Loading account</small>
+              </div>
+              <div class="flow-mark" aria-hidden="true">
+                <svg viewBox="0 0 44 20">
+                  <path d="M2 10h37" />
+                  <path d="m33 4 6 6-6 6" />
+                </svg>
+              </div>
+              <div class="balance-block balance-destination">
+                <span>Team escrow</span>
+                <strong id="escrow-balance">—</strong>
+                <small id="escrow-account-short">Loading account</small>
+              </div>
+            </div>
+
+            <dl class="manifest-list" id="manifest-list" aria-busy="true">
+              <div class="manifest-row">
+                <dt>Program ID</dt>
+                <dd><span class="skeleton skeleton-wide"></span></dd>
+              </div>
+              <div class="manifest-row">
+                <dt>Build fingerprint</dt>
+                <dd><span class="skeleton skeleton-medium"></span></dd>
+              </div>
+              <div class="manifest-row">
+                <dt>Vault account</dt>
+                <dd><span class="skeleton skeleton-wide"></span></dd>
+              </div>
+              <div class="manifest-row">
+                <dt>Mint</dt>
+                <dd><span class="skeleton skeleton-wide"></span></dd>
+              </div>
+            </dl>
+
+            <div class="resource-actions">
+              <button class="button secondary-button" id="open-archive" type="button">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M3.5 5.5h5l1.5 2h6.5v8.5h-13z" />
+                  <path d="M3.5 7.5V4h5l1.2 1.5" />
+                </svg>
+                Project mirror
+              </button>
+              <a class="button ghost-button" href="/signet-starter.tar.gz" download>
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M10 2.8v9.4" />
+                  <path d="m6.5 9 3.5 3.5L13.5 9" />
+                  <path d="M3.5 15.8h13" />
+                </svg>
+                Starter client
+              </a>
+            </div>
+          </section>
+
+          <section class="panel archive-panel" id="archive-panel" aria-labelledby="archive-heading" hidden>
+            <div class="archive-toolbar">
+              <div>
+                <p class="context-label">Quarry Vault</p>
+                <h2 id="archive-heading">Project mirror</h2>
+              </div>
+              <button class="icon-button" id="close-archive" type="button" aria-label="Close project mirror" title="Close project mirror">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="m5 5 10 10M15 5 5 15" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="archive-layout">
+              <aside class="archive-sidebar" aria-label="Project files">
+                <label class="search-field">
+                  <span class="sr-only">Filter project files</span>
+                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <circle cx="8.5" cy="8.5" r="4.5" />
+                    <path d="m12 12 4 4" />
+                  </svg>
+                  <input id="archive-search" type="search" placeholder="Filter files" autocomplete="off" />
+                </label>
+                <nav id="archive-files" class="archive-files" aria-label="Archive items"></nav>
+              </aside>
+              <article class="document-viewer" id="document-viewer" tabindex="-1">
+                <div class="empty-document">
+                  <span class="empty-icon" aria-hidden="true">
+                    <svg viewBox="0 0 28 28">
+                      <path d="M7 3.5h9l5 5v16H7z" />
+                      <path d="M16 3.5v5h5M10.5 14h7M10.5 18h5" />
+                    </svg>
+                  </span>
+                  <h3>Select an archive item</h3>
+                  <p>Browse the recovered project material from the file list.</p>
+                </div>
+              </article>
+            </div>
+          </section>
+        </div>
+
+        <aside class="secondary-column">
+          <section class="panel checker-panel" aria-labelledby="checker-heading">
+            <div class="panel-heading">
+              <div>
+                <p class="context-label">Final verification</p>
+                <h2 id="checker-heading">Submit transaction</h2>
+              </div>
+              <span class="finalized-label">Finalized</span>
+            </div>
+
+            <p class="panel-description">
+              Enter the signature for the transaction that moved the assigned reserve into your team escrow.
+            </p>
+
+            <form id="submission-form" novalidate>
+              <label class="field-label" for="transaction-signature">Transaction signature</label>
+              <textarea
+                id="transaction-signature"
+                name="signature"
+                rows="3"
+                maxlength="128"
+                spellcheck="false"
+                autocomplete="off"
+                placeholder="Paste the base58 signature"
+                aria-describedby="signature-help signature-error"
+                required
+              ></textarea>
+              <p id="signature-help" class="field-help">Verification reads finalized on-chain state. Failed attempts do not change it.</p>
+              <p id="signature-error" class="field-error" role="alert" hidden></p>
+
+              <button class="button primary-button submit-button" id="submit-transaction" type="submit">
+                <span>Verify recovery</span>
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M4 10h11" />
+                  <path d="m11 6 4 4-4 4" />
+                </svg>
+              </button>
+            </form>
+
+            <p id="preview-note" class="preview-note" hidden>
+              Local interface preview: enter <code>demo-drain</code> to test the verified state.
+            </p>
+          </section>
+
+          <section class="scope-note" aria-labelledby="scope-heading">
+            <h2 id="scope-heading">Scope</h2>
+            <ul>
+              <li>Operate only on your assigned program and accounts.</li>
+              <li>Use the registered team escrow as the destination.</li>
+              <li>Do not attack event infrastructure or other teams.</li>
+            </ul>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <dialog id="solve-dialog" class="solve-dialog" aria-labelledby="solve-title">
+      <div class="solve-mark" aria-hidden="true">
+        <svg viewBox="0 0 36 36">
+          <path d="m9.5 18.5 5.4 5.4L27 11.8" />
+        </svg>
+      </div>
+      <p class="context-label">Recovery verified</p>
+      <h2 id="solve-title">Reserve secured.</h2>
+      <p id="solve-summary" class="solve-summary">The checker confirmed the assigned state transition.</p>
+      <label class="field-label" for="flag-output">Flag</label>
+      <div class="flag-output-row">
+        <input id="flag-output" type="text" readonly />
+        <button class="button secondary-button" id="copy-flag" type="button">Copy</button>
+      </div>
+      <button class="button primary-button dialog-close" id="close-solve-dialog" type="button">Return to target</button>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>

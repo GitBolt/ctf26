@@ -1,0 +1,10 @@
+# PR 33: normalize reserve telemetry
+
+Status: merged
+
+```diff
+- msg!("reserve={} amount={}", reserve.key(), amount);
++ emit!(ReserveObserved { reserve: reserve.key(), amount });
+```
+
+Replaces an unstructured program log with an Anchor event consumed by the indexer.

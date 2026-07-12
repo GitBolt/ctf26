@@ -3,39 +3,101 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Reward Sniper</title>
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0b0d0f" />
+    <meta name="description" content="Reward Sniper live bin market." />
+    <title>Reward Sniper — CTF26</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <main>
-      <header>
-        <p>ctf26 / reward sniper</p>
-        <h1>dlmm-style market console</h1>
-        <p class="identity" id="identity">connecting…</p>
+    <a class="skip-link" href="#market">Skip to market</a>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="Reward Sniper home">Reward Sniper</a>
+        <div class="network-line">
+          <span class="connection" id="connection" data-state="connecting"><i aria-hidden="true"></i><span id="connectionText">Connecting</span></span>
+          <span class="test-mode-badge" id="testModeBadge" hidden>TEST MODE</span>
+        </div>
       </header>
-      <section class="board" id="bins" aria-label="market bins"></section>
-      <section class="panels">
-        <article>
-          <h2>telemetry card</h2>
-          <pre id="telemetry">waiting for market state…</pre>
-        </article>
-        <article>
-          <h2>ticket terminal</h2>
-          <p>Pick a bin yourself, size funded liquidity, commit the exact action, then reveal it.</p>
-          <pre class="selection" id="selection"></pre>
-          <label for="liquidity">liquidity</label>
-          <input id="liquidity" type="number" min="1" max="1000" step="1" value="900" />
-          <button id="prepare" type="button">1 / prepare ticket voucher</button>
-          <button id="commit" type="button" disabled>2 / commit selected action</button>
-          <button id="reveal" type="button" disabled>3 / reveal selected action</button>
-          <p class="status" id="status" role="status"></p>
-        </article>
-        <article>
-          <h2>scoreboard</h2>
-          <pre id="scoreboard">waiting for scores…</pre>
-        </article>
-      </section>
-    </main>
+
+      <main id="market">
+        <section class="market-head" aria-labelledby="page-title">
+          <div>
+            <h1 id="page-title">Live market</h1>
+            <p class="market-address">Inspect the shared bin state, lock one order, then reveal it in the next phase.</p>
+          </div>
+          <span class="team-chip" id="identity">Establishing team session</span>
+        </section>
+
+        <dl class="market-stats" aria-label="Current market status">
+          <div><dt>Round</dt><dd id="roundValue">—</dd><span id="roundProgress">Waiting for market</span></div>
+          <div><dt>Phase</dt><dd id="phaseValue">—</dd><span id="phaseTimer">Synchronizing clock</span></div>
+          <div><dt>Reward vault</dt><dd id="vaultValue">—</dd><span>Reward units</span></div>
+          <div><dt>Tickets</dt><dd id="ticketsValue">—</dd><span>Available this round</span></div>
+          <div><dt>Total extract</dt><dd id="escrowValue">—</dd><span>Team escrow</span></div>
+        </dl>
+        <p class="event-notice" id="eventNotice" hidden></p>
+
+        <div class="explorer-grid">
+          <section class="panel market-panel" aria-labelledby="bins-title">
+            <div class="panel-heading">
+              <h2 id="bins-title">Liquidity bins</h2>
+              <div class="market-key" aria-label="Market legend"><span><i class="key-active"></i>Active</span><span><i class="key-selected"></i>Selected</span><span><i class="key-heat"></i>Activity</span></div>
+            </div>
+            <div class="bin-columns" aria-hidden="true"><span>Bin</span><span>State</span><span>Liquidity</span><span>Activity</span></div>
+            <div class="board" id="bins" aria-label="Selectable market bins" aria-busy="true"><div class="board-loading">Loading bin accounts…</div></div>
+            <p class="board-note">Public state and telemetry are incomplete observations. Select a row to inspect and compose an order.</p>
+          </section>
+
+          <section class="panel order-panel" aria-labelledby="order-title">
+            <div class="panel-heading"><h2 id="order-title">Compose order</h2><span class="phase-chip">Commit → reveal</span></div>
+            <div class="order-controls">
+              <fieldset class="action-switch" id="actionSwitch">
+                <legend>Order type</legend>
+                <button id="ticketMode" type="button" aria-pressed="true"><strong>Sniper ticket</strong><small>Attempt extraction</small></button>
+                <button id="swapMode" type="button" aria-pressed="false"><strong>Market swap</strong><small>Move active bin</small></button>
+              </fieldset>
+              <dl class="selection-card" id="selection" aria-live="polite">
+                <div><dt>Selected bin</dt><dd id="selectedBin">—</dd></div>
+                <div><dt>Activity</dt><dd id="selectedWindow">—</dd></div>
+                <div><dt>Liquidity</dt><dd id="selectedLiquidity">—</dd></div>
+              </dl>
+              <label class="field" id="liquidityField" for="liquidity"><span>Funded liquidity</span><small id="liquidityHelp">1–1,000 units</small><input id="liquidity" inputmode="numeric" type="number" min="1" max="1000" step="1" value="900" aria-describedby="liquidityHelp" /></label>
+              <button class="primary-action" id="primaryAction" type="button" disabled>Connect to market</button>
+              <p class="status" id="status" role="status" aria-live="polite">Connecting to shared market…</p>
+            </div>
+            <ol class="steps" id="steps" aria-label="Order progress">
+              <li data-step="select" class="active"><span>1</span><div><strong>Select</strong><small>Bin and size</small></div></li>
+              <li data-step="commit"><span>2</span><div><strong>Lock</strong><small>Commit order</small></div></li>
+              <li data-step="reveal"><span>3</span><div><strong>Reveal</strong><small>Enter batch</small></div></li>
+            </ol>
+            <dl class="wallet-stats">
+              <div><dt>Funded balance</dt><dd id="balanceValue">—</dd></div>
+              <div><dt>Round extract</dt><dd id="roundEscrowValue">—</dd></div>
+            </dl>
+          </section>
+        </div>
+
+        <div class="inspection-grid">
+          <section class="panel intel-panel" aria-labelledby="intel-title">
+            <div class="panel-heading"><h2 id="intel-title">Telemetry</h2><span class="intel-state">Partial observation</span></div>
+            <div id="telemetry" class="telemetry" aria-busy="true"><p>Waiting for assigned telemetry…</p></div>
+          </section>
+          <section class="panel activity-panel" aria-labelledby="activity-title">
+            <div class="panel-heading"><h2 id="activity-title">Market activity</h2></div>
+            <ol class="activity-list" id="activity"><li class="empty">No settled activity yet.</li></ol>
+          </section>
+        </div>
+
+        <section class="panel leaderboard-panel" aria-labelledby="leaderboard-title">
+          <div class="panel-heading leaderboard-heading"><h2 id="leaderboard-title">Extraction ranking</h2><p>Share of reward moved into registered team escrows.</p></div>
+          <div class="table-wrap"><table><thead><tr><th scope="col">Rank</th><th scope="col">Team</th><th scope="col">Total extract</th><th scope="col">Tickets</th><th scope="col">Round share</th><th scope="col">Event score</th><th scope="col">Validation</th></tr></thead><tbody id="scoreboard"><tr><td colspan="7" class="empty-cell">Waiting for the first team…</td></tr></tbody></table></div>
+        </section>
+      </main>
+
+      <footer><p>CTF26 · Reward Sniper</p><p id="footerTick">Market clock synchronizing</p></footer>
+    </div>
+    <noscript>Reward Sniper requires JavaScript to maintain the live commit–reveal session.</noscript>
     <script type="module" src="./main.js"></script>
   </body>
 </html>

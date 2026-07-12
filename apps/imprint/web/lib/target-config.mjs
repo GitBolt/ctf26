@@ -20,13 +20,18 @@ export function eventTarget(env = process.env) {
   if (publicTarget && publicTarget !== vault.toString()) {
     throw new Error("NEXT_PUBLIC_TARGET_VAULT must match IMPRINT_TARGET_VAULT");
   }
-  const initialLamports = lamports(env.IMPRINT_INITIAL_TARGET_LAMPORTS, "IMPRINT_INITIAL_TARGET_LAMPORTS");
+  const initialLamports = lamports(
+    env.IMPRINT_INITIAL_TARGET_LAMPORTS,
+    "IMPRINT_INITIAL_TARGET_LAMPORTS"
+  );
   const minimumDrainLamports = lamports(
     env.IMPRINT_MINIMUM_DRAIN_LAMPORTS,
-    "IMPRINT_MINIMUM_DRAIN_LAMPORTS",
+    "IMPRINT_MINIMUM_DRAIN_LAMPORTS"
   );
   if (minimumDrainLamports > initialLamports) {
-    throw new Error("IMPRINT_MINIMUM_DRAIN_LAMPORTS cannot exceed the initial target balance");
+    throw new Error(
+      "IMPRINT_MINIMUM_DRAIN_LAMPORTS cannot exceed the initial target balance"
+    );
   }
   return Object.freeze({ vault, initialLamports, minimumDrainLamports });
 }

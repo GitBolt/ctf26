@@ -3,7 +3,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Buffer } from "buffer";
 import { sha256 } from "@noble/hashes/sha256";
-import { bytesToHex } from "@noble/hashes/utils";
 import {
   Connection,
   PublicKey,
@@ -12,17 +11,17 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import idl from "./imprint-idl.json";
+import { base64UrlToBuffer, parseDERSignature } from "./webauthn-encoding.mjs";
 
+const IDL_PROGRAM_ID = new PublicKey(idl.address);
 export const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_PROGRAM_ID || idl.address
 );
+if (!PROGRAM_ID.equals(IDL_PROGRAM_ID)) {
+  throw new Error("NEXT_PUBLIC_PROGRAM_ID must match the bundled IMPRINT IDL");
+}
 export const DEFAULT_VAULT_ID =
   process.env.NEXT_PUBLIC_VAULT_ID || "target-vault-001";
-
-const P256_ORDER = BigInt(
-  "0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"
-);
-const P256_HALF_ORDER = P256_ORDER >> 1n;
 
 export function rpcUrl() {
   return process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8899";
@@ -73,76 +72,11 @@ export function vaultPda(authority, vaultId = DEFAULT_VAULT_ID) {
 export function targetVault() {
   const target = String(process.env.NEXT_PUBLIC_TARGET_VAULT || "").trim();
   if (!target) {
-    throw new Error("NEXT_PUBLIC_TARGET_VAULT is required for the player console");
+    throw new Error(
+      "NEXT_PUBLIC_TARGET_VAULT is required for the player console"
+    );
   }
   return new PublicKey(target);
-}
-
-export function base64UrlToBuffer(value) {
-  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
-  const padded = normalized.padEnd(
-    normalized.length + ((4 - (normalized.length % 4)) % 4),
-    "="
-  );
-  return Buffer.from(padded, "base64");
-}
-
-export function parseDERSignature(derBytes) {
-  const der = Uint8Array.from(derBytes);
-  let offset = 0;
-  if (der[offset++] !== 0x30) throw new Error("expected DER sequence");
-  offset = readDerLength(der, offset).offset;
-  if (der[offset++] !== 0x02) throw new Error("expected DER r integer");
-  const rLen = readDerLength(der, offset);
-  offset = rLen.offset;
-  const r = der.slice(offset, offset + rLen.length);
-  offset += rLen.length;
-  if (der[offset++] !== 0x02) throw new Error("expected DER s integer");
-  const sLen = readDerLength(der, offset);
-  offset = sLen.offset;
-  const s = der.slice(offset, offset + sLen.length);
-
-  const rBytes = leftPad32(trimLeadingZeroes(r));
-  let sBig = bytesToBigInt(leftPad32(trimLeadingZeroes(s)));
-  if (sBig > P256_HALF_ORDER) sBig = P256_ORDER - sBig;
-  const sBytes = bigintTo32(sBig);
-
-  return Buffer.concat([Buffer.from(rBytes), Buffer.from(sBytes)]);
-}
-
-function readDerLength(der, offset) {
-  const first = der[offset++];
-  if (first < 0x80) return { length: first, offset };
-  const bytes = first & 0x7f;
-  let length = 0;
-  for (let i = 0; i < bytes; i++) {
-    length = (length << 8) | der[offset++];
-  }
-  return { length, offset };
-}
-
-function trimLeadingZeroes(bytes) {
-  let i = 0;
-  while (i < bytes.length - 1 && bytes[i] === 0) i += 1;
-  return bytes.slice(i);
-}
-
-function leftPad32(bytes) {
-  if (bytes.length > 32) throw new Error("integer is longer than 32 bytes");
-  const out = new Uint8Array(32);
-  out.set(bytes, 32 - bytes.length);
-  return out;
-}
-
-function bytesToBigInt(bytes) {
-  return BigInt(`0x${bytesToHex(bytes)}`);
-}
-
-function bigintTo32(value) {
-  let hex = value.toString(16);
-  if (hex.length % 2) hex = `0${hex}`;
-  const raw = Buffer.from(hex, "hex");
-  return leftPad32(raw);
 }
 
 export async function getAssertion({ credentialId, challenge }) {
@@ -179,6 +113,8 @@ export async function getAssertion({ credentialId, challenge }) {
 
 export {
   anchor,
+  base64UrlToBuffer,
+  parseDERSignature,
   PublicKey,
   SYSVAR_INSTRUCTIONS_PUBKEY,
   SystemProgram,

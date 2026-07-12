@@ -13,6 +13,10 @@ story; jump by topic below.
 | [`05-sponsorship.md`](05-sponsorship.md) | Sponsor outreach: the OtterSec "Save CTFs Fund" anchor, the full target tracker + contacts, and an archive of every message sent. |
 | [`06-knowledge-base.md`](06-knowledge-base.md) | **Working memory.** Current thesis, Meteora/OtterSec-style reviewer context, Dev Cave benchmark notes, final slate rationale, open-source Solana bug leads, and build implications. |
 | [`07-build-review.md`](07-build-review.md) | Three-pass implementation review of the four challenge apps: doctrine fit, tests/builds, and remaining event-readiness gaps. |
+| [`08-staging-runbook.md`](08-staging-runbook.md) | Internal deployment state, proof completed, and event-only operational gates. |
+| [`09-clean-room-playtest.md`](09-clean-room-playtest.md) | Five-condition validation protocol and evidence required before making AI-resistance claims. |
+| [`10-event-integrity-enforcement.md`](10-event-integrity-enforcement.md) | **Event integrity operations.** Prevention, detection, adjudication, rules, solve defenses, staffing, sanctions, and appeals. |
+| [`11-reward-sniper-agent-resistance-case-study.md`](11-reward-sniper-agent-resistance-case-study.md) | **Validated agent-resistance case study.** The complete Reward Sniper iteration record: browser-cookie automation, behavioral detection, policy discovery, disclosure-first refusal, identity attribution, organizer UX, reset hygiene, and the reusable checklist for future hosted challenges. |
 
 **The final four-challenge slate** — each Solana-specific, each replicating a different real-CTF style, each carrying a *different* anti-AI mechanism so they don't overlap:
 
@@ -40,6 +44,11 @@ agent physically cannot produce, plus wallet-approve, relative scoring, live sta
 proctoring**. The goal is not "AI can't understand it" but **"the autonomous loop can't complete — a
 human must be in the loop."** The flagship slate is in **`04` §4**; the doctrine is `00`; the sponsor
 tracker is `05`; the consolidated working memory is `06`.
+
+Challenge design is only one third of the integrity program. The complete model is **prevent**
+(resistant challenges), **detect** (privacy-bounded evidence and review triggers), and **adjudicate / operate**
+(clear rules, author-led solve defenses, consistent decisions, and appeals). See `10` for the event-day
+system.
 
 ## Related
 

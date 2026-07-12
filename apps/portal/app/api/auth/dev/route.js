@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { centralBaseUrl } from "@/lib/config.mjs";
+import { registrationForEmail } from "@/lib/registration.mjs";
 import { SESSION_COOKIE, createUserSession, participantIdForEmail } from "@/lib/tickets";
 
 export async function GET(request) {
@@ -15,9 +16,13 @@ export async function GET(request) {
   const email = String(url.searchParams.get("email") || "demo@ctf26.test").toLowerCase();
   const baseUrl = centralBaseUrl();
   const participantId = participantIdForEmail(email);
+  const registration = registrationForEmail(email, participantId);
+  if (!registration) {
+    return NextResponse.redirect(`${baseUrl}/?error=not_registered`);
+  }
   const session = createUserSession({
     participant_id: participantId,
-    team_id: participantId,
+    team_id: registration.teamId,
     email,
     name: email.split("@")[0],
   });

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import {
   IMPRINT_SESSION_COOKIE,
   createChallengeSession,
+  createDirectTestSession,
   verifyChallengeSession,
 } from "@/lib/challenge-session.mjs";
 
@@ -10,8 +11,10 @@ export const runtime = "nodejs";
 
 export async function POST(request) {
   try {
-    const { ticket } = await request.json();
-    const token = createChallengeSession(ticket);
+    const body = await request.json();
+    const token = process.env.ALLOW_DIRECT_TEST_ACCESS === "true" && body?.directTest === true
+      ? createDirectTestSession(body.teamId)
+      : createChallengeSession(body.ticket);
     const jar = await cookies();
     jar.set(IMPRINT_SESSION_COOKIE, token, {
       httpOnly: true,
@@ -20,9 +23,11 @@ export async function POST(request) {
       maxAge: 12 * 60 * 60,
       path: "/",
     });
-    return Response.json({ ok: true });
+    return Response.json({ ok: true, launchMode: process.env.ALLOW_DIRECT_TEST_ACCESS === "true" && body?.directTest === true ? "direct-test" : "portal" });
   } catch (error) {
-    return new Response(error.message || "challenge access was denied", { status: 401 });
+    return new Response(error.message || "challenge access was denied", {
+      status: 401,
+    });
   }
 }
 

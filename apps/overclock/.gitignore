@@ -1,4 +1,7 @@
-player-kit/dist/
+# The exact published challenge artifact is deployment input and must be included
+# in Railway/Vercel source uploads. Keep any other generated dist files ignored.
+player-kit/dist/*
+!player-kit/dist/drift_vault.so
 native/harness/target/
 native/program/target/
 native/target/

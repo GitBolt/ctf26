@@ -1,5 +1,7 @@
 # PR 17: strategy refactor
 
+Status: merged
+
 Reviewer note:
 
 > The strategy hook should not remain caller-selectable during rotation. Pin it to vault config before

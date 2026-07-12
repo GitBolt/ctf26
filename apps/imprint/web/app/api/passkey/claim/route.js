@@ -5,10 +5,17 @@ import { Connection, PublicKey, Transaction } from "@solana/web3.js";
 import { sha256 } from "@noble/hashes/sha256";
 
 import idl from "@/lib/imprint-idl.json";
-import { IMPRINT_SESSION_COOKIE, verifyChallengeSession } from "@/lib/challenge-session.mjs";
+import {
+  IMPRINT_SESSION_COOKIE,
+  verifyChallengeSession,
+} from "@/lib/challenge-session.mjs";
 import { credentialForTeam } from "@/lib/credential-roster.mjs";
 import { PROGRAM_ID, loadRegistrar } from "@/lib/registrar.mjs";
-import { expectedWebAuthnOrigin, expectedWebAuthnRpID } from "@/lib/webauthn-config.mjs";
+import { claimedPasskeyOwner } from "@/lib/solve-verifier.mjs";
+import {
+  expectedWebAuthnOrigin,
+  expectedWebAuthnRpID,
+} from "@/lib/webauthn-config.mjs";
 import { CLAIM_CHALLENGE_COOKIE } from "./options/route";
 
 export const runtime = "nodejs";
@@ -20,11 +27,19 @@ function rpcUrl() {
 export async function POST(request) {
   const jar = await cookies();
   try {
-    const session = verifyChallengeSession(jar.get(IMPRINT_SESSION_COOKIE)?.value);
+    const session = verifyChallengeSession(
+      jar.get(IMPRINT_SESSION_COOKIE)?.value
+    );
     const expectedChallenge = jar.get(CLAIM_CHALLENGE_COOKIE)?.value;
-    if (!expectedChallenge) throw new Error("security-key claim challenge is missing or expired");
+    if (!expectedChallenge)
+      throw new Error("security-key claim challenge is missing or expired");
 
     const { owner, response } = await request.json();
+    if (response?.authenticatorAttachment !== "platform") {
+      throw new Error(
+        "claim requires the enrolled platform authenticator on this device"
+      );
+    }
     const credential = credentialForTeam(session.teamId);
     const verification = await verifyAuthenticationResponse({
       response,
@@ -39,16 +54,36 @@ export async function POST(request) {
         transports: credential.transports,
       },
     });
-    if (!verification.verified) throw new Error("security-key assertion was not verified");
+    if (!verification.verified)
+      throw new Error("security-key assertion was not verified");
     const ownerPubkey = new PublicKey(owner);
     const passkeySeed = Buffer.from(sha256(credential.passkeyPubkey));
     const [passkey] = PublicKey.findProgramAddressSync(
       [Buffer.from("passkey"), passkeySeed],
-      PROGRAM_ID,
+      PROGRAM_ID
     );
     const connection = new Connection(rpcUrl(), "confirmed");
-    if (await connection.getAccountInfo(passkey, "confirmed")) {
-      throw new Error("this event security key has already been claimed");
+    const existingPasskey = await connection.getAccountInfo(
+      passkey,
+      "confirmed"
+    );
+    if (existingPasskey) {
+      const existingOwner = claimedPasskeyOwner(
+        existingPasskey,
+        PROGRAM_ID,
+        credential.passkeyPubkey
+      );
+      if (!existingOwner.equals(ownerPubkey)) {
+        throw new Error(
+          "this event security key is already claimed by a different wallet"
+        );
+      }
+      jar.delete(CLAIM_CHALLENGE_COOKIE);
+      return Response.json({
+        alreadyRegistered: true,
+        credentialId: credential.credentialId,
+        passkeyPubkey: credential.passkeyPubkey.toString("hex"),
+      });
     }
 
     const registrar = loadRegistrar();
@@ -64,25 +99,38 @@ export async function POST(request) {
       },
     });
     const program = new anchor.Program(idl, provider);
-    const rpIDHash = Buffer.from(sha256(Buffer.from(expectedWebAuthnRpID(request), "utf8")));
+    const rpIDHash = Buffer.from(
+      sha256(Buffer.from(expectedWebAuthnRpID(request), "utf8"))
+    );
     const ix = await program.methods
       .registerPasskey(
         Array.from(passkeySeed),
         Array.from(credential.passkeyPubkey),
-        Array.from(rpIDHash),
+        Array.from(rpIDHash)
       )
       .accounts({ owner: ownerPubkey, registrar: registrar.publicKey, passkey })
       .instruction();
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
-    const tx = new Transaction({ feePayer: ownerPubkey, blockhash, lastValidBlockHeight }).add(ix);
+    const { blockhash, lastValidBlockHeight } =
+      await connection.getLatestBlockhash("confirmed");
+    const tx = new Transaction({
+      feePayer: ownerPubkey,
+      blockhash,
+      lastValidBlockHeight,
+    }).add(ix);
     tx.partialSign(registrar);
     jar.delete(CLAIM_CHALLENGE_COOKIE);
     return Response.json({
-      transaction: tx.serialize({ requireAllSignatures: false }).toString("base64"),
+      transaction: tx
+        .serialize({ requireAllSignatures: false })
+        .toString("base64"),
+      blockhash,
+      lastValidBlockHeight,
       credentialId: credential.credentialId,
       passkeyPubkey: credential.passkeyPubkey.toString("hex"),
     });
   } catch (error) {
-    return new Response(error.message || "security-key claim was denied", { status: 403 });
+    return new Response(error.message || "security-key claim was denied", {
+      status: 403,
+    });
   }
 }

@@ -96,6 +96,16 @@ test("requires an atomic replay-store decision when consuming a ticket", async (
   );
 });
 
+test("optionally binds a normalized participant email to the signed ticket", () => {
+  const token = deterministicTicket({ email: "Player@Example.COM" });
+  const claims = verifyParticipantTicket(token, SECRET, { audience: "imprint", now: NOW + 1 });
+  assert.equal(claims.email, "player@example.com");
+  assert.throws(
+    () => deterministicTicket({ email: "not-an-email" }),
+    (error) => error instanceof ParticipantTicketError && error.code === "invalid_claim",
+  );
+});
+
 test("refuses short secrets and overlong ticket lifetimes", () => {
   assert.throws(
     () =>
@@ -114,4 +124,16 @@ test("refuses short secrets and overlong ticket lifetimes", () => {
       ),
     (error) => error instanceof ParticipantTicketError && error.code === "invalid_ttl",
   );
+});
+
+test("generated ticket IDs always satisfy the identifier grammar", () => {
+  for (let index = 0; index < 512; index += 1) {
+    const token = issueParticipantTicket(
+      { audience: "imprint", participantId: "p1", teamId: "t1" },
+      SECRET,
+      { now: NOW },
+    );
+    const claims = verifyParticipantTicket(token, SECRET, { audience: "imprint", now: NOW });
+    assert.match(claims.jti, /^jti_[A-Za-z0-9_-]+$/);
+  }
 });

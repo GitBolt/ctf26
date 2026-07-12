@@ -1,0 +1,12 @@
+.git
+.vscode
+**/.anchor
+**/.next
+**/node_modules
+**/target
+**/.keys
+**/*.keypair.json
+**/.env
+**/.env.*
+!**/.env.example
+docs

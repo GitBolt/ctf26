@@ -1,42 +1,260 @@
-# SILENT PATCH
+# SIGNET
 
-Stale-deployment source-archaeology CTF with an executable Solana authority path.
+SIGNET is a stale-deployment/source-archaeology Solana CTF challenge with an executable CPI authority
+failure. The public brief gives a team its live vault, opaque build fingerprint, current project
+mirror, starter client, and one objective: move the assigned reserve into the registered team escrow.
+It does not tell players that the deployment predates the latest source or that a patch matters.
 
-The latest fictional repo is fixed. The live target is an older pre-fix deployment. Players use the
-patch to understand the bug, then exploit the stale live target. Do not describe this as exploiting a
-fixed bug.
+The organizer-only implementation contains three programs:
 
-## What is built here
+- `quarry-vault`: the deliberately deployed pre-fix vault. A caller selects the strategy program and
+  the vault forwards its SPL-token authority PDA to that program as a signer.
+- `attacker-strategy`: a test-only proof that the forwarded signer can be reused in a token-program
+  CPI to drain the reserve.
+- `quarry-vault-fixed`: the latest behavior. It pins the strategy program before forwarding privilege.
 
-- a vulnerable Anchor vault that lets the caller choose a strategy program, then forwards the
-  vault's own SPL-token authority PDA to that program as a signer;
-- a malicious strategy program that reuses the forwarded signer in an SPL-token CPI;
-- a fixed vault that pins the strategy program before forwarding signer privilege;
-- an on-chain integration test proving the vulnerable drain and fixed rejection;
-- a deterministic service/checker model for portal integration (not a substitute for SVM replay);
-- a fictional repo archive with PRs, issues, decoys, and the quiet strategy-refactor patch.
+The project mirror in `repo/` contains current fixed source, quiet review history, issues, commits, and
+plausible maintenance decoys. Archaeology identifies the authority-model change; only a live,
+team-bound reserve-to-escrow transition solves the challenge.
 
-## Run
+## Player service
+
+The production service is deployable as a Vercel project rooted at this directory. It provides:
+
+- signed, audience-bound CTF launch-ticket exchange;
+- atomic one-time ticket consumption through Redis over Railway TCP or Vercel-compatible REST;
+- an HTTP-only, signed first-party challenge session;
+- team-specific target manifests with live finalized token balances;
+- a session-gated GitHub-style project-mirror viewer;
+- a generated starter-client archive;
+- a finalized Solana transaction checker;
+- deterministic HMAC flags bound to team, instance, transaction, and final escrow balance;
+- production submission rate limiting.
+
+The checker does not trust a claimed amount or a text answer. It verifies all of the following from
+the finalized transaction metadata:
+
+1. the assigned vault program was actually invoked;
+2. the assigned reserve and escrow were writable transaction accounts;
+3. the registered team wallet signed;
+4. reserve and escrow token accounts use the assigned mint and expected authorities;
+5. reserve loss equals escrow gain in the submitted transaction;
+6. that delta meets the randomized target threshold;
+7. final reserve and escrow balances satisfy the canonical instance bounds.
+
+The browser never receives the private RPC URL, ticket key, session key, instance secret, or flag key.
+
+## Local development
 
 ```bash
+npm install
 npm test
+npm run dev
+```
+
+Open `http://127.0.0.1:4173`. Outside production, when no target manifest is configured, the service
+uses an explicitly labelled interface preview. Submit `demo-drain` to exercise the success state. This
+preview is not the event checker.
+
+Run the executable Anchor proof separately:
+
+```bash
+npm run build:onchain
 npm run test:onchain
+```
+
+Other model diagnostics remain available:
+
+```bash
 npm run play -- target
 npm run play -- demo-exploit
 npm run play -- latest-fails
 ```
 
-## Player POV
+## Production configuration
 
-1. Read the portal target: a live program is running an older commit.
-2. Inspect the fictional repo archive under `repo/`.
-3. Find the quiet strategy refactor that pins the strategy program id.
-4. Infer that the stale vault forwards its trusted PDA signer to a caller-selected program.
-5. Deploy or invoke a compatible malicious strategy and drain the stale target into the team escrow.
+Copy `.env.example` into the deployment secret manager. Generate independent random values of at
+least 32 bytes for:
 
-The model checker does not accept "the bug is X" as a solve. Event deployment should validate the
-actual per-team on-chain reserve/escrow transition; the JavaScript checker is retained only for local
-portal development.
+- `FLAG_SECRET`
+- `CHALLENGE_TICKET_SECRET`
+- `CHALLENGE_SESSION_SECRET`
+- `INSTANCE_SECRET` (provisioning only; do not give this to Vercel unless provisioning there)
 
-Set a unique `FLAG_SECRET` of at least 32 characters before running any production checker. The local
-model secret is accepted only outside `NODE_ENV=production`.
+Configure one Redis transport plus a private `SOLANA_RPC_URL`:
+
+- Railway: `REDIS_URL=redis[s]://...`
+- Vercel/Upstash: `KV_REST_API_URL` + `KV_REST_API_TOKEN` (the standard
+  `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` names are also accepted)
+
+When both are present, `REDIS_URL` takes precedence. The portal must issue participant tickets with
+audience `signet`. `PUBLIC_SOLANA_RPC_URL` is optional and is used only for Explorer links when
+`SOLANA_EXPLORER_CLUSTER=custom`.
+
+Production normally stores one target per team in Redis under
+`ctf26:signet:target:<team_id>`. `SIGNET_TARGETS_JSON` is an optional small-event/rehearsal fallback;
+when present, it is an object keyed by the ticket's `team_id`:
+
+```json
+{
+  "team-17": {
+    "instanceId": "signet-a19ef84b7b82",
+    "programId": "<base58 program id>",
+    "vaultAccount": "<base58 vault PDA>",
+    "vaultAuthority": "<base58 authority PDA>",
+    "reserveAccount": "<base58 SPL token account>",
+    "escrowAccount": "<base58 team-owned SPL token account>",
+    "mint": "<base58 challenge mint>",
+    "teamWallet": "<base58 registered wallet>",
+    "buildFingerprint": "a47a867fea8ec39e",
+    "thresholdRaw": "750000",
+    "initialReserveRaw": "1000000",
+    "initialEscrowRaw": "0",
+    "decimals": 0,
+    "cluster": "devnet",
+    "tokenSymbol": "QRY"
+  }
+}
+```
+
+The service refuses malformed addresses, invalid balance bounds, missing team assignments, weak
+secrets, replay-store failures, and absent production authentication.
+
+## Chain deployment and target provisioning
+
+Never use `~/.config/solana/id.json` or a personal wallet. Generate a disposable challenge operator
+under the ignored `.keys/` directory and fund it with only the SOL needed for the event:
+
+```bash
+mkdir -p .keys
+solana-keygen new --no-bip39-passphrase -o .keys/signet-operator.json
+```
+
+Before the first deployment, create dedicated program keypairs in `target/deploy/`, run
+`anchor keys sync`, rebuild, and review the resulting program IDs. Deploy the vulnerable program with
+the SIGNET operator as its upgrade authority. The fixed and attacker programs are required for local
+regression testing, not for the live player target.
+
+Provision each team after the vulnerable program is deployed:
+
+Collect a freshly generated, disposable Solana public key from every team during registration. The
+team retains the private key; organizers fund that public key with the fixed challenge SOL budget and
+bind it into the target below. Reject personal wallets and duplicate wallet registrations. Run a
+roster preflight before opening SIGNET so every portal `team_id` has exactly one funded wallet and one
+published target.
+
+```bash
+TEAM_ID=team-17 \
+TEAM_WALLET=<registered-wallet> \
+SOLANA_RPC_URL=<private-rpc> \
+SOLANA_CLUSTER=devnet \
+OPERATOR_KEYPAIR=.keys/signet-operator.json \
+VAULT_PROGRAM_ID=<deployed-vulnerable-program> \
+INSTANCE_SECRET=<independent-32-byte-secret> \
+npm run --silent provision > team-17-target.json
+```
+
+Provisioning deterministically randomizes the team seed, starting reserve, and required recovery,
+creates a team-owned escrow, initializes the vault/reserve PDAs, seeds the complete challenge supply,
+and revokes mint authority. Publish one or more emitted target objects into the same Redis instance used
+by the service:
+
+```bash
+REDIS_URL=<railway-redis-url> \
+npm run publish-targets -- team-17-target.json
+```
+
+For the REST transport, replace `REDIS_URL` with `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
+
+For a small rehearsal, target objects can instead be merged into `SIGNET_TARGETS_JSON`. Do not use one
+large environment variable for the full event roster.
+
+For stronger isolation, deploy a separate vulnerable program ID per team and provision each manifest
+against that ID. A shared immutable program with per-team PDAs is cheaper, but it requires RPC policy
+and event rules to prevent teams from griefing another assignment. The checker itself never accepts a
+cross-team transaction.
+
+## Launch gates
+
+Before opening the event:
+
+- run `npm test` and `npm run test:onchain` against the exact release commit;
+- confirm the live program hash/fingerprint and target manifest agree;
+- verify mint authority is revoked for every challenge mint;
+- confirm reserve owner is the assigned vault-authority PDA and escrow owner is the team wallet;
+- exercise one sacrificial end-to-end instance, including ticket replay rejection and flag issuance;
+- verify the latest fixed program rejects the same attacker strategy;
+- inspect the generated starter tarball and public browser assets for secrets/private keys;
+- run desktop, narrow-screen, keyboard-only, and failure-state UI checks;
+- run the human-driven, AI-assisted, and autonomous-agent playtest matrix;
+- retain an RPC/indexer fallback and a reset plan for unsolved instances.
+
+## Vercel deployment and smoke test
+
+Create a dedicated Vercel project with **Root Directory** set to `apps/silent-patch`. The included
+`vercel.json` runs the deterministic web build, publishes `public/`, packages the protected `repo/`
+files with each API function, adds strict browser headers, and caps function duration at 15 seconds.
+
+Set the production environment variables from `.env.example`, omit `SIGNET_TARGETS_JSON` when using
+the Redis target store, then deploy from this directory:
+
+```bash
+vercel deploy --prod
+```
+
+No deployment command is run automatically by this repository. After deployment, use the returned
+origin in this exact smoke sequence:
+
+```bash
+ORIGIN=https://<signet-project>.vercel.app
+
+# Must be 200 with {"ok":true,"service":"signet","mode":"live"}.
+curl --fail-with-body "$ORIGIN/api/health"
+
+# Static shell is public, but team state must be session-gated.
+curl --fail-with-body "$ORIGIN/" >/dev/null
+test "$(curl -sS -o /tmp/signet-target.json -w '%{http_code}' "$ORIGIN/api/target")" = "401"
+
+# Launch through the event portal with a fresh audience=signet ticket.
+# The browser must remove ?ticket=..., receive an HttpOnly signet_session cookie,
+# load only that team's manifest, open the project mirror, and download the starter archive.
+```
+
+For the sacrificial end-to-end instance, execute the real reserve recovery, submit its finalized
+signature in the UI, confirm the flag on the scoreboard, resubmit to verify deterministic behavior,
+and verify that the same signature is rejected under another team's session. Reusing the original
+launch URL must fail because its JTI was consumed atomically.
+
+## Railway deployment
+
+Railway can run the same service as one long-lived Node container and use the existing Railway Redis
+TCP endpoint. Keep the service source/root at the repository root so the local
+`packages/participant-ticket` dependency remains inside the Docker build context. Set Railway's config
+file path to `apps/silent-patch/railway.json`; it selects `apps/silent-patch/Dockerfile.railway` and
+watches only SIGNET plus the shared ticket package.
+
+Attach the Redis service and apply `railway.env.example`, especially:
+
+```text
+REDIS_URL=${{Redis.REDIS_URL}}
+NODE_ENV=production
+HOST=0.0.0.0
+FLAG_SECRET=<independent 32+ byte secret>
+CHALLENGE_TICKET_SECRET=<independent 32+ byte secret>
+CHALLENGE_SESSION_SECRET=<independent 32+ byte secret>
+SOLANA_RPC_URL=<private devnet RPC>
+```
+
+The container installs production dependencies only, builds the deterministic starter archive, runs
+as the unprivileged `node` user, binds Railway's injected `PORT`, closes Redis cleanly on SIGTERM, and
+uses `/api/health` for both Docker and Railway readiness. The health endpoint returns 200 only after
+Redis answers `PONG`, the Solana RPC answers `getHealth`, and all production secrets meet minimum
+length. The repository-root `.dockerignore` excludes every `.keys` directory, keypair JSON, local env
+file, Anchor ledger, and build target before Docker receives the context.
+
+After Railway reports healthy, use the same smoke sequence above with the Railway public origin.
+Unauthenticated `/api/target` must remain 401, and a fresh portal ticket must establish the signed
+first-party session exactly once.
+
+No git commit, program deployment, target provisioning, or Vercel publication is performed by the
+local build scripts.

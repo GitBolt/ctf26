@@ -28,22 +28,45 @@ function mac(payload, key) {
   return crypto.createHmac("sha256", key).update(payload).digest("base64url");
 }
 
-export function createChallengeSession(ticket, env = process.env, now = Date.now()) {
-  const claims = verifyParticipantTicket(ticket, secret(env, "CHALLENGE_TICKET_SECRET"), {
-    audience: "imprint",
-  });
+export function createChallengeSession(
+  ticket,
+  env = process.env,
+  now = Date.now()
+) {
+  const claims = verifyParticipantTicket(
+    ticket,
+    secret(env, "CHALLENGE_TICKET_SECRET"),
+    {
+      audience: "imprint",
+    }
+  );
   const issuedAt = Math.floor(now / 1000);
   const body = {
     teamId: claims.team_id,
     participantId: claims.participant_id,
+    email: claims.email || "",
     exp: issuedAt + SESSION_TTL_SECONDS,
   };
   const payload = encode(body);
   return `v1.${payload}.${mac(payload, secret(env, "IMPRINT_SESSION_SECRET"))}`;
 }
 
-export function verifyChallengeSession(token, env = process.env, now = Date.now()) {
-  const [version, payload, signature, ...extra] = String(token || "").split(".");
+export function createDirectTestSession(teamId, env = process.env, now = Date.now()) {
+  const value = String(teamId || "").trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{1,47}$/.test(value)) throw new Error("a valid test team is required");
+  const issuedAt = Math.floor(now / 1000);
+  const payload = encode({ teamId: value, participantId: `direct-test-${value}`, email: "", exp: issuedAt + SESSION_TTL_SECONDS });
+  return `v1.${payload}.${mac(payload, secret(env, "IMPRINT_SESSION_SECRET"))}`;
+}
+
+export function verifyChallengeSession(
+  token,
+  env = process.env,
+  now = Date.now()
+) {
+  const [version, payload, signature, ...extra] = String(token || "").split(
+    "."
+  );
   if (version !== "v1" || !payload || !signature || extra.length) {
     throw new Error("challenge session is malformed");
   }

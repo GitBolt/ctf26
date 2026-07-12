@@ -1,8 +1,10 @@
 # PR 21: error code normalization
 
+Status: merged
+
 ```diff
 - return err!(ErrorCode::StrategyFailed);
 + return err!(ErrorCode::ExternalStrategyFailed);
 ```
 
-Pure naming cleanup.
+Keeps keeper error classification consistent across strategy implementations.

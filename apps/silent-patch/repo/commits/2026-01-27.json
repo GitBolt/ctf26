@@ -1,0 +1,8 @@
+{
+  "sha": "8d17c2e",
+  "subject": "normalize strategy execution errors",
+  "author": "nik-v",
+  "timestamp": "2026-01-27T17:06:19Z",
+  "buildFingerprint": "a47a867fea8ec39e",
+  "parents": ["41ea0ff"]
+}

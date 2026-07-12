@@ -23,7 +23,7 @@ export async function POST(request) {
       userDisplayName: `IMPRINT ${teamId}`,
       attestationType: "direct",
       authenticatorSelection: {
-      authenticatorAttachment: "platform",
+        authenticatorAttachment: "platform",
         residentKey: "discouraged",
         userVerification: "required",
       },
@@ -41,7 +41,9 @@ export async function POST(request) {
     jar.set(ENROLLMENT_TEAM_COOKIE, teamId, cookieOptions);
     return Response.json(options);
   } catch (error) {
-    return new Response(error.message || "security-key enrollment was denied", { status: 403 });
+    return new Response(error.message || "security-key enrollment was denied", {
+      status: 403,
+    });
   }
 }
 
