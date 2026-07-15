@@ -4,6 +4,8 @@ import { currentUser } from "@/lib/auth";
 import { challengeByKey, challengeDestination } from "@/lib/challenges.mjs";
 import { createChallengeTicket } from "@/lib/tickets";
 
+import CopyButton from "./CopyButton";
+
 export const dynamic = "force-dynamic";
 
 async function sshAccess(challenge, user) {
@@ -47,11 +49,14 @@ export default async function ChallengeDetails({ params }) {
         <a className="detail-back" href="/">Back to challenges</a>
       </nav>
 
-      <section className="challenge-detail">
-        <header className="detail-heading">
-          <p className="kicker">Hosted SSH</p>
-          <h1>{challenge.name}</h1>
-          <p>{challenge.copy}</p>
+      <section className="ssh-detail">
+        <header className="ssh-heading">
+          <div className="station-sign" aria-hidden="true">
+            <span>LAST STOP</span>
+            <strong>RED LINE</strong>
+          </div>
+          <h1>Connect from your terminal</h1>
+          <p>Copy the command, run it, then enter the one-time password.</p>
         </header>
 
         {unavailable ? (
@@ -61,19 +66,22 @@ export default async function ChallengeDetails({ params }) {
           </div>
         ) : (
           <div className="connection-panel">
-            <div className="connection-header">
-              <div>
-                <span className="connection-label">Terminal command</span>
+            <div className="connection-field">
+              <div className="connection-value">
+                <span className="connection-label">Command</span>
                 <code>{access.command}</code>
               </div>
-              <span className="connection-status"><span aria-hidden="true" />Ready</span>
+              <CopyButton value={access.command} />
             </div>
-            <div className="connection-password">
-              <span className="connection-label">One-time password</span>
-              <code>{access.password}</code>
+            <div className="connection-field">
+              <div className="connection-value">
+                <span className="connection-label">One-time password</span>
+                <code>{access.password}</code>
+              </div>
+              <CopyButton value={access.password} />
             </div>
             <p className="connection-note">
-              Open a terminal, run the command, then enter the password when prompted. The password works once and expires in ten minutes.
+              Expires in ten minutes and works once. Refresh for another password.
             </p>
           </div>
         )}

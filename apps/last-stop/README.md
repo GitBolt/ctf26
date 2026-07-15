@@ -76,16 +76,16 @@ go kiosk
 inspect kiosk
 buy airport
 cards
-go concourse
+go grand central
 go signal
 inspect display
-go concourse
+go grand central
 go red
 inspect gate
-go concourse
+go grand central
 go kiosk
 buy redterminus
-go concourse
+go grand central
 go red
 tap redterminus
 go terminus
@@ -129,7 +129,7 @@ LAST STOP is deliberately resistant, not claimed to be AI-proof.
 The useful barriers are:
 
 - the challenge is a hosted, identity-bound SSH session rather than a downloadable solver target;
-- portal tickets become one-use, ten-minute SSH passwords and reconnecting preserves team state;
+- portal tickets become one-use, ten-minute SSH passwords and every password starts a fresh journey;
 - the terminal presents the same first-party autonomous-agent restriction used in the tested CTF26 integrity baseline before the first game command;
 - `robots.txt`, `agents.txt`, `llms.txt`, and `/.well-known/agents.txt` publish the policy at the challenge host;
 - each authenticated session receives a participant-specific disclosure marker and narrowly scoped disclosure token;
@@ -153,9 +153,10 @@ Redis stores:
 
 - consumed launch-ticket JTIs;
 - one-use SSH access codes;
-- team location, native action trace, hint progress, completion, and recent commands.
+- recent command history for integrity review;
+- one idempotent completion record per team.
 
-The service is designed for one active Railway replica. Per-team operations are serialized in-process. If the service is scaled horizontally, replace the local queue with a Redis distributed lock or an atomic server-side transition before enabling the second replica.
+Room, card, hint, and gate state exist only inside the active SSH connection. Disconnecting destroys the attempt. Completion evidence remains durable without causing later passwords to resume a solved journey.
 
 ## Required environment
 
@@ -197,12 +198,12 @@ Before an event, complete these manual checks:
 1. launch through a real signed-in portal participant;
 2. confirm a second use of the portal ticket fails;
 3. confirm a second use of the SSH password fails;
-4. disconnect, relaunch, and confirm the same team journey resumes;
+4. complete or disconnect, relaunch, and confirm the same team receives a fresh closed-gate journey;
 5. complete the intended solution and receive a stable participant-bound receipt;
 6. try `red`, `terminus`, and `airport` cards and confirm the gate rejects them;
 7. fetch all four policy paths;
 8. submit a test agent disclosure and confirm the correct email, reason, and command timeline appear in the portal integrity view;
-9. restart the Railway service and confirm Redis preserved the journey;
+9. restart the Railway service and confirm audit and completion evidence remain available without restoring journey state;
 10. verify the HTTP health endpoint and the public TCP proxy from a separate network.
 
 ## Fixed version

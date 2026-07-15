@@ -1,6 +1,5 @@
 import crypto from "node:crypto";
 import { createClient } from "redis";
-import { initialState } from "./game.mjs";
 
 export async function createStore(env = process.env) {
   if (!env.REDIS_URL) return memoryStore();
@@ -23,12 +22,26 @@ export async function createStore(env = process.env) {
       const raw = await redis.getDel(`${prefix}:code:${code}`);
       return raw ? JSON.parse(raw) : null;
     },
-    async getTeam(teamId) {
-      const raw = await redis.get(`${prefix}:team:${teamId}`);
-      return raw ? JSON.parse(raw) : initialState();
+    async appendCommand(teamId, command) {
+      const key = `${prefix}:commands:${teamId}`;
+      await redis.multi()
+        .rPush(key, JSON.stringify(command))
+        .lTrim(key, -200, -1)
+        .exec();
     },
-    async setTeam(teamId, state) {
-      await redis.set(`${prefix}:team:${teamId}`, JSON.stringify(state));
+    async getRecentCommands(teamId, limit = 40) {
+      const values = await redis.lRange(`${prefix}:commands:${teamId}`, -limit, -1);
+      return values.flatMap((value) => {
+        try { return [JSON.parse(value)]; } catch { return []; }
+      });
+    },
+    async recordCompletion(teamId, completion) {
+      const key = `${prefix}:completion:${teamId}`;
+      const encoded = JSON.stringify(completion);
+      const inserted = await redis.set(key, encoded, { NX: true });
+      if (inserted === "OK") return completion;
+      const existing = await redis.get(key);
+      return existing ? JSON.parse(existing) : completion;
     },
     async close() { await redis.quit(); },
   };
@@ -37,7 +50,8 @@ export async function createStore(env = process.env) {
 function memoryStore() {
   const tickets = new Set();
   const codes = new Map();
-  const teams = new Map();
+  const commandLogs = new Map();
+  const completions = new Map();
   return {
     mode: "memory",
     async consumeTicket(jti) {
@@ -55,8 +69,17 @@ function memoryStore() {
       codes.delete(code);
       return identity;
     },
-    async getTeam(teamId) { return structuredClone(teams.get(teamId) || initialState()); },
-    async setTeam(teamId, state) { teams.set(teamId, structuredClone(state)); },
+    async appendCommand(teamId, command) {
+      const commands = [...(commandLogs.get(teamId) || []), structuredClone(command)].slice(-200);
+      commandLogs.set(teamId, commands);
+    },
+    async getRecentCommands(teamId, limit = 40) {
+      return structuredClone((commandLogs.get(teamId) || []).slice(-limit));
+    },
+    async recordCompletion(teamId, completion) {
+      if (!completions.has(teamId)) completions.set(teamId, structuredClone(completion));
+      return structuredClone(completions.get(teamId));
+    },
     async close() {},
   };
 }

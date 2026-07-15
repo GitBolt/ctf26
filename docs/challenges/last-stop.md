@@ -22,8 +22,8 @@ Solana does not encode the boundary between adjacent PDA seed byte strings. The 
 ## Delivery and integrity
 
 - Portal ticket bound to participant, team, email, event, and challenge audience.
-- One-use SSH password with ten-minute expiry; fresh portal launches resume the same team journey.
-- Redis-backed action trace, location, hints, completion, and recent command history.
+- One-use SSH password with ten-minute expiry; every password starts a fresh ephemeral journey.
+- Redis-backed completion evidence and recent command history; room, card, hint, and gate state disappear when SSH disconnects.
 - Participant-specific autonomous-agent policy and disclosure marker.
 - `robots.txt`, `agents.txt`, `llms.txt`, and `/.well-known/agents.txt` policy discovery.
 - Central integrity disclosure with identity and command timeline for organizer review.
