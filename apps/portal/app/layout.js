@@ -1,7 +1,7 @@
 import "./styles.css";
 
 export const metadata = {
-  title: "CTF26 — Challenge room",
+  title: "stCTF: Challenge room",
   description: "The live challenge board for the Superteam Solana Security CTF.",
   referrer: "no-referrer",
 };

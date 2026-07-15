@@ -70,7 +70,7 @@ export default async function IntegrityAdmin() {
   return (
     <main className="shell admin-shell">
       <nav className="topbar" aria-label="Organizer">
-        <a className="wordmark" href="/">CTF<span>26</span></a>
+        <a className="wordmark" href="/" aria-label="CTF26 home"><span aria-hidden="true">[ st</span><strong>CTF</strong><span aria-hidden="true"> ]</span></a>
         <div className="admin-nav">
           <span>{user.email}</span>
           <a href="/">Challenge board</a>
