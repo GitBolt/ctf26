@@ -92,7 +92,7 @@ rather than infer an answer from the public bundle.
 
 - Provision a fresh sacrificial target and disposable player-controlled wallet.
 - Verify `npm run inspect` passes before starting the timer.
-- Give only the portal console, archive, and downloaded starter.
+- Give only the portal console, public repository, and downloaded starter.
 - Suggested timebox: 90 minutes.
 - If needed, release progressive nudges at 35 and 60 minutes: first toward matching the deployed build
   fingerprint to repository history, then toward the authority consequences of the strategy call.

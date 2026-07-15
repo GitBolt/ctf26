@@ -46,7 +46,7 @@ export function publicTarget(target) {
     vaultReserve: target.vaultReserve,
     teamEscrow: target.teamEscrow,
     threshold: target.threshold,
-    note: "The build fingerprint identifies the deployed artifact. Verify behavior against the available project archive.",
+    note: "The build fingerprint identifies the deployed artifact. Verify behavior against the public source repository.",
   };
 }
 

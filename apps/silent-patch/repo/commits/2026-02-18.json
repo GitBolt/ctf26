@@ -1,8 +1,0 @@
-{
-  "sha": "c6f210e",
-  "subject": "prepare 0.8.4 release",
-  "author": "release-bot",
-  "timestamp": "2026-02-18T13:44:08Z",
-  "buildFingerprint": "03fc793252665aaf",
-  "parents": ["b41a9aa"]
-}

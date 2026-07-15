@@ -10,9 +10,9 @@ release manifest. Never copy secret values, ignored keypairs, or `.keys/` conten
 | Surface | URL | Verified state |
 | --- | --- | --- |
 | Central portal | `https://ctf26-eta.vercel.app` | Production build live; all four signed launch exchanges passed |
-| Reward Sniper | `https://reward-sniper-production.up.railway.app/web/` | Persistent live market; portal session and restart recovery passed |
+| Reward Sniper | `https://reward-sniper-production.up.railway.app/web/` | **Challenge complete**; mechanics and autonomous-agent resistance validated |
 | IMPRINT | `https://imprint-sage.vercel.app` | **Challenge complete**; hardened devnet program and updated five-stage console live |
-| SIGNET | `https://signet-production-4018.up.railway.app/` | Live archive/target/checker; solved proof plus a fresh internal target |
+| SIGNET | `https://signet-production-4018.up.railway.app/` | Public repository/live target/checker; solved proof plus a fresh internal target |
 | DRIFT | `https://drift-production-c697.up.railway.app/` | Exact native SBF replay service; Redis replay protection live |
 
 The portal route slug and cryptographic ticket audience are intentionally separate. In particular,
@@ -21,6 +21,12 @@ The portal route slug and cryptographic ticket audience are intentionally separa
 ## Proof already completed
 
 ### Reward Sniper
+
+**Challenge status: COMPLETE FOR THE CURRENT ITERATION.** Manual and autonomous-agent playtests have
+validated the mechanics, stopping condition, integrity policy/disclosure path, behavioral evidence,
+organizer review view, and reset hygiene. Do not return to challenge design during normal slate work.
+Final synchronized timing, parameter selection, and event reset remain event operations; a future
+on-chain rewrite would be a new explicitly approved revision.
 
 - One Railway replica with `/data/reward-sniper-state.json` on a persistent volume.
 - Live portal-ticket exchange, nine-bin market read, and production health check passed.

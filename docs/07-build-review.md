@@ -12,9 +12,11 @@ security core, no static answer, state-transition/replay checker, and distinct a
 - Built: market simulator, bins, active bin, stale windows, relative score, asymmetric telemetry,
   commit-reveal, HMAC execution vouchers, 3 Sniper Tickets.
 - Anti-agent layer: dynamic state + scarce high-value attempts + console/voucher gateway.
-- Status: production-capable hosted KOTH with persistent state, one practice round, three normalized
-  scored rounds, resumable sessions, and synchronized-start support. It remains deliberately off-chain;
-  do not present it as a deployed Meteora pool or on-chain settlement challenge.
+- Status: **complete and validated for the current iteration**. The hosted KOTH, persistent state,
+  practice/scored rounds, resumable sessions, integrity controls, and autonomous-agent playtest have
+  all been exercised successfully. Do not reopen its mechanics during routine slate work; revisit it
+  only for an explicitly requested future revision or event-day configuration. It remains deliberately
+  off-chain and must not be presented as a deployed Meteora pool or on-chain settlement challenge.
 
 ### IMPRINT
 
@@ -30,11 +32,11 @@ security core, no static answer, state-transition/replay checker, and distinct a
 ### SIGNET
 
 - Core: stale pre-fix CPI/PDA authority bug discovered by reading a quiet strategy patch.
-- Built: fictional repo archive, decoy PRs/issues, stale target model, latest-fixed model, replay
+- Built: public 24-commit Anchor repository, stale target model, latest-fixed model, replay
   checker with HMAC flag.
 - Anti-agent layer: messy source archaeology + live target state transition. Canaries remain telemetry
   only.
-- Status: hosted staging is functional: authenticated archive browser, deterministic starter kit,
+- Status: hosted staging is functional: public source repository, deterministic starter kit,
   exact on-chain checker, Redis-backed identity/rate state, and a live sacrificial target all pass.
   Event launch still requires fresh program/target provisioning for the final roster and pre-enrollment
   of one disposable player-controlled Solana wallet per team.
@@ -69,7 +71,7 @@ Fixed during review:
   a post-settlement checkpoint would not capture backlog.
 - Tightened DRIFT's replay boundary: the checker accepts canonical program instructions plus
   declared clock schedule only, and rejects arbitrary account/SVM mutation such as `set_account`.
-- Reframed Signet anti-AI: GitHub/archive enumeration is not the security boundary; the live
+- Reframed Signet anti-AI: GitHub enumeration is not the security boundary; the live
   stale-target exploit and checker replay are. The target now exposes an opaque build fingerprint
   instead of the exact commit.
 - Removed the private QuickNode fallback from the old Settlement prototype.
@@ -81,9 +83,9 @@ Fixed during review:
 
 Known remaining work before a real public event:
 
-- Reward Sniper: choose the final synchronized start time and round parameters, reset the persistent
-  market, and complete contested human/agent playtests. Moving settlement on-chain is optional only if
-  the event intends to advertise on-chain execution.
+- Reward Sniper: challenge work is complete. Choosing the synchronized start time and round parameters
+  and resetting the persistent market are event operations. Moving settlement on-chain would be a
+  separately approved future redesign, not unfinished work.
 - Signet: rotate away from the public staging solve; provision fresh per-team targets/program IDs,
   register and fund disposable team wallets, and verify every starter preflight against its manifest.
 - DRIFT: complete the measured human/AI-assisted/autonomous playtest matrix and decide the timed release

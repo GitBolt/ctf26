@@ -3,7 +3,6 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  handleArchive,
   handleHealth,
   handleAgentPolicy,
   handleAgentDisclosure,
@@ -18,7 +17,6 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../publ
 const PORT = Number(process.env.PORT || 4173);
 const HOST = process.env.HOST || (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
 const API = new Map([
-  ["/api/archive", handleArchive],
   ["/api/health", handleHealth],
   ["/api/session", handleSession],
   ["/api/submit", handleSubmit],

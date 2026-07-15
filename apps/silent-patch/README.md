@@ -2,7 +2,7 @@
 
 SIGNET is a stale-deployment/source-archaeology Solana CTF challenge with an executable CPI authority
 failure. The public brief gives a team its live vault, opaque build fingerprint, current project
-mirror, starter client, and one objective: move the assigned reserve into the registered team escrow.
+source repository, starter client, and one objective: move the assigned reserve into the registered team escrow.
 It does not tell players that the deployment predates the latest source or that a patch matters.
 
 The organizer-only implementation contains three programs:
@@ -13,8 +13,8 @@ The organizer-only implementation contains three programs:
   CPI to drain the reserve.
 - `quarry-vault-fixed`: the latest behavior. It pins the strategy program before forwarding privilege.
 
-The project mirror in `repo/` contains current fixed source, quiet review history, issues, commits, and
-plausible maintenance decoys. Archaeology identifies the authority-model change; only a live,
+The public repository at `https://github.com/GitBolt/signet` contains current fixed source and a
+realistic commit history. Archaeology identifies the authority-model change; only a live,
 team-bound reserve-to-escrow transition solves the challenge.
 
 ## Player service
@@ -25,7 +25,7 @@ The production service is deployable as a Vercel project rooted at this director
 - atomic one-time ticket consumption through Redis over Railway TCP or Vercel-compatible REST;
 - an HTTP-only, signed first-party challenge session;
 - team-specific target manifests with live finalized token balances;
-- a session-gated GitHub-style project-mirror viewer;
+- a direct link to the public GitHub source repository;
 - a generated starter-client archive;
 - a finalized Solana transaction checker;
 - deterministic HMAC flags bound to team, instance, transaction, and final escrow balance;
@@ -217,7 +217,7 @@ test "$(curl -sS -o /tmp/signet-target.json -w '%{http_code}' "$ORIGIN/api/targe
 
 # Launch through the event portal with a fresh audience=signet ticket.
 # The browser must remove ?ticket=..., receive an HttpOnly signet_session cookie,
-# load only that team's manifest, open the project mirror, and download the starter archive.
+# load only that team's manifest, open the source repository, and download the starter archive.
 ```
 
 For the sacrificial end-to-end instance, execute the real reserve recovery, submit its finalized

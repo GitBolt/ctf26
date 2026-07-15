@@ -1,8 +1,8 @@
 use {
     overclock_harness::{
-        ATTACKER_STARTING_BALANCE, INITIAL_CLOCK, MAX_TRACE_STEPS, ReplayHarness, Step, Submission,
-        check_submission, default_program_path, parse_submission, reference_rewind_steps,
-        replay_submission, team_config,
+        ATTACKER_STARTING_BALANCE, MAX_TRACE_STEPS, ReplayHarness, Step, Submission,
+        SubmittedAccountMeta, check_submission, default_program_path, parse_submission,
+        reference_rewind_steps, replay_submission, team_config,
     },
     sha2::{Digest, Sha256},
     std::fs,
@@ -15,6 +15,27 @@ fn submission(team_id: &str, steps: Vec<Step>) -> Submission {
     }
 }
 
+fn account(account: &str, is_signer: bool, is_writable: bool) -> SubmittedAccountMeta {
+    SubmittedAccountMeta {
+        account: account.to_owned(),
+        is_signer,
+        is_writable,
+    }
+}
+
+fn invoke(data: &[u8], accounts: Vec<SubmittedAccountMeta>) -> Step {
+    Step::Invoke {
+        data_hex: data.iter().map(|byte| format!("{byte:02x}")).collect(),
+        accounts,
+    }
+}
+
+fn amount_instruction(tag: u8, amount: u64, accounts: Vec<SubmittedAccountMeta>) -> Step {
+    let mut data = vec![tag];
+    data.extend_from_slice(&amount.to_le_bytes());
+    invoke(&data, accounts)
+}
+
 #[test]
 fn checker_executes_the_exact_real_elf() {
     let path = default_program_path();
@@ -22,7 +43,20 @@ fn checker_executes_the_exact_real_elf() {
     assert_eq!(&bytes[..4], b"\x7fELF");
     assert!(bytes.len() > 10_000);
 
-    let result = replay_submission(&path, &submission("native-elf", vec![Step::Accrue])).unwrap();
+    let result = replay_submission(
+        &path,
+        &submission(
+            "native-elf",
+            vec![invoke(
+                &[1],
+                vec![
+                    account("position", false, true),
+                    account("SysvarC1ock11111111111111111111111111111111", false, false),
+                ],
+            )],
+        ),
+    )
+    .unwrap();
     let expected_hash = Sha256::digest(&bytes)
         .iter()
         .map(|byte| format!("{byte:02x}"))
@@ -38,12 +72,26 @@ fn funded_deposit_withdraw_round_trip_is_not_a_solve() {
         &submission(
             "native-round-trip",
             vec![
-                Step::Deposit {
-                    amount: "100".to_owned(),
-                },
-                Step::Withdraw {
-                    amount: "100".to_owned(),
-                },
+                amount_instruction(
+                    0,
+                    100,
+                    vec![
+                        account("attacker", true, true),
+                        account("vault", false, true),
+                        account("position", false, true),
+                        account("SysvarC1ock11111111111111111111111111111111", false, false),
+                        account("11111111111111111111111111111111", false, false),
+                    ],
+                ),
+                amount_instruction(
+                    2,
+                    100,
+                    vec![
+                        account("attacker", true, true),
+                        account("vault", false, true),
+                        account("position", false, true),
+                    ],
+                ),
             ],
         ),
     )
@@ -70,44 +118,31 @@ fn old_self_funding_bypass_fails_in_the_native_system_transfer() {
         &submission(
             team_id,
             vec![
-                Step::Deposit {
-                    amount: amount.clone(),
-                },
-                Step::Withdraw { amount },
+                amount_instruction(
+                    0,
+                    amount.parse().unwrap(),
+                    vec![
+                        account("attacker", true, true),
+                        account("vault", false, true),
+                        account("position", false, true),
+                        account("SysvarC1ock11111111111111111111111111111111", false, false),
+                        account("11111111111111111111111111111111", false, false),
+                    ],
+                ),
+                amount_instruction(
+                    2,
+                    amount.parse().unwrap(),
+                    vec![
+                        account("attacker", true, true),
+                        account("vault", false, true),
+                        account("position", false, true),
+                    ],
+                ),
             ],
         ),
     )
     .unwrap_err();
     assert!(error.to_string().contains("native SBF transaction failed"));
-}
-
-#[test]
-fn forward_clock_exploit_solves_through_sbf_execution() {
-    let team_id = "native-forward";
-    let config = team_config(team_id);
-    let result = replay_submission(
-        default_program_path(),
-        &submission(
-            team_id,
-            vec![
-                Step::Deposit {
-                    amount: "10".to_owned(),
-                },
-                Step::SetClock {
-                    unix_timestamp: (INITIAL_CLOCK + 1_000_000).to_string(),
-                },
-                Step::Accrue,
-                Step::Withdraw {
-                    amount: config.reserve.to_string(),
-                },
-            ],
-        ),
-    )
-    .unwrap();
-    assert!(result.solved);
-    assert!(result.accounting_consistent);
-    assert_eq!(result.reserve_drain, result.attacker_profit);
-    assert_eq!(result.reserve_drain, result.net_withdrawn);
 }
 
 #[test]
@@ -131,7 +166,16 @@ fn scored_checker_requires_a_real_solve_and_a_server_secret() {
     assert!(output.ok);
     assert!(output.flag.starts_with("CTF26{drift_"));
 
-    let unsolved = submission("native-unsolved", vec![Step::Accrue]);
+    let unsolved = submission(
+        "native-unsolved",
+        vec![invoke(
+            &[1],
+            vec![
+                account("position", false, true),
+                account("SysvarC1ock11111111111111111111111111111111", false, false),
+            ],
+        )],
+    );
     assert!(check_submission(default_program_path(), &unsolved, &[0x5a; 32]).is_err());
     assert!(check_submission(default_program_path(), &solved, b"short").is_err());
 }
@@ -141,16 +185,24 @@ fn parser_rejects_unknown_operations_fields_and_oversized_traces() {
     assert!(
         parse_submission(br#"{"teamId":"native-parse","steps":[{"op":"set_account"}]}"#).is_err()
     );
+    for semantic_op in ["deposit", "accrue", "withdraw", "set_clock"] {
+        let bytes = format!(
+            r#"{{"teamId":"native-parse","steps":[{{"op":"{semantic_op}"}}]}}"#
+        );
+        assert!(parse_submission(bytes.as_bytes()).is_err());
+    }
     assert!(
-        parse_submission(br#"{"teamId":"native-parse","steps":[{"op":"accrue","balance":"9"}]}"#)
+        parse_submission(br#"{"teamId":"native-parse","steps":[{"op":"invoke","dataHex":"01","accounts":[],"balance":"9"}]}"#)
             .is_err()
     );
     assert!(
-        parse_submission(br#"{"teamId":"native-parse","steps":[{"op":"deposit","amount":"010"}]}"#)
+        parse_submission(br#"{"teamId":"native-parse","steps":[{"op":"invoke","dataHex":"0A","accounts":[{"account":"position","isSigner":false,"isWritable":true}]}]}"#)
             .is_err()
     );
 
-    let steps = (0..=MAX_TRACE_STEPS).map(|_| Step::Accrue).collect();
+    let steps = (0..=MAX_TRACE_STEPS)
+        .map(|_| invoke(&[1], vec![account("position", false, true)]))
+        .collect();
     let oversized = submission("native-too-many", steps);
     let bytes = serde_json::to_vec(&oversized).unwrap();
     assert!(parse_submission(&bytes).is_err());

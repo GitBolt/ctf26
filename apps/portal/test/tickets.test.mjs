@@ -9,6 +9,8 @@ const CASES = Object.freeze([
   ["imprint", "CHALLENGE_TICKET_SECRET_IMPRINT"],
   ["signet", "CHALLENGE_TICKET_SECRET_SILENT_PATCH"],
   ["overclock", "CHALLENGE_TICKET_SECRET_OVERCLOCK"],
+  ["last-stop", "CHALLENGE_TICKET_SECRET_LAST_STOP"],
+  ["after-hours", "CHALLENGE_TICKET_SECRET_AFTER_HOURS"],
 ]);
 
 test("every catalog audience signs with its matching service secret", () => {

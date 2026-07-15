@@ -18,12 +18,14 @@ story; jump by topic below.
 | [`10-event-integrity-enforcement.md`](10-event-integrity-enforcement.md) | **Event integrity operations.** Prevention, detection, adjudication, rules, solve defenses, staffing, sanctions, and appeals. |
 | [`11-reward-sniper-agent-resistance-case-study.md`](11-reward-sniper-agent-resistance-case-study.md) | **Validated agent-resistance case study.** The complete Reward Sniper iteration record: browser-cookie automation, behavioral detection, policy discovery, disclosure-first refusal, identity attribution, organizer UX, reset hygiene, and the reusable checklist for future hosted challenges. |
 
-**The final four-challenge slate** — each Solana-specific, each replicating a different real-CTF style, each carrying a *different* anti-AI mechanism so they don't overlap:
+**The current six-challenge slate** — each Solana-specific, each replicating a different real-CTF style, with distinct delivery and integrity pressure:
 
 | [`challenges/reward-sniper.md`](challenges/reward-sniper.md) | **Challenge 1 — dynamic DeFi.** Operate a changing market and secure value under pressure. The player-facing catalog intentionally omits the accounting edge. |
 | [`challenges/imprint.md`](challenges/imprint.md) | **Challenge 2 — authorization.** Investigate an unfamiliar vault withdrawal and prove what the protocol accepts. The player-facing catalog intentionally omits the verification flaw. |
 | [`challenges/signet.md`](challenges/signet.md) | **SIGNET — deployment research.** A live program and its surrounding project materials do not agree; recover the reserve through a verified state transition. The detailed research narrative remains organizer-only. |
 | [`challenges/overclock.md`](challenges/overclock.md) | **DRIFT — reverse-engineering + runtime.** Closed-source Solana program on a per-team localnet; reconstruct its behavior and exploit the runtime assumptions. The specific value path is intentionally omitted from the player-facing catalog. |
+| [`challenges/last-stop.md`](challenges/last-stop.md) | **LAST STOP — terminal PDA journey.** Reopen an abandoned line by comparing two real Solana address derivations inside a hosted SSH text adventure. |
+| [`challenges/after-hours.md`](challenges/after-hours.md) | **AFTER HOURS — Discord checkout.** Fool a live Solana payment reconciler that can count tokens but fails to identify the asset it received. |
 
 **New design draft, not part of the official slate yet:**
 [`DRESS REHEARSAL`](challenges/dress-rehearsal.md) is a Loader-v3 release-governance pwn: a committee

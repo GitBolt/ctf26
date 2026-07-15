@@ -8,7 +8,7 @@ import {
 } from "../app/lib/challenges.mjs";
 
 test("challenge catalog has unique, launch-safe keys", () => {
-  assert.equal(CHALLENGES.length, 4);
+  assert.equal(CHALLENGES.length, 6);
   assert.equal(new Set(CHALLENGES.map(({ key }) => key)).size, CHALLENGES.length);
   assert.equal(
     new Set(CHALLENGES.map(({ audience }) => audience)).size,
@@ -43,8 +43,16 @@ test("route slugs and signed ticket audiences stay intentionally distinct", () =
       imprint: "imprint",
       "silent-patch": "signet",
       overclock: "overclock",
+      "last-stop": "last-stop",
+      "after-hours": "after-hours",
     },
   );
+});
+
+test("AFTER HOURS exposes its durable kit and Discord passage separately", () => {
+  const challenge = challengeByKey("after-hours");
+  assert.deepEqual(challenge.starts.map(({ kind }) => kind), ["download", "launch"]);
+  assert.equal(challenge.starts[0].href, "/packages/after-hours-player.zip");
 });
 
 test("hosted destinations are ticketed and URL credentials are rejected", () => {

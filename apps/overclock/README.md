@@ -2,7 +2,7 @@
 
 DRIFT is a bytecode-only Solana SBF reverse-engineering challenge. Players receive a stripped native
 program and a generic submission client. The authoritative checker loads the exact published ELF into
-LiteSVM, seeds a deterministic per-team target, replays a bounded instruction/environment schedule,
+LiteSVM, seeds a deterministic per-team target, replays a bounded raw instruction/sysvar trace,
 and awards a flag only when the attacker realizes net profit by draining the original reserve.
 
 ## Final architecture
@@ -16,7 +16,8 @@ and awards a flag only when the attacker realizes net profit by draining the ori
 - `HINTS.md` — organizer-only progressive hint ladder.
 
 The service never accepts a client-selected team ID, reported balance, arbitrary account write,
-replacement program, or arbitrary SVM mutation. The portal ticket determines the team. Each replay
+replacement program, or arbitrary SVM mutation. Public traces support only raw invocation of the
+published program and canonical replacement of an allowlisted sysvar. The portal ticket determines the team. Each replay
 starts from a fresh canonical instance and loads the exact ELF whose SHA-256 is returned to players.
 
 ## Win invariant
@@ -80,6 +81,7 @@ Endpoints:
 - `POST /api/session` — exchange a short-lived portal ticket for an HttpOnly team session;
 - `GET /api/target` — deterministic team target metadata;
 - `GET /artifact/drift_vault.so` — exact player ELF;
+- `GET /artifact/player-guide.md` — the public replay protocol included in the player kit;
 - `POST /api/replay` — bounded unscored exact replay, rate-limited;
 - `POST /api/submit` — exact replay plus server-side HMAC flag, more tightly rate-limited.
 
@@ -100,8 +102,8 @@ limited to local development and tests.
 4. An unauthenticated request cannot download the artifact or invoke replay.
 5. A ticket for another challenge or team cannot select a DRIFT target.
 6. A deposit/withdraw round trip and recycled gross volume do not solve.
-7. Arbitrary fields, account mutation operations, oversized bodies, excessive traces, and malformed
-   integers are rejected.
+7. Semantic instruction helpers, arbitrary fields, account mutation operations, non-canonical
+   encodings, oversized bodies, and excessive traces are rejected.
 8. The organizer reference trace solves through the service and produces a `CTF26{drift_...}` flag.
 9. Human, AI-assisted-human, and autonomous-agent playtests are recorded before the public event.
 

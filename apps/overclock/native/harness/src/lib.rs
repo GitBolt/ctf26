@@ -1,5 +1,6 @@
 use {
     anyhow::{Context, Result, anyhow, bail},
+    base64::{Engine as _, engine::general_purpose::STANDARD as BASE64},
     hmac::{Hmac, Mac},
     litesvm::LiteSVM,
     serde::{Deserialize, Serialize},
@@ -16,6 +17,7 @@ use {
     std::{
         fs,
         path::{Path, PathBuf},
+        str::FromStr,
     },
 };
 
@@ -23,6 +25,9 @@ pub const MAX_TRACE_STEPS: usize = 32;
 pub const MAX_SUBMISSION_BYTES: usize = 64 * 1024;
 pub const ATTACKER_STARTING_BALANCE: u64 = 1_000;
 pub const INITIAL_CLOCK: i64 = 1_700_000_000;
+pub const MAX_INSTRUCTION_DATA_BYTES: usize = 1_024;
+pub const MAX_INSTRUCTION_ACCOUNTS: usize = 16;
+pub const MAX_SYSVAR_DATA_BYTES: usize = 4_096;
 
 const VAULT_LEN: usize = 16;
 const POSITION_LEN: usize = 104;
@@ -33,19 +38,26 @@ const PROGRAM_ID_BYTES: [u8; 32] = [
     0x91, 0x0d, 0x44, 0x82, 0xa7, 0x36, 0xfe, 0x15, 0x28, 0xbc, 0x50, 0xe9, 0x73, 0x11, 0xd4, 0x6a,
 ];
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct SubmittedAccountMeta {
+    pub account: String,
+    pub is_signer: bool,
+    pub is_writable: bool,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum Step {
-    Deposit {
-        amount: String,
+    Invoke {
+        #[serde(rename = "dataHex")]
+        data_hex: String,
+        accounts: Vec<SubmittedAccountMeta>,
     },
-    SetClock {
-        #[serde(rename = "unixTimestamp")]
-        unix_timestamp: String,
-    },
-    Accrue,
-    Withdraw {
-        amount: String,
+    SetSysvar {
+        address: String,
+        #[serde(rename = "dataBase64")]
+        data_base64: String,
     },
 }
 
@@ -58,17 +70,29 @@ impl<'de> Deserialize<'de> for Step {
         #[serde(deny_unknown_fields)]
         struct RawStep {
             op: String,
-            amount: Option<String>,
-            #[serde(rename = "unixTimestamp")]
-            unix_timestamp: Option<String>,
+            #[serde(rename = "dataHex")]
+            data_hex: Option<String>,
+            accounts: Option<Vec<SubmittedAccountMeta>>,
+            address: Option<String>,
+            #[serde(rename = "dataBase64")]
+            data_base64: Option<String>,
         }
 
         let raw = RawStep::deserialize(deserializer)?;
-        match (raw.op.as_str(), raw.amount, raw.unix_timestamp) {
-            ("deposit", Some(amount), None) => Ok(Step::Deposit { amount }),
-            ("set_clock", None, Some(unix_timestamp)) => Ok(Step::SetClock { unix_timestamp }),
-            ("accrue", None, None) => Ok(Step::Accrue),
-            ("withdraw", Some(amount), None) => Ok(Step::Withdraw { amount }),
+        match (
+            raw.op.as_str(),
+            raw.data_hex,
+            raw.accounts,
+            raw.address,
+            raw.data_base64,
+        ) {
+            ("invoke", Some(data_hex), Some(accounts), None, None) => {
+                Ok(Step::Invoke { data_hex, accounts })
+            }
+            ("set_sysvar", None, None, Some(address), Some(data_base64)) => Ok(Step::SetSysvar {
+                address,
+                data_base64,
+            }),
             _ => Err(serde::de::Error::custom(
                 "unknown operation or invalid operation fields",
             )),
@@ -135,12 +159,16 @@ pub struct TeamConfig {
     pub threshold: u64,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 enum ValidatedStep {
-    Deposit(u64),
-    SetClock(i64),
-    Accrue,
-    Withdraw(u64),
+    Invoke {
+        data: Vec<u8>,
+        accounts: Vec<SubmittedAccountMeta>,
+    },
+    SetSysvar {
+        address: Address,
+        data: Vec<u8>,
+    },
 }
 
 pub struct ReplayHarness {
@@ -249,16 +277,8 @@ impl ReplayHarness {
         let validated = validate_steps(steps)?;
         for step in validated {
             match step {
-                ValidatedStep::Deposit(amount) => {
-                    self.send_deposit(amount)?;
-                    self.gross_deposited += u128::from(amount);
-                }
-                ValidatedStep::SetClock(unix_timestamp) => self.set_clock(unix_timestamp),
-                ValidatedStep::Accrue => self.send_accrue()?,
-                ValidatedStep::Withdraw(amount) => {
-                    self.send_withdraw(amount)?;
-                    self.gross_withdrawn += u128::from(amount);
-                }
+                ValidatedStep::Invoke { data, accounts } => self.invoke(data, &accounts)?,
+                ValidatedStep::SetSysvar { address, data } => self.set_sysvar(address, &data)?,
             }
         }
         self.result()
@@ -280,48 +300,53 @@ impl ReplayHarness {
         }
     }
 
-    fn send_deposit(&mut self, amount: u64) -> Result<()> {
-        let mut data = vec![0];
-        data.extend_from_slice(&amount.to_le_bytes());
-        let instruction = Instruction {
-            program_id: self.program_id,
-            accounts: vec![
-                AccountMeta::new(self.attacker.pubkey(), true),
-                AccountMeta::new(self.vault, false),
-                AccountMeta::new(self.position, false),
-                AccountMeta::new_readonly(clock_sysvar::id(), false),
-                AccountMeta::new_readonly(system_program::id(), false),
-            ],
-            data,
-        };
-        self.send(instruction, true)
-    }
-
-    fn send_accrue(&mut self) -> Result<()> {
-        let instruction = Instruction {
-            program_id: self.program_id,
-            accounts: vec![
-                AccountMeta::new(self.position, false),
-                AccountMeta::new_readonly(clock_sysvar::id(), false),
-            ],
-            data: vec![1],
-        };
-        self.send(instruction, false)
-    }
-
-    fn send_withdraw(&mut self, amount: u64) -> Result<()> {
-        let mut data = vec![2];
-        data.extend_from_slice(&amount.to_le_bytes());
-        let instruction = Instruction {
-            program_id: self.program_id,
-            accounts: vec![
-                AccountMeta::new(self.attacker.pubkey(), true),
-                AccountMeta::new(self.vault, false),
-                AccountMeta::new(self.position, false),
-            ],
-            data,
-        };
-        self.send(instruction, true)
+    fn invoke(&mut self, data: Vec<u8>, accounts: &[SubmittedAccountMeta]) -> Result<()> {
+        let attacker_before = self
+            .svm
+            .get_balance(&self.attacker.pubkey())
+            .ok_or_else(|| anyhow!("attacker account disappeared"))?;
+        let mut attacker_signs = false;
+        let accounts = accounts
+            .iter()
+            .map(|meta| {
+                let address = match meta.account.as_str() {
+                    "attacker" => self.attacker.pubkey(),
+                    "vault" => self.vault,
+                    "position" => self.position,
+                    value => Address::from_str(value)
+                        .with_context(|| format!("invalid account address {value}"))?,
+                };
+                if meta.is_signer {
+                    if address != self.attacker.pubkey() {
+                        bail!("only the attacker alias may sign an invocation");
+                    }
+                    attacker_signs = true;
+                }
+                Ok(if meta.is_writable {
+                    AccountMeta::new(address, meta.is_signer)
+                } else {
+                    AccountMeta::new_readonly(address, meta.is_signer)
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        self.send(
+            Instruction {
+                program_id: self.program_id,
+                accounts,
+                data,
+            },
+            attacker_signs,
+        )?;
+        let attacker_after = self
+            .svm
+            .get_balance(&self.attacker.pubkey())
+            .ok_or_else(|| anyhow!("attacker account disappeared"))?;
+        if attacker_after > attacker_before {
+            self.gross_withdrawn += u128::from(attacker_after - attacker_before);
+        } else {
+            self.gross_deposited += u128::from(attacker_before - attacker_after);
+        }
+        Ok(())
     }
 
     fn send(&mut self, instruction: Instruction, attacker_signs: bool) -> Result<()> {
@@ -340,10 +365,17 @@ impl ReplayHarness {
         Ok(())
     }
 
-    fn set_clock(&mut self, unix_timestamp: i64) {
-        let mut clock = self.svm.get_sysvar::<Clock>();
-        clock.unix_timestamp = unix_timestamp;
-        self.svm.set_sysvar::<Clock>(&clock);
+    fn set_sysvar(&mut self, address: Address, data: &[u8]) -> Result<()> {
+        if address != clock_sysvar::id() {
+            bail!("unsupported sysvar address");
+        }
+        let value: Clock = bincode::deserialize(data).context("decode canonical sysvar bytes")?;
+        let canonical = bincode::serialize(&value).context("encode canonical sysvar bytes")?;
+        if canonical != data {
+            bail!("sysvar bytes are not canonical");
+        }
+        self.svm.set_sysvar::<Clock>(&value);
+        Ok(())
     }
 
     fn result(self) -> Result<ReplayResult> {
@@ -469,20 +501,57 @@ pub fn team_config(team_id: &str) -> TeamConfig {
 pub fn reference_rewind_steps(team_id: &str) -> Vec<Step> {
     let config = team_config(team_id);
     let high = INITIAL_CLOCK + 1_000_000;
+    let sysvar = |unix_timestamp| {
+        let mut clock = Clock::default();
+        clock.unix_timestamp = unix_timestamp;
+        Step::SetSysvar {
+            address: clock_sysvar::id().to_string(),
+            data_base64: BASE64.encode(bincode::serialize(&clock).expect("serialize Clock")),
+        }
+    };
+    let invoke = |data: Vec<u8>, accounts: &[(&str, bool, bool)]| Step::Invoke {
+        data_hex: hex(&data),
+        accounts: accounts
+            .iter()
+            .map(|(account, is_signer, is_writable)| SubmittedAccountMeta {
+                account: (*account).to_owned(),
+                is_signer: *is_signer,
+                is_writable: *is_writable,
+            })
+            .collect(),
+    };
+    let mut deposit = vec![0];
+    deposit.extend_from_slice(&10_u64.to_le_bytes());
+    let mut withdraw = vec![2];
+    withdraw.extend_from_slice(&config.reserve.to_le_bytes());
     vec![
-        Step::SetClock {
-            unix_timestamp: high.to_string(),
-        },
-        Step::Deposit {
-            amount: "10".to_owned(),
-        },
-        Step::SetClock {
-            unix_timestamp: (high - 1).to_string(),
-        },
-        Step::Accrue,
-        Step::Withdraw {
-            amount: config.reserve.to_string(),
-        },
+        sysvar(high),
+        invoke(
+            deposit,
+            &[
+                ("attacker", true, true),
+                ("vault", false, true),
+                ("position", false, true),
+                (&clock_sysvar::id().to_string(), false, false),
+                (&system_program::id().to_string(), false, false),
+            ],
+        ),
+        sysvar(high - 1),
+        invoke(
+            vec![1],
+            &[
+                ("position", false, true),
+                (&clock_sysvar::id().to_string(), false, false),
+            ],
+        ),
+        invoke(
+            withdraw,
+            &[
+                ("attacker", true, true),
+                ("vault", false, true),
+                ("position", false, true),
+            ],
+        ),
     ]
 }
 
@@ -497,59 +566,67 @@ fn validate_steps(steps: &[Step]) -> Result<Vec<ValidatedStep>> {
         .iter()
         .enumerate()
         .map(|(index, step)| match step {
-            Step::Deposit { amount } => {
-                Ok(ValidatedStep::Deposit(parse_u64(amount, index, "amount")?))
+            Step::Invoke { data_hex, accounts } => {
+                if accounts.is_empty() || accounts.len() > MAX_INSTRUCTION_ACCOUNTS {
+                    bail!(
+                        "step {index} accounts must contain 1 to {MAX_INSTRUCTION_ACCOUNTS} entries"
+                    );
+                }
+                for (account_index, meta) in accounts.iter().enumerate() {
+                    if meta.account.is_empty() || meta.account.len() > 64 {
+                        bail!(
+                            "step {index} account {account_index} has an invalid account identifier"
+                        );
+                    }
+                }
+                let data = decode_hex(data_hex, index)?;
+                if data.len() > MAX_INSTRUCTION_DATA_BYTES {
+                    bail!(
+                        "step {index} instruction data exceeds {MAX_INSTRUCTION_DATA_BYTES} bytes"
+                    );
+                }
+                Ok(ValidatedStep::Invoke {
+                    data,
+                    accounts: accounts.clone(),
+                })
             }
-            Step::SetClock { unix_timestamp } => Ok(ValidatedStep::SetClock(parse_i64(
-                unix_timestamp,
-                index,
-                "unixTimestamp",
-            )?)),
-            Step::Accrue => Ok(ValidatedStep::Accrue),
-            Step::Withdraw { amount } => {
-                Ok(ValidatedStep::Withdraw(parse_u64(amount, index, "amount")?))
+            Step::SetSysvar {
+                address,
+                data_base64,
+            } => {
+                let address = Address::from_str(address)
+                    .with_context(|| format!("step {index} address is not canonical base58"))?;
+                let data = BASE64
+                    .decode(data_base64)
+                    .with_context(|| format!("step {index} dataBase64 is invalid"))?;
+                if BASE64.encode(&data) != *data_base64 {
+                    bail!("step {index} dataBase64 must be canonical");
+                }
+                if data.len() > MAX_SYSVAR_DATA_BYTES {
+                    bail!("step {index} sysvar data exceeds {MAX_SYSVAR_DATA_BYTES} bytes");
+                }
+                Ok(ValidatedStep::SetSysvar { address, data })
             }
         })
         .collect()
 }
 
-fn parse_u64(value: &str, index: usize, field: &str) -> Result<u64> {
-    if !is_canonical_unsigned(value) {
-        bail!("step {index} {field} must be a canonical decimal string");
-    }
-    let parsed = value
-        .parse::<u64>()
-        .with_context(|| format!("step {index} {field} is outside u64"))?;
-    if parsed == 0 {
-        bail!("step {index} {field} must be positive");
-    }
-    Ok(parsed)
-}
-
-fn parse_i64(value: &str, index: usize, field: &str) -> Result<i64> {
-    if !is_canonical_signed(value) {
-        bail!("step {index} {field} must be a canonical decimal string");
+fn decode_hex(value: &str, index: usize) -> Result<Vec<u8>> {
+    if value.len() % 2 != 0
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    {
+        bail!("step {index} dataHex must be canonical lowercase hex");
     }
     value
-        .parse::<i64>()
-        .with_context(|| format!("step {index} {field} is outside i64"))
-}
-
-fn is_canonical_unsigned(value: &str) -> bool {
-    value == "0"
-        || (!value.is_empty()
-            && !value.starts_with('0')
-            && value.bytes().all(|byte| byte.is_ascii_digit()))
-}
-
-fn is_canonical_signed(value: &str) -> bool {
-    if value == "0" {
-        return true;
-    }
-    let digits = value.strip_prefix('-').unwrap_or(value);
-    !digits.is_empty()
-        && !digits.starts_with('0')
-        && digits.bytes().all(|byte| byte.is_ascii_digit())
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            let text = std::str::from_utf8(pair).expect("hex is ASCII");
+            u8::from_str_radix(text, 16).with_context(|| format!("step {index} dataHex is invalid"))
+        })
+        .collect()
 }
 
 fn validate_team_id(team_id: &str) -> Result<()> {

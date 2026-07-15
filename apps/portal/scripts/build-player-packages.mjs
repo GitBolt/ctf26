@@ -4,19 +4,21 @@ import { fileURLToPath } from "node:url";
 
 const PORTAL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const REPOSITORY = path.resolve(PORTAL, "../..");
-const source = path.join(REPOSITORY, "apps/reward-sniper/player-kit");
-const output = path.join(PORTAL, "public/packages/reward-sniper-player.zip");
-const packageRoot = "reward-sniper-player";
-const filenames = ["README.md", "sdk.mjs"];
+const packages = [
+  { source: "apps/reward-sniper/player-kit", output: "reward-sniper-player.zip", root: "reward-sniper-player", files: ["README.md", "sdk.mjs"] },
+  { source: "apps/after-hours/player-kit", output: "after-hours-player.zip", root: "after-hours-player", files: ["README.md", "checkout.mjs", "package.json"] },
+];
 
-const entries = filenames.map((filename) => ({
-  name: `${packageRoot}/${filename}`,
-  content: fs.readFileSync(path.join(source, filename)),
-}));
-
-fs.mkdirSync(path.dirname(output), { recursive: true });
-fs.writeFileSync(output, zip(entries));
-console.log(`Built ${path.relative(REPOSITORY, output)} (${entries.length} files)`);
+for (const item of packages) {
+  const entries = item.files.map((filename) => ({
+    name: `${item.root}/${filename}`,
+    content: fs.readFileSync(path.join(REPOSITORY, item.source, filename)),
+  }));
+  const output = path.join(PORTAL, "public/packages", item.output);
+  fs.mkdirSync(path.dirname(output), { recursive: true });
+  fs.writeFileSync(output, zip(entries));
+  console.log(`Built ${path.relative(REPOSITORY, output)} (${entries.length} files)`);
+}
 
 function zip(files) {
   const local = [];

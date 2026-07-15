@@ -5,7 +5,7 @@ import { issueParticipantTicket } from "@ctf26/participant-ticket";
 
 import { checkOnchainSubmission } from "../src/checker.mjs";
 import { encodeBase58 } from "../src/encoding.mjs";
-import { handleArchive, handleHealth, handleSession, handleTarget } from "../src/http-service.mjs";
+import { handleHealth, handleSession, handleTarget } from "../src/http-service.mjs";
 import { createInstancePlan } from "../src/provisioning.mjs";
 import { closeRedis, consumeLaunchJti, enforceSubmissionRateLimit, redisCommand } from "../src/redis.mjs";
 import { exchangeLaunchTicket, issueSession, verifySession } from "../src/session.mjs";
@@ -287,23 +287,6 @@ test("production health checks secrets, Redis, and Solana RPC", async () => {
   );
   assert.equal(response.statusCode, 200);
   assert.deepEqual(JSON.parse(response.body), { ok: true, service: "signet", mode: "live" });
-});
-
-test("archive API blocks traversal and serves the recovered mirror through a session", async () => {
-  const env = { NODE_ENV: "test" };
-  const manifestResponse = mockResponse();
-  await handleArchive({ method: "GET", url: "/api/archive", headers: {} }, manifestResponse, { env });
-  const manifest = JSON.parse(manifestResponse.body);
-  assert.equal(manifestResponse.statusCode, 200);
-  assert.ok(manifest.files.some((entry) => entry.path === "prs/017-strategy-refactor.diff"));
-
-  const traversalResponse = mockResponse();
-  await handleArchive(
-    { method: "GET", url: "/api/archive?path=..%2FREADME.md", headers: {} },
-    traversalResponse,
-    { env },
-  );
-  assert.equal(traversalResponse.statusCode, 404);
 });
 
 test("on-chain checker accepts only the assigned finalized reserve-to-escrow transition", async () => {

@@ -45,15 +45,13 @@
       "portalUrlEnv": "SILENT_PATCH_URL",
       "launchAudience": "silent-patch",
       "playerPaths": [
-        "apps/silent-patch/public",
-        "apps/silent-patch/repo"
+        "apps/silent-patch/public"
       ],
       "generatedPlayerPaths": [
         "apps/silent-patch/public/signet-starter.tar.gz"
       ],
       "strictPlayerRoots": [
-        "apps/silent-patch/public",
-        "apps/silent-patch/repo"
+        "apps/silent-patch/public"
       ],
       "organizerOnlyPaths": [
         "apps/silent-patch/bin",
@@ -92,6 +90,44 @@
         "apps/overclock/service.env.example",
         "apps/overclock/src",
         "apps/overclock/test"
+      ]
+    },
+    {
+      "id": "last-stop",
+      "delivery": "hosted-onchain",
+      "portalUrlEnv": "LAST_STOP_URL",
+      "launchAudience": "last-stop",
+      "playerPaths": [],
+      "generatedPlayerPaths": [],
+      "strictPlayerRoots": [],
+      "organizerOnlyPaths": [
+        "apps/last-stop/Dockerfile",
+        "apps/last-stop/README.md",
+        "apps/last-stop/native",
+        "apps/last-stop/src",
+        "apps/last-stop/test"
+      ]
+    },
+    {
+      "id": "after-hours",
+      "delivery": "hosted-onchain",
+      "portalUrlEnv": "AFTER_HOURS_URL",
+      "launchAudience": "after-hours",
+      "playerPaths": [
+        "apps/after-hours/player-kit"
+      ],
+      "generatedPlayerPaths": [
+        "apps/portal/public/packages/after-hours-player.zip"
+      ],
+      "strictPlayerRoots": [
+        "apps/after-hours/player-kit"
+      ],
+      "organizerOnlyPaths": [
+        "apps/after-hours/Dockerfile",
+        "apps/after-hours/README.md",
+        "apps/after-hours/scripts",
+        "apps/after-hours/src",
+        "apps/after-hours/test"
       ]
     }
   ]
