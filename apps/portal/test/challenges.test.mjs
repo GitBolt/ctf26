@@ -8,7 +8,7 @@ import {
 } from "../app/lib/challenges.mjs";
 
 test("challenge catalog has unique, launch-safe keys", () => {
-  assert.equal(CHALLENGES.length, 6);
+  assert.equal(CHALLENGES.length, 7);
   assert.equal(new Set(CHALLENGES.map(({ key }) => key)).size, CHALLENGES.length);
   assert.equal(
     new Set(CHALLENGES.map(({ audience }) => audience)).size,
@@ -45,8 +45,16 @@ test("route slugs and signed ticket audiences stay intentionally distinct", () =
       overclock: "overclock",
       "last-stop": "last-stop",
       "after-hours": "after-hours",
+      "st-genesis-airdrop": "st-genesis-airdrop",
     },
   );
+});
+
+test("$ST Genesis Airdrop launches the participant-bound airdrop", () => {
+  const challenge = challengeByKey("st-genesis-airdrop");
+  assert.deepEqual(challenge.starts.map(({ kind }) => kind), ["launch"]);
+  assert.equal(challenge.format, "Hosted protocol");
+  assert.equal(challenge.starts[0].label, "Open airdrop");
 });
 
 test("AFTER HOURS exposes its durable kit and Discord passage separately", () => {

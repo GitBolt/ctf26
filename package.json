@@ -6,7 +6,7 @@
     "test": "npm run test:integration && npm run test:challenges && npm run check:packaging",
     "test:integration": "npm --prefix packages/participant-ticket test && npm --prefix apps/portal test && npm run test:operator && npm run check:packaging",
     "test:operator": "node --test scripts/test/*.test.mjs",
-    "test:challenges": "npm --prefix apps/reward-sniper test && npm --prefix apps/imprint/web test && npm --prefix apps/silent-patch test && npm --prefix apps/overclock test && npm --prefix apps/last-stop test && npm --prefix apps/after-hours test",
+    "test:challenges": "npm --prefix apps/reward-sniper test && npm --prefix apps/imprint/web test && npm --prefix apps/silent-patch test && npm --prefix apps/overclock test && npm --prefix apps/last-stop test && npm --prefix apps/after-hours test && npm --prefix apps/st-genesis-airdrop test",
     "test:onchain": "npm --prefix apps/imprint test && npm --prefix apps/silent-patch run test:onchain",
     "build:portal": "npm --prefix apps/portal run build",
     "build:imprint-web": "npm --prefix apps/imprint/web run build",

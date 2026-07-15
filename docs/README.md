@@ -37,6 +37,11 @@ PDA namespace. Its real-loader feasibility spike is the go/no-go gate before imp
 It is not in the official slate; its real-time loop, guardian actions, and scenario correctness still
 require a feasibility spike.
 
+**Companion challenge:** [`$ST GENESIS AIRDROP`](challenges/st-genesis-airdrop.md) is a hosted,
+portal-bound Solana-wallet cryptography challenge. It preserves a black-box signature-representation
+bug that resisted autonomous-agent playtesting, while adding an editable claim workbench and
+organizer-delivered offline hints so human participants have a fair completion path.
+
 ## Direction in one paragraph
 
 Jeopardy is broken by agentic AI and fixed points. The arc landed here: **you cannot make a bug

@@ -1,5 +1,6 @@
 import { CHALLENGES } from "@/lib/challenges.mjs";
 import { currentUser, isOrganizer } from "@/lib/auth";
+import { stGenesisCompletion } from "@/lib/completions.mjs";
 
 export default async function Home({ searchParams }) {
   const user = await currentUser();
@@ -59,6 +60,8 @@ export default async function Home({ searchParams }) {
     );
   }
 
+  const stGenesis = await stGenesisCompletion(user).catch(() => null);
+
   return (
     <main className="shell board-shell">
       <nav className="topbar" aria-label="Event">
@@ -98,8 +101,10 @@ export default async function Home({ searchParams }) {
       </section>
 
       <section className="challenge-grid" aria-label="Challenges">
-        {CHALLENGES.map((challenge) => (
-          <article className="challenge" key={challenge.key} id={`${challenge.key}-local-kit`}>
+        {CHALLENGES.map((challenge) => {
+          const completed = challenge.key === "st-genesis-airdrop" && Boolean(stGenesis);
+          return (
+          <article className={`challenge${completed ? " challenge-completed" : ""}`} key={challenge.key} id={`${challenge.key}-local-kit`}>
             <div className="challenge-number" aria-hidden="true">
               {challenge.number}
             </div>
@@ -109,7 +114,10 @@ export default async function Home({ searchParams }) {
                 <span>{challenge.format}</span>
               </div>
               <div>
-                <h2>{challenge.name}</h2>
+                <div className="challenge-title-row">
+                  <h2>{challenge.name}</h2>
+                  {completed ? <span className="challenge-complete-status">Completed</span> : null}
+                </div>
                 <p>{challenge.copy}</p>
               </div>
               <div className={`challenge-actions ${challenge.starts.length > 1 ? "challenge-actions-split" : ""}`}>
@@ -134,7 +142,8 @@ export default async function Home({ searchParams }) {
               </div>
             </div>
           </article>
-        ))}
+          );
+        })}
       </section>
 
       <footer className="board-footer">

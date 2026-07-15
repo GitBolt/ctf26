@@ -84,6 +84,18 @@ export const CHALLENGES = Object.freeze([
     urlEnv: "AFTER_HOURS_URL",
     localUrl: "http://localhost:3006/launch",
   }),
+  Object.freeze({
+    key: "st-genesis-airdrop",
+    audience: "st-genesis-airdrop",
+    number: "07",
+    label: "wallet cryptography",
+    name: "$ST GENESIS AIRDROP",
+    copy: "authorize a Solana wallet and determine what the claim ledger considers unique.",
+    format: "Hosted protocol",
+    starts: Object.freeze([Object.freeze({ kind: "launch", label: "Open airdrop" })]),
+    urlEnv: "ST_GENESIS_AIRDROP_URL",
+    localUrl: "http://localhost:3008/launch",
+  }),
 ]);
 
 const CHALLENGE_BY_KEY = new Map(
