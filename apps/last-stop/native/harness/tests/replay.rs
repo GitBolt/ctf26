@@ -18,6 +18,7 @@ fn concatenated_route_opens_segmented_gate() {
                 Action::Enter {
                     line: "red".into(),
                     station: "terminus".into(),
+                    card_route: "redterminus".into(),
                 },
                 Action::Arrive,
             ],
@@ -41,6 +42,29 @@ fn ordinary_route_does_not_open_red_line() {
                 Action::Enter {
                     line: "red".into(),
                     station: "terminus".into(),
+                    card_route: "red".into(),
+                },
+            ],
+        },
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("action 2 was rejected"));
+}
+
+#[test]
+fn redline_route_does_not_open_red_terminus_gate() {
+    let error = replay(
+        program(),
+        &ReplayInput {
+            team_id: "team-test".into(),
+            actions: vec![
+                Action::Buy {
+                    route: "redline".into(),
+                },
+                Action::Enter {
+                    line: "red".into(),
+                    station: "terminus".into(),
+                    card_route: "redline".into(),
                 },
             ],
         },

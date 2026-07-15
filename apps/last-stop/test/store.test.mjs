@@ -16,5 +16,7 @@ test("the store keeps audit evidence but no resumable journey state", async () =
   const repeated = await store.recordCompletion("team-a", { receipt: "replacement", completedAt: "later" });
   assert.deepEqual(first, { receipt: "first", completedAt: "now" });
   assert.deepEqual(repeated, first);
+  assert.deepEqual(await store.getCompletion("team-a"), first);
+  assert.equal(await store.getCompletion("team-b"), null);
   await store.close();
 });

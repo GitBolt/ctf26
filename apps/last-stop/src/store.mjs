@@ -43,6 +43,10 @@ export async function createStore(env = process.env) {
       const existing = await redis.get(key);
       return existing ? JSON.parse(existing) : completion;
     },
+    async getCompletion(teamId) {
+      const existing = await redis.get(`${prefix}:completion:${teamId}`);
+      return existing ? JSON.parse(existing) : null;
+    },
     async close() { await redis.quit(); },
   };
 }
@@ -79,6 +83,10 @@ function memoryStore() {
     async recordCompletion(teamId, completion) {
       if (!completions.has(teamId)) completions.set(teamId, structuredClone(completion));
       return structuredClone(completions.get(teamId));
+    },
+    async getCompletion(teamId) {
+      const completion = completions.get(teamId);
+      return completion ? structuredClone(completion) : null;
     },
     async close() {},
   };

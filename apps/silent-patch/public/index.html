@@ -15,28 +15,34 @@
 
     <main id="main" class="shell">
       <aside class="identity-panel" aria-label="SIGNET challenge">
-        <div>
-          <p class="edition">Superteam Security CTF</p>
+        <div class="archive-heading">
+          <p class="edition">Program archive 03</p>
           <span class="wordmark">SIGNET</span>
+          <p class="archive-summary">Deployment record verification</p>
         </div>
+        <ol class="provenance-track" aria-label="Verification record">
+          <li><span>01</span><strong>Published source</strong></li>
+          <li><span>02</span><strong>Deployed program</strong></li>
+          <li class="current"><span>03</span><strong>Finalized transaction</strong></li>
+        </ol>
         <div class="identity-footer">
-          <p>Finalized transaction verification.</p>
+          <p>Compare the record. Prove what executed.</p>
           <a id="source-repository" class="repository-link" href="https://github.com/GitBolt/signet" target="_blank" rel="noreferrer">
-            Open source repository <span aria-hidden="true">↗</span>
+            Open source record <span aria-hidden="true">↗</span>
           </a>
         </div>
       </aside>
 
       <section class="work-panel">
         <header class="masthead">
-          <span class="session-label">Challenge session</span>
+          <span class="session-label">Evidence desk</span>
           <span id="connection-status" class="status"><i aria-hidden="true"></i>Connecting</span>
         </header>
 
         <section class="checker" aria-labelledby="checker-title">
-          <p class="kicker">Transaction checker</p>
-          <h1 id="checker-title">Submit a signature.</h1>
-          <p class="intro">The verifier reads one finalized Solana transaction and returns a verdict.</p>
+          <p class="kicker">Finalized transaction</p>
+          <h1 id="checker-title">Verify the record.</h1>
+          <p class="intro">Submit one Solana signature. The archive will compare what executed with your assigned deployment.</p>
 
           <form id="submission-form" novalidate>
             <label for="transaction-signature">Transaction signature</label>
@@ -74,7 +80,7 @@
         </section>
 
         <details class="assignment">
-          <summary><span>Target assignment</span><span id="team-label">loading</span></summary>
+          <summary><span>Assigned deployment record</span><span id="team-label">loading</span></summary>
           <dl id="target-manifest" aria-busy="true">
             <div><dt>Program</dt><dd>—</dd></div>
           </dl>

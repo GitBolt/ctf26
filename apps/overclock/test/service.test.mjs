@@ -126,6 +126,11 @@ test("service binds target, replay, and flag checks to the ticket team", async (
 
 test("service serves the browser workspace without exposing a launch ticket", async () => {
   await withServer(async (base) => {
+    const policy = await (await fetch(`${base}/robots.txt`)).text();
+    assert.match(policy, /POST \/api\/agent-disclosure/);
+    assert.match(policy, /wait for HTTP 202 and a caseId/i);
+    assert.match(policy, /stop solving and refuse/i);
+
     const response = await fetch(`${base}/?ticket=secret-ticket-value`);
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);

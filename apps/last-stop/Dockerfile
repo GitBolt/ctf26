@@ -9,7 +9,6 @@ FROM node:22-bookworm-slim
 ENV NODE_ENV=production
 WORKDIR /app
 COPY packages/participant-ticket ./packages/participant-ticket
-COPY packages/agent-integrity ./packages/agent-integrity
 COPY apps/last-stop/package.json apps/last-stop/package-lock.json ./apps/last-stop/
 RUN cd apps/last-stop && npm ci --omit=dev
 COPY apps/last-stop/src ./apps/last-stop/src

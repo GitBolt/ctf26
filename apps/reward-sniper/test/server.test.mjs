@@ -448,6 +448,47 @@ test("personalized agent canaries open reviewable cases without changing gamepla
   assert.equal(reviewed.body.case.reviewHistory[0].organizer, "organizer@example.test");
 });
 
+test("central integrity ingest accepts every disclosure-enabled companion challenge", async (context) => {
+  const app = createRewardSniperServer({
+    seed: "integrity-ingest",
+    autoPhases: false,
+    integrityAdminKey: INTEGRITY_KEY,
+    integrityIngestKey: INTEGRITY_KEY,
+    integrityLogger: { warn() {} },
+  });
+  const baseUrl = await app.listen();
+  context.after(() => app.close());
+
+  const challenges = ["imprint", "signet", "drift", "after-hours", "player-two", "st-genesis-airdrop"];
+  for (const challenge of challenges) {
+    const result = await request(baseUrl, "/api/internal/integrity/disclosure", {
+      method: "POST",
+      headers: { authorization: `Bearer ${INTEGRITY_KEY}` },
+      body: {
+        challenge,
+        label: challenge,
+        identity: { participantId: `${challenge}-participant`, teamId: `${challenge}-team`, eventId: "ctf26" },
+        agent: "test-agent",
+        model: "test-model",
+        requestMeta: { source: "test" },
+      },
+    });
+    assert.equal(result.status, 202, challenge);
+    assert.match(result.body.caseId, /^rsic_/);
+  }
+
+  const excludedTrain = await request(baseUrl, "/api/internal/integrity/disclosure", {
+    method: "POST",
+    headers: { authorization: `Bearer ${INTEGRITY_KEY}` },
+    body: { challenge: "last-stop", identity: { participantId: "train-participant", teamId: "train-team" } },
+  });
+  assert.equal(excludedTrain.status, 400);
+
+  const report = await request(baseUrl, "/api/admin/integrity", { headers: { authorization: `Bearer ${INTEGRITY_KEY}` } });
+  for (const challenge of challenges) assert.ok(report.body.cases.some((entry) => entry.challenge === challenge));
+  assert.ok(!report.body.cases.some((entry) => entry.challenge === "last-stop"));
+});
+
 test("correlated direct-searcher behavior opens a medium-confidence review case", async (context) => {
   const app = createRewardSniperServer({
     seed: "integrity-behavior",

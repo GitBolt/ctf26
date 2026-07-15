@@ -11,6 +11,7 @@ const CASES = Object.freeze([
   ["overclock", "CHALLENGE_TICKET_SECRET_OVERCLOCK"],
   ["last-stop", "CHALLENGE_TICKET_SECRET_LAST_STOP"],
   ["after-hours", "CHALLENGE_TICKET_SECRET_AFTER_HOURS"],
+  ["player-two", "CHALLENGE_TICKET_SECRET_PLAYER_TWO"],
   ["st-genesis-airdrop", "CHALLENGE_TICKET_SECRET_ST_GENESIS_AIRDROP"],
 ]);
 

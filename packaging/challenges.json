@@ -4,6 +4,7 @@
   "challenges": [
     {
       "id": "reward-sniper",
+      "appPath": "apps/reward-sniper",
       "delivery": "hosted",
       "portalUrlEnv": "REWARD_SNIPER_URL",
       "launchAudience": "reward-sniper",
@@ -27,6 +28,7 @@
     },
     {
       "id": "imprint",
+      "appPath": "apps/imprint/web",
       "delivery": "hosted-onchain",
       "portalUrlEnv": "IMPRINT_URL",
       "launchAudience": "imprint",
@@ -41,6 +43,7 @@
     },
     {
       "id": "silent-patch",
+      "appPath": "apps/silent-patch",
       "delivery": "attachment-onchain",
       "portalUrlEnv": "SILENT_PATCH_URL",
       "launchAudience": "silent-patch",
@@ -64,6 +67,7 @@
     },
     {
       "id": "overclock",
+      "appPath": "apps/overclock",
       "delivery": "attachment-localnet",
       "portalUrlEnv": "OVERCLOCK_URL",
       "launchAudience": "overclock",
@@ -94,6 +98,7 @@
     },
     {
       "id": "last-stop",
+      "appPath": "apps/last-stop",
       "delivery": "hosted-onchain",
       "portalUrlEnv": "LAST_STOP_URL",
       "launchAudience": "last-stop",
@@ -110,6 +115,7 @@
     },
     {
       "id": "after-hours",
+      "appPath": "apps/after-hours",
       "delivery": "hosted-onchain",
       "portalUrlEnv": "AFTER_HOURS_URL",
       "launchAudience": "after-hours",
@@ -131,7 +137,24 @@
       ]
     },
     {
+      "id": "player-two",
+      "appPath": "apps/player-two",
+      "delivery": "hosted-onchain",
+      "portalUrlEnv": "PLAYER_TWO_URL",
+      "launchAudience": "player-two",
+      "playerPaths": [],
+      "generatedPlayerPaths": [],
+      "strictPlayerRoots": [],
+      "organizerOnlyPaths": [
+        "apps/player-two/Dockerfile",
+        "apps/player-two/native",
+        "apps/player-two/src",
+        "apps/player-two/test"
+      ]
+    },
+    {
       "id": "st-genesis-airdrop",
+      "appPath": "apps/st-genesis-airdrop",
       "delivery": "hosted",
       "portalUrlEnv": "ST_GENESIS_AIRDROP_URL",
       "launchAudience": "st-genesis-airdrop",

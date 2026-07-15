@@ -6,16 +6,14 @@
   "scripts": {
     "start": "node src/server.mjs",
     "test": "node --test test/*.test.mjs",
-    "register:discord": "node scripts/register-command.mjs",
-    "demo:exploit": "node scripts/demo-exploit.mjs"
-  },
-  "devDependencies": {
-    "@solana/spl-token": "^0.4.14",
-    "@solana/web3.js": "^1.98.4"
+    "register:discord": "node scripts/register-command.mjs"
   },
   "dependencies": {
-    "@ctf26/agent-integrity": "file:../../packages/agent-integrity",
     "@ctf26/participant-ticket": "file:../../packages/participant-ticket",
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@metaplex-foundation/umi": "^1.5.1",
+    "@solana-program/token": "^0.15.0",
+    "@solana/kit": "^7.0.0",
     "bs58": "^6.0.0",
     "redis": "^5.8.2"
   },

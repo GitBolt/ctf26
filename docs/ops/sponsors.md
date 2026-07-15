@@ -3,7 +3,7 @@
 Updated: 2026-07-08
 
 Running record of the sponsorship campaign for the next Superteam Solana security CTF. The design
-direction sponsors are being pitched on lives in `04-flagship-design.md`.
+direction sponsors are being pitched on lives in `../strategy/event.md`.
 
 ---
 
@@ -201,7 +201,7 @@ Pursue the Foundation/Superteam internal grant in parallel (largest, lowest-fric
 > with meteora branding.
 
 **Internal notes for this pitch:**
-- The concrete design name is `Reward Sniper`; full mechanics live in `04-flagship-design.md`.
+- The concrete design name is `Reward Sniper`; full mechanics live in `../strategy/event.md`.
 - Do not describe this as hacking Meteora or solving a Meteora support problem.
 - Do not overstate AI resistance. Static source + one bug is agent-solvable, so the live solve should
   not be source-first. The defensible version is: teams infer the issue through UI/simulator

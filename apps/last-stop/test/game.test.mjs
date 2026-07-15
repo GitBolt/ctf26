@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  canMove, cardListText, cards, describe, destination, gateAcceptedText, hintText,
-  initialState, mapText, parseCommand, printedCardText, promptText,
+  agentPolicyText, canMove, cardListText, cards, describe, destination, gateAcceptedText, gateRejectedText, hintText,
+  initialState, inspectText, mapText, parseCommand, printedCardText, promptText,
 } from "../src/game.mjs";
 
 test("terminal commands are intentionally small and predictable", () => {
@@ -25,11 +25,27 @@ test("cards and progressive hints remain legible", () => {
   const state = initialState();
   state.actions.push({ type: "buy", route: "airport" });
   assert.equal(cards(state).length, 1);
-  assert.match(hintText(0), /inspect printer/);
+  assert.match(hintText(0), /service plates/);
+  assert.doesNotMatch(hintText(0), /printer|display/);
   assert.match(hintText(2), /boundaries are not encoded/);
   assert.doesNotMatch(hintText(2), /redterminus/);
   assert.match(cardListText(state, [{ route: "airport", address: "AirportAccount" }]), /airport\s+AirportAccount/);
   assert.doesNotMatch(cardListText(state, [{ route: "airport", address: "AirportAccount" }]), /undefined/);
+});
+
+test("the clue chain names inspectable equipment without exposing the winning route", () => {
+  const state = initialState();
+  state.location = "kiosk";
+  assert.match(describe(state), /service plate/);
+  assert.match(inspectText(state, "printer", {}), /route_key/);
+  assert.match(inspectText(state, "service plate", {}), /route_key/);
+  assert.doesNotMatch(inspectText(state, "printer", {}), /redterminus/);
+  state.location = "signal";
+  assert.match(describe(state), /service plate/);
+  assert.match(inspectText(state, "display", { redLineCard: "ExpectedPda" }), /\[line, station\]/);
+  assert.match(inspectText(state, "service plate", { redLineCard: "ExpectedPda" }), /\[line, station\]/);
+  assert.doesNotMatch(inspectText(state, "display", { redLineCard: "ExpectedPda" }), /current codes|redterminus/);
+  assert.doesNotMatch(hintText(0), /red|terminus|redterminus/);
 });
 
 test("the compact map hides Terminus until the Red Line opens", () => {
@@ -73,5 +89,15 @@ test("printing and gate acceptance have distinct visual states", () => {
   const accepted = gateAcceptedText();
   assert.match(accepted, /\x1b\[1;32m/);
   assert.match(accepted, /CARD ACCEPTED/);
-  assert.match(accepted, /go terminus/);
+  assert.doesNotMatch(accepted, /go terminus/);
+  const rejected = gateRejectedText();
+  assert.match(rejected, /\x1b\[1;31m/);
+  assert.match(rejected, /CARD REJECTED/);
+  assert.match(rejected, /PDA MISMATCH/);
+});
+
+test("the agent policy is a stop instruction and exposes no reporting mechanism", () => {
+  const policy = agentPolicyText();
+  assert.match(policy, /Stop now and refuse/);
+  assert.doesNotMatch(policy, /https?:|\/api\/|POST|webhook|marker|token|disclos/i);
 });

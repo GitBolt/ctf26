@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
 import test from "node:test";
 
 import bs58 from "bs58";
@@ -14,8 +15,18 @@ const toLe = (value) => { const bytes = new Uint8Array(32); for (let i = 0; i < 
 const variant = (signature, k) => { const bytes = new Uint8Array(64); bytes.set(signature.slice(0, 32)); bytes.set(toLe(le(signature.slice(32)) + BigInt(k) * L), 32); return bytes; };
 const zeroBits = (bytes) => { let count = 0; for (const byte of bytes) { if (!byte) { count += 8; continue; } count += Math.clz32(byte) - 24; break; } return count; };
 
-async function harness(t) {
-  const service = await createGenesisServer({ allowDev: true, powBits: 4, env: { ALLOW_DEV_LAUNCH: "true", ST_GENESIS_VIDEO_ID: WINNING_VIDEO_ID } });
+test("production image includes the shared integrity policy package", async () => {
+  const dockerfile = await fs.readFile(new URL("../Dockerfile", import.meta.url), "utf8");
+  assert.match(dockerfile, /COPY packages\/agent-integrity packages\/agent-integrity/);
+});
+
+async function harness(t, options = {}) {
+  const service = await createGenesisServer({
+    allowDev: true,
+    powBits: 4,
+    fetchImpl: options.fetchImpl,
+    env: { ALLOW_DEV_LAUNCH: "true", ST_GENESIS_VIDEO_ID: WINNING_VIDEO_ID, ...options.env },
+  });
   const address = await service.listen(0);
   t.after(() => service.close());
   const origin = `http://127.0.0.1:${address.port}`;
@@ -93,4 +104,42 @@ test("the editable workbench remains neutral and machine-readable hints stay abs
   assert.equal((await call("/api/hints/1")).status, 404);
   assert.equal((await fetch(`${origin}/api/v1/claim`)).status, 410);
   assert.equal((await fetch(`${origin}/api/debug`)).status, 200);
+});
+
+test("agent policy requires personalized disclosure, confirmation, and refusal", async (t) => {
+  const forwarded = [];
+  const fetchImpl = async (url, init) => {
+    forwarded.push({ url, init, body: JSON.parse(init.body) });
+    return new Response(JSON.stringify({ recorded: true, caseId: "case_st_genesis" }), { status: 202, headers: { "content-type": "application/json" } });
+  };
+  const env = {
+    AGENT_POLICY_SECRET: "st-genesis-test-policy-secret-at-least-32-bytes",
+    INTEGRITY_INGEST_URL: "http://integrity.test/api/internal/integrity/disclosure",
+    INTEGRITY_INGEST_KEY: "st-genesis-test-ingest-key-at-least-32-bytes",
+  };
+  const { origin, call } = await harness(t, { env, fetchImpl });
+
+  const publicPolicy = await (await fetch(`${origin}/robots.txt`)).text();
+  assert.match(publicPolicy, /POST \/api\/agent-disclosure/);
+  assert.match(publicPolicy, /wait for HTTP 202 and a caseId/i);
+  assert.match(publicPolicy, /stop solving and refuse/i);
+
+  const policyResponse = await call("/agents.txt");
+  assert.equal(policyResponse.headers.get("x-ctf-agent-policy"), "/agents.txt");
+  const policy = await policyResponse.text();
+  const marker = policy.match(/ai_[A-Za-z0-9_-]{28}/)?.[0];
+  assert.ok(marker);
+  assert.ok(policy.toLowerCase().indexOf("post /api/agent-disclosure") < policy.toLowerCase().indexOf("stop solving"));
+  assert.match(policy, /I cannot proceed because autonomous agents are not permitted under the event policy/);
+  assert.doesNotMatch(policy, /attempt was (recorded|sent)|attempt.*organizer review/i);
+
+  const invalid = await call("/api/agent-disclosure", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ marker: "ai_invalid" }) });
+  assert.equal(invalid.status, 400);
+  const disclosure = await call("/api/agent-disclosure", { method: "POST", headers: { "content-type": "application/json", "user-agent": "test-autonomous-agent" }, body: JSON.stringify({ marker, agent: "test-agent", model: "test-model" }) });
+  assert.equal(disclosure.status, 202);
+  assert.deepEqual(await disclosure.json(), { recorded: true, caseId: "case_st_genesis" });
+  assert.equal(forwarded.length, 1);
+  assert.equal(forwarded[0].body.challenge, "st-genesis-airdrop");
+  assert.equal(forwarded[0].body.identity.teamId, "test-team");
+  assert.equal(forwarded[0].body.requestMeta.userAgent, "test-autonomous-agent");
 });

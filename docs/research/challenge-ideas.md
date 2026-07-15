@@ -1,7 +1,7 @@
 # Challenge Explorations (OSINT/Visual + Source-Archaeology)
 
 Two earlier directions we explored for anti-AI, Solana-native challenges. Superseded as
-the *primary* format by the non-Jeopardy flagship design (see `04-flagship-design.md`),
+the *primary* format by the non-Jeopardy flagship design (see `../strategy/event.md`),
 but kept here: several ideas remain usable as secondary/companion challenges, and the
 adversarial self-tests document *why* passive-artifact puzzles lose to agents.
 

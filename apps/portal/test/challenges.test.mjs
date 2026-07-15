@@ -8,7 +8,7 @@ import {
 } from "../app/lib/challenges.mjs";
 
 test("challenge catalog has unique, launch-safe keys", () => {
-  assert.equal(CHALLENGES.length, 7);
+  assert.equal(CHALLENGES.length, 8);
   assert.equal(new Set(CHALLENGES.map(({ key }) => key)).size, CHALLENGES.length);
   assert.equal(
     new Set(CHALLENGES.map(({ audience }) => audience)).size,
@@ -45,6 +45,7 @@ test("route slugs and signed ticket audiences stay intentionally distinct", () =
       overclock: "overclock",
       "last-stop": "last-stop",
       "after-hours": "after-hours",
+      "player-two": "player-two",
       "st-genesis-airdrop": "st-genesis-airdrop",
     },
   );
@@ -57,10 +58,18 @@ test("$ST Genesis Airdrop launches the participant-bound airdrop", () => {
   assert.equal(challenge.starts[0].label, "Open airdrop");
 });
 
-test("AFTER HOURS exposes its durable kit and Discord passage separately", () => {
+test("PLAYER TWO launches one hosted arcade cabinet", () => {
+  const challenge = challengeByKey("player-two");
+  assert.deepEqual(challenge.starts.map(({ kind }) => kind), ["launch"]);
+  assert.equal(challenge.format, "Arcade cabinet");
+  assert.equal(challenge.starts[0].label, "Enter the arcade");
+});
+
+test("AFTER HOURS has one Discord server checkout entry point", () => {
   const challenge = challengeByKey("after-hours");
-  assert.deepEqual(challenge.starts.map(({ kind }) => kind), ["download", "launch"]);
-  assert.equal(challenge.starts[0].href, "/packages/after-hours-player.zip");
+  assert.deepEqual(challenge.starts.map(({ kind }) => kind), ["launch"]);
+  assert.equal(challenge.format, "Discord server bot");
+  assert.equal(challenge.starts[0].label, "Start Discord checkout");
 });
 
 test("hosted destinations are ticketed and URL credentials are rejected", () => {

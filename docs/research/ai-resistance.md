@@ -1150,7 +1150,7 @@ Best use:
 > of this idea: signed participant email, event-bound personalized markers, conventional policy discovery,
 > disclosure-first refusal, browser/API behavioral correlation, durable organizer evidence, Discord
 > mirroring, and evidence-preserving resets. See
-> [`11-reward-sniper-agent-resistance-case-study.md`](11-reward-sniper-agent-resistance-case-study.md).
+> [`reward-sniper.md`](reward-sniper.md).
 
 Problem:
 
@@ -1513,4 +1513,4 @@ New lessons for this event:
 RITSEC sometimes treated an obviously hallucinated flag or blatantly AI-written submission as immediate
 DQ evidence. Our safer standard is immediate containment/review for a high-confidence event, followed by
 author-led verification and appeal. Text style alone is never sufficient. The derived operational model
-is in `10-event-integrity-enforcement.md`.
+is in `../ops/integrity.md`.

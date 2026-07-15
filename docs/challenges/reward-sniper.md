@@ -1,6 +1,6 @@
 # Challenge Spec — Reward Sniper (DLMM-style, Meteora sponsor candidate)
 
-Status: **COMPLETE / LOCKED FOR CURRENT ITERATION — Challenge 1 of 4 (dynamic DeFi) / Meteora sponsor candidate** · Updated: 2026-07-13
+Status: **COMPLETE / LOCKED FOR CURRENT ITERATION — Challenge 1 of 6 (dynamic DeFi) / Meteora sponsor candidate** · Updated: 2026-07-13
 
 Mechanics and autonomous-agent resistance have been individually validated. Do not reopen this
 challenge during routine slate work. Event timing/reset are operations; any later on-chain or mechanic
@@ -18,7 +18,7 @@ change is a separately requested future revision.
 > challenge pattern: signed participant identity, event-bound sessions, discoverable personalized policy,
 > first-party disclosure, independent UI/API behavioral correlation, durable organizer evidence, and safe
 > reset/archive operations. This is documented separately in
-> [`../11-reward-sniper-agent-resistance-case-study.md`](../11-reward-sniper-agent-resistance-case-study.md)
+> [`../research/reward-sniper.md`](../research/reward-sniper.md)
 > so the security/game spec does not become an anti-cheat implementation manual.
 
 A live, relatively-scored, Solana-native challenge. Teams compete as **searchers/liquidators** in a

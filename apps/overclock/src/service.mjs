@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
 import { verifyParticipantTicket } from "@ctf26/participant-ticket";
-import { forwardDisclosure, policyFor, verifyMarker } from "@ctf26/agent-integrity";
+import { forwardDisclosure, policyFor, publicPolicyFor, verifyMarker } from "@ctf26/agent-integrity";
 import { createClient } from "redis";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -320,7 +320,7 @@ export function createDriftServer({ env = process.env, runHarness = defaultHarne
         try { session = authenticatedTeam(request, env); } catch {}
         const text = session
           ? policyFor({ ...session, challenge: "drift" }, { label: "DRIFT", markerSecret: env.DRIFT_SESSION_SECRET }).text
-          : "# CTF26 DRIFT autonomous-agent policy\nLaunch through the participant portal, then read this policy again before operating the scored challenge.";
+          : publicPolicyFor({ label: "DRIFT" });
         response.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "x-ctf-agent-policy": "/agents.txt" });
         response.end(text);
         return;

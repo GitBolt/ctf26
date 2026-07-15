@@ -3,16 +3,17 @@
 Updated: 2026-07-08
 
 The current design direction for the next Superteam Solana security CTF. This doc holds the event
-framing, the scoring decision, the AI policy, and the **four-challenge slate** (§4). **Read
-`00-anti-ai-design-principles.md` first** — it is the doctrine this builds on.
+framing, the scoring decision, the AI policy, and the **six-challenge slate** (§4). **Read
+`anti-ai.md` first** — it is the doctrine this builds on.
 
 **Where the arc landed (important):** we spent a long time trying to make the *bug* agent-proof and
 kept producing gimmicks. The resolution (see `00` §2) is to keep the security bug **deep and real**
-and put the anti-AI in the **access/action layer**. The event runs **four distinct challenges** (§4),
+and put the anti-AI in the **access/action layer**. The event runs **six distinct challenges** (§4),
 each Solana-specific and each a different real-CTF style: Reward Sniper (dynamic DeFi KOTH), IMPRINT
-(passkey hardware-auth), SIGNET (N-day source archaeology ending in a live Solana exploit), and
-DRIFT (bytecode/runtime RE on a localnet).
-Full specs in `challenges/`. Sponsorship (incl. the OtterSec fund) lives in `05-sponsorship.md`; deeper
+(passkey hardware-auth), SIGNET (N-day source archaeology ending in a live Solana exploit), DRIFT
+(bytecode/runtime RE on a localnet), LAST STOP (hosted SSH/PDA journey), and AFTER HOURS
+(Discord-native checkout reconciliation).
+Full specs live in `../challenges/`. Sponsorship (incl. the OtterSec fund) lives in `../ops/sponsors.md`; deeper
 history in `01`–`03`.
 
 ---
@@ -42,7 +43,7 @@ Jeopardy (solve → fixed points) is broken by two forces:
 2. **Fixed points no longer measure skill** — when AI flattens the solve curve, an absolute
    leaderboard measures token budget and luck.
 
-This mirrors OtterSec's "Save CTFs Fund" thesis (see `05-sponsorship.md` §OtterSec). Our own earlier
+This mirrors OtterSec's "Save CTFs Fund" thesis (see `../ops/sponsors.md` §OtterSec). Our own earlier
 work (`03` Part A §self-test) had already concluded the only durable anti-AI property is *interaction
 that can't be batched or relayed*. The two conclusions converge.
 
@@ -82,25 +83,28 @@ can't complete — a human must be in the loop"** (`00` §1). We enforce that wi
 
 ---
 
-## 4. The four-challenge slate
+## 4. The six-challenge slate
 
-The event runs **four distinct challenges**, each Solana-specific, each replicating a different
+The event runs **six distinct challenges**, each Solana-specific, each replicating a different
 real-CTF style, and each carrying a **different anti-AI mechanism** so they don't overlap. Full specs
 live in `challenges/`.
 
 | # | Challenge | Style | Real Solana bug | Unique anti-AI mechanism |
 |---|---|---|---|---|
-| 1 | **[Reward Sniper](challenges/reward-sniper.md)** | dynamic DeFi KOTH / searcher game (Meteora) | DLMM-style JIT reward-accounting | dynamic env + relative scoring + scarce high-value attempts |
-| 2 | **[IMPRINT](challenges/imprint.md)** | hardware-auth / crypto | secp256r1/WebAuthn owner-binding bug | **passkey biometric touch** + Solana wallet approval + on-site enrollment |
-| 3 | **[SIGNET](challenges/signet.md)** | N-day / source archaeology | stale pre-fix CPI/PDA authority bug discovered via silent patch | messy repo history + per-team target + live exploit, with canaries as telemetry |
-| 4 | **[DRIFT](challenges/overclock.md)** | reverse-engineering / runtime | bytecode-only vault with adversarial local runtime assumptions | no-source RE + replay checker |
+| 1 | **[Reward Sniper](../challenges/reward-sniper.md)** | dynamic DeFi KOTH / searcher game (Meteora) | DLMM-style JIT reward-accounting | dynamic env + relative scoring + scarce high-value attempts |
+| 2 | **[IMPRINT](../challenges/imprint.md)** | hardware-auth / crypto | secp256r1/WebAuthn owner-binding bug | **passkey biometric touch** + Solana wallet approval + on-site enrollment |
+| 3 | **[SIGNET](../challenges/signet.md)** | N-day / source archaeology | stale pre-fix CPI/PDA authority bug discovered via silent patch | messy repo history + per-team target + live exploit, with canaries as telemetry |
+| 4 | **[DRIFT](../challenges/overclock.md)** | reverse-engineering / runtime | bytecode-only vault with adversarial local runtime assumptions | no-source RE + replay checker |
+| 5 | **[LAST STOP](../challenges/last-stop.md)** | hosted SSH text adventure | variable-length PDA seed-boundary collision | one-use passage + live native replay + terminal-native discovery |
+| 6 | **[AFTER HOURS](../challenges/after-hours.md)** | Discord-native checkout | token identity omitted from payment reconciliation | guild install + real transaction + non-oracular hint |
 
 Together they cover distinct CTF skills without repeating the same trick: **dynamic DeFi extraction**
-(1), **hardware-auth cryptographic authorization** (2), **N-day audit research** (3), and
-**bytecode/runtime reverse engineering** (4). Each ends in a **live per-team exploit or technical
-submission**, so there is no read-only/scrape solve in any of them.
+(1), **hardware-auth cryptographic authorization** (2), **N-day audit research** (3),
+**bytecode/runtime reverse engineering** (4), terminal PDA reasoning (5), and payment reconciliation
+(6). Each ends in a **live per-team exploit or technical submission**, so there is no read-only/scrape
+solve in any of them.
 
-**Design rules honored by all four** (`00`): real Solana security core; relative/first-blood scoring;
+**Design rules honored by all six** (`00`): real Solana security core; relative/first-blood scoring;
 the anti-AI lives in the access/act layer, not by hiding the bug; on-site proctoring backstop; validate
 by playtest (all-human vs AI-assisted vs autonomous-agent).
 
@@ -188,7 +192,7 @@ the field.**
    proctoring rules (screen-share/replay for prize contention).
 4. **Relative scoring + companions** — whether to run an Earlier-candidate (§5) alongside IMPRINT for
    variety, and the scoring formula.
-5. Feed the flagship into the OtterSec one-pager (`05-sponsorship.md`).
+5. Feed the flagship into the OtterSec one-pager (`../ops/sponsors.md`).
 
 ---
 
@@ -212,7 +216,7 @@ compete for live relative extraction with asymmetric telemetry, commit–reveal 
 Tickets.
 
 **Full standalone spec (build / setup / solve / scoring / anti-AI / build plan):**
-[`challenges/reward-sniper.md`](challenges/reward-sniper.md).
+[`../challenges/reward-sniper.md`](../challenges/reward-sniper.md).
 
 Key point from the anti-AI review: static source + one accounting bug is agent-solvable, so source-code
 bug hunting is out as the primary solve path. The better claim is narrower: AI can help script after a

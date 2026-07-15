@@ -7,7 +7,7 @@ import {
   sessionCookie,
 } from "./session.mjs";
 import { loadTargetForTeam, publicTarget } from "./targets.mjs";
-import { forwardDisclosure, policyFor, verifyMarker } from "@ctf26/agent-integrity";
+import { forwardDisclosure, policyFor, publicPolicyFor, verifyMarker } from "@ctf26/agent-integrity";
 
 const MAX_BODY_BYTES = 10_000;
 
@@ -170,7 +170,7 @@ export async function handleAgentPolicy(request, response, options = {}) {
     try { identity = identityFromRequest(request, { env }); } catch { identity = null; }
     const text = identity
       ? policyFor({ ...identity, challenge: "signet" }, { label: "SIGNET", markerSecret: env.CHALLENGE_SESSION_SECRET }).text
-      : "# CTF26 SIGNET autonomous-agent policy\nLaunch through the participant portal, then read this policy again before operating the scored challenge.";
+      : publicPolicyFor({ label: "SIGNET" });
     response.statusCode = 200;
     response.setHeader("content-type", "text/plain; charset=utf-8");
     response.setHeader("cache-control", "no-store");

@@ -1400,6 +1400,598 @@ button:active {
   }
 }
 
+/* LAST STOP abandoned platform atmosphere */
+.detail-shell:has(.ssh-detail) {
+  position: relative;
+  max-width: 1180px;
+}
+
+.detail-shell:has(.ssh-detail)::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgb(4 3 7 / 8%) 0 58px, rgb(0 0 0 / 74%) 58px 60px, transparent 60px),
+    radial-gradient(ellipse at 50% 6%, rgb(128 105 155 / 13%), transparent 38%),
+    linear-gradient(90deg, #020204, #09070c 48%, #020204);
+  content: "";
+}
+
+.ssh-detail {
+  position: relative;
+  min-height: min(670px, calc(100vh - 150px));
+  margin: clamp(28px, 5vh, 56px) auto;
+  overflow: hidden;
+  border-color: #29242e;
+  background: #030305;
+  box-shadow: 0 34px 90px rgb(0 0 0 / 72%);
+}
+
+.ssh-detail::before {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 3%, #77638d 18%, #b8a2ce 48%, #6c587e 78%, transparent 97%);
+  box-shadow: 0 0 22px 5px rgb(151 126 177 / 21%);
+  content: "";
+  opacity: .75;
+  animation: platform-light 8s steps(1,end) infinite;
+}
+
+.station-overview {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(30px, 5vw, 58px);
+  overflow: hidden;
+  border-color: #29242e;
+  background:
+    linear-gradient(90deg, transparent 94%, rgb(0 0 0 / 18%) 94%),
+    linear-gradient(rgb(255 255 255 / 1.8%) 1px, transparent 1px),
+    radial-gradient(circle at 72% 14%, rgb(130 102 151 / 9%), transparent 24%),
+    #09070c;
+  background-size: 88px 100%, 100% 32px, auto, auto;
+}
+
+.station-overview::before {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(112deg, transparent 0 44%, rgb(255 255 255 / 2.5%) 44.5%, transparent 45%),
+    radial-gradient(circle at 12% 73%, rgb(255 255 255 / 9%) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 78% 31%, rgb(255 255 255 / 7%) 0 1px, transparent 1.5px);
+  background-size: auto, 93px 101px, 127px 139px;
+  content: "";
+  opacity: .55;
+  pointer-events: none;
+}
+
+.station-sign,
+.station-closure,
+.route-map,
+.station-meta {
+  position: relative;
+  z-index: 1;
+}
+
+.station-sign {
+  align-self: flex-start;
+  margin-bottom: 10px;
+  transform: rotate(-.35deg);
+  filter: saturate(.68) contrast(1.08);
+}
+
+.station-closure {
+  margin: 0 0 52px 2px;
+  color: #766d7d;
+  font: 10px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+.route-map {
+  margin-bottom: 54px;
+}
+
+.route-map::before {
+  background: linear-gradient(#6f202c, #9e3444 47%, #3a1820);
+  box-shadow: 0 0 14px rgb(126 36 51 / 16%);
+}
+
+.route-map span:first-child,
+.route-map span:last-child {
+  color: #655d6b;
+  text-decoration: line-through;
+  text-decoration-color: #493e4d;
+}
+
+.route-map span:nth-child(2) i {
+  background: #aa5f6b;
+  box-shadow: 0 0 0 5px rgb(142 40 56 / 10%);
+}
+
+.station-meta {
+  border-color: #29242e;
+  background: rgb(0 0 0 / 21%);
+}
+
+.station-meta > div + div {
+  border-color: #29242e;
+}
+
+.ssh-access {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(30px, 5vw, 64px);
+  background:
+    repeating-linear-gradient(90deg, transparent 0 79px, rgb(255 255 255 / 1.4%) 79px 80px),
+    linear-gradient(180deg, #060508, #020203);
+}
+
+.ssh-access::before {
+  width: 42px;
+  height: 2px;
+  margin-bottom: 24px;
+  background: #8e2838;
+  box-shadow: 0 0 14px rgb(142 40 56 / 35%);
+  content: "";
+}
+
+.ssh-heading h1 {
+  color: #eee9f0;
+  font-size: clamp(20px, 2vw, 26px);
+}
+
+.ssh-heading p {
+  max-width: 42ch;
+  color: #756c7d;
+}
+
+.connection-field {
+  border-color: #29242e;
+  background: #050406;
+}
+
+.journey-complete {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 12px 14px;
+  border: 1px solid rgb(117 207 148 / 28%);
+  border-radius: 10px;
+  color: #b9e9c8;
+  background: rgb(73 143 96 / 10%);
+}
+
+.journey-complete > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  color: #07120b;
+  background: #8bd2a3;
+  font-weight: 800;
+}
+
+.journey-complete strong,
+.journey-complete p {
+  display: block;
+  margin: 0;
+}
+
+.journey-complete strong { font-size: 13px; }
+.journey-complete p { margin-top: 2px; color: #8fae99; font-size: 12px; }
+
+.connection-field:hover {
+  border-color: #4d4256;
+}
+
+@keyframes platform-light {
+  0%, 7%, 9%, 100% { opacity: .75; }
+  8%, 8.5% { opacity: .24; }
+  63% { opacity: .68; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ssh-detail::before { animation: none; }
+  .station-lamp animate { display: none; }
+}
+
+@media (max-width: 760px) {
+  .ssh-detail {
+    min-height: auto;
+    margin: 22px auto 40px;
+  }
+
+  .station-overview {
+    padding: 34px 28px;
+  }
+
+  .station-closure {
+    margin-bottom: 42px;
+  }
+
+  .route-map {
+    margin-bottom: 32px;
+  }
+
+  .ssh-access {
+    padding: 36px 28px 42px;
+  }
+}
+
+@media (max-width: 560px) {
+  .ssh-detail { padding: 0; }
+  .station-overview,
+  .ssh-access { padding: 28px 20px 32px; }
+  .station-sign { margin-bottom: 10px; }
+  .station-closure { margin-bottom: 38px; }
+}
+
+/* LAST STOP cinematic station scene */
+.detail-shell:has(.ssh-detail) {
+  max-width: 1240px;
+  font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+}
+
+.detail-shell:has(.ssh-detail) .topbar,
+.detail-shell:has(.ssh-detail) .wordmark,
+.detail-shell:has(.ssh-detail) .detail-back,
+.detail-shell:has(.ssh-detail) button {
+  font-family: inherit;
+}
+
+.detail-shell:has(.ssh-detail)::before {
+  background:
+    radial-gradient(ellipse at 42% 28%, rgb(100 81 125 / 13%), transparent 36%),
+    linear-gradient(180deg, #06050a, #010103 72%);
+}
+
+.ssh-detail {
+  isolation: isolate;
+  min-height: min(720px, calc(100svh - 130px));
+  display: grid;
+  grid-template-columns: 1fr;
+  margin: clamp(24px, 4vh, 48px) auto;
+  border: 1px solid rgb(214 198 231 / 12%);
+  background: #050407;
+  box-shadow: 0 36px 110px rgb(0 0 0 / 78%);
+}
+
+.ssh-detail::before {
+  z-index: 7;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 8%, rgb(189 167 216 / 42%) 30%, rgb(228 217 239 / 68%) 52%, rgb(136 113 159 / 28%) 80%, transparent 96%);
+  box-shadow: 0 0 26px 7px rgb(158 130 183 / 17%);
+  animation: last-stop-light 9s steps(1, end) infinite;
+}
+
+.ssh-detail::after { display: none; }
+
+.station-overview {
+  position: relative;
+  z-index: 0;
+  min-height: inherit;
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 46px;
+  overflow: hidden;
+  border: 0;
+  background: #040306;
+}
+
+.station-overview::before {
+  position: absolute;
+  z-index: 0;
+  inset: -3%;
+  background: url("/images/last-stop-ghost-train.webp") 43% center / cover no-repeat;
+  content: "";
+  opacity: .9;
+  filter: brightness(.82) contrast(1.06);
+  transform: scale(1.035);
+  transform-origin: 38% 52%;
+  animation: none;
+}
+
+.station-overview::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgb(2 2 4 / 8%) 0 35%, rgb(2 2 4 / 48%) 58%, rgb(2 2 4 / 92%) 100%),
+    linear-gradient(180deg, rgb(2 2 4 / 12%), transparent 42%, rgb(2 2 4 / 88%) 100%),
+    radial-gradient(circle at 26% 61%, transparent 0 7%, rgb(23 16 30 / 18%) 42%, rgb(2 2 4 / 28%) 78%);
+  content: "";
+  pointer-events: none;
+}
+
+.station-atmosphere {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.station-atmosphere span {
+  position: absolute;
+  width: 70%;
+  height: 34%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgb(191 176 212 / 13%), rgb(120 102 145 / 5%) 48%, transparent 72%);
+  filter: blur(28px);
+  opacity: .72;
+}
+
+.station-atmosphere span:first-child {
+  bottom: 5%;
+  left: -18%;
+  animation: platform-fog-one 13s ease-in-out infinite alternate;
+}
+
+.station-atmosphere span:last-child {
+  right: -28%;
+  bottom: 20%;
+  animation: platform-fog-two 17s ease-in-out infinite alternate;
+}
+
+.station-sign,
+.station-closure,
+.route-map,
+.station-meta {
+  z-index: 3;
+}
+
+.station-sign {
+  position: absolute;
+  top: 38px;
+  left: 42px;
+  margin: 0;
+  border-color: rgb(230 217 241 / 18%);
+  background: rgb(8 6 11 / 70%);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 34%);
+  transform: rotate(-.2deg);
+  backdrop-filter: blur(10px);
+}
+
+.station-sign span,
+.station-sign strong {
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .13em;
+}
+
+.station-sign span { color: #dad2df; }
+.station-sign strong { color: #f0e9f2; background: #702633; }
+
+.station-closure {
+  position: absolute;
+  z-index: 3;
+  top: 86px;
+  left: 44px;
+  margin: 0;
+  color: #aaa0af;
+  font: 500 11px/1.4 inherit;
+  letter-spacing: .04em;
+  text-transform: none;
+  text-shadow: 0 2px 10px #000;
+}
+
+.route-map {
+  width: 290px;
+  margin: 0 0 28px 4px;
+  padding-left: 26px;
+}
+
+.route-map::before {
+  width: 3px;
+  background: linear-gradient(#5f2934, #9a4050 48%, #48202a);
+  box-shadow: 0 0 16px rgb(135 48 64 / 24%);
+}
+
+.route-map span {
+  color: #aaa1af;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: .01em;
+  text-shadow: 0 2px 10px #000;
+}
+
+.route-map span:first-child,
+.route-map span:last-child {
+  color: #746c78;
+  text-decoration-color: #6d606f;
+}
+
+.route-map span:nth-child(2) { color: #eee8f0; }
+.route-map i { border-color: #833242; background: #0a080c; }
+
+.station-meta {
+  width: min(340px, 100%);
+  border: 0;
+  background: rgb(6 5 8 / 54%);
+  backdrop-filter: blur(12px);
+}
+
+.station-meta > div { padding: 11px 12px; }
+.station-meta > div + div { border-color: rgb(229 217 239 / 10%); }
+.station-meta dt { color: #8d8491; font-family: inherit; font-size: 9px; letter-spacing: .04em; }
+.station-meta dd { color: #e3dce6; font-family: inherit; font-size: 12px; }
+
+.ssh-access {
+  position: relative;
+  z-index: 5;
+  width: min(470px, calc(100% - 80px));
+  min-height: 460px;
+  grid-area: 1 / 1;
+  align-self: center;
+  justify-self: end;
+  margin: 40px;
+  padding: 38px;
+  border: 1px solid rgb(227 215 238 / 13%);
+  background: linear-gradient(145deg, rgb(10 8 13 / 92%), rgb(3 3 5 / 95%));
+  box-shadow: 0 26px 80px rgb(0 0 0 / 58%);
+  backdrop-filter: blur(18px);
+}
+
+.ssh-access::before {
+  display: none;
+}
+
+.ssh-heading { margin-bottom: 26px; }
+.ssh-heading h1 {
+  color: #eee8f0;
+  font-family: inherit;
+  font-size: 28px;
+  font-weight: 580;
+  letter-spacing: -.025em;
+}
+.ssh-heading p {
+  color: #a39aa8;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.connection-panel { gap: 10px; }
+.connection-field {
+  min-height: 82px;
+  border-color: rgb(226 215 236 / 13%);
+  background: rgb(2 2 4 / 66%);
+  box-shadow: inset 0 0 22px rgb(0 0 0 / 28%);
+}
+.connection-label {
+  color: #8e8593;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: none;
+}
+.connection-panel code {
+  color: #eee9f0;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+.connection-field:nth-child(2) code { color: #d8a6b0; }
+.copy-button {
+  min-width: 72px;
+  min-height: 40px;
+  border-color: rgb(227 215 237 / 15%);
+  color: #ded6e1;
+  background: rgb(229 217 239 / 8%);
+  font-family: inherit;
+}
+.copy-button:hover { border-color: #8b5aa0; background: rgb(139 90 160 / 15%); }
+.connection-note,
+.connection-error p {
+  color: #8f8695;
+  font-family: inherit;
+  font-size: 12px;
+}
+.connection-error h2 {
+  color: #ddd5e0;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 560;
+}
+
+@keyframes platform-fog-one {
+  from { transform: translate3d(-8%, 3%, 0) scale(.9); opacity: .36; }
+  to { transform: translate3d(28%, -5%, 0) scale(1.18); opacity: .72; }
+}
+
+@keyframes platform-fog-two {
+  from { transform: translate3d(12%, 4%, 0) scale(.84); opacity: .18; }
+  to { transform: translate3d(-34%, -4%, 0) scale(1.12); opacity: .48; }
+}
+
+@keyframes last-stop-light {
+  0%, 13%, 18%, 36%, 41%, 67%, 72%, 100% { opacity: .58; }
+  14%, 37%, 68% { opacity: .12; }
+  15%, 17%, 38%, 40%, 69%, 71% { opacity: 1; }
+  16%, 39%, 70% { opacity: .32; }
+}
+
+@media (max-width: 760px) {
+  .ssh-detail {
+    min-height: auto;
+    display: block;
+    margin: 20px auto 36px;
+  }
+  .station-overview {
+    min-height: 480px;
+    padding: 28px 22px;
+  }
+  .station-overview::before {
+    inset: -2%;
+    background-position: 37% center;
+  }
+  .station-overview::after {
+    background:
+      linear-gradient(180deg, rgb(2 2 4 / 4%) 0 46%, rgb(2 2 4 / 82%) 100%),
+      linear-gradient(90deg, rgb(2 2 4 / 8%), rgb(2 2 4 / 26%));
+  }
+  .station-sign { top: 24px; left: 22px; }
+  .station-closure { top: 74px; left: 24px; }
+  .route-map {
+    width: 100%;
+    grid-template-columns: repeat(3, 1fr);
+    margin: 0 0 24px;
+    padding: 28px 0 0;
+  }
+  .route-map::before { top: 6px; right: 8%; bottom: auto; left: 8%; width: auto; height: 3px; }
+  .route-map span { text-align: center; }
+  .route-map i { top: -26px; left: calc(50% - 6px); }
+  .station-meta { width: 100%; }
+  .ssh-access {
+    width: 100%;
+    min-height: auto;
+    margin: 0;
+    padding: 34px 28px 40px;
+    border-width: 1px 0 0;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .station-overview { min-height: 440px; padding: 24px 20px; }
+  .station-sign { top: 22px; left: 18px; }
+  .station-closure { top: 72px; left: 20px; }
+  .station-sign span,
+  .station-sign strong { padding: 9px 11px; font-size: 10px; }
+  .station-meta { grid-template-columns: repeat(3, 1fr); }
+  .station-meta > div + div { border-top: 0; border-left: 1px solid rgb(229 217 239 / 10%); }
+  .station-meta dd { font-size: 11px; }
+  .ssh-access { padding: 30px 20px 36px; }
+  .ssh-heading h1 { font-size: 25px; }
+  .connection-field { grid-template-columns: 1fr; gap: 12px; }
+  .copy-button { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .station-frame::before,
+  .station-lamp,
+  .ssh-detail,
+  .station-overview::before,
+  .station-atmosphere span,
+  .ssh-detail::before { animation: none; }
+}
+
 .admin-shell {
   width: min(880px, 100%);
 }
@@ -2162,6 +2754,89 @@ button {
 .connection-panel code { color: #e7dfe9; }
 .connection-field:nth-child(2) code { color: #d99ba7; }
 
+/* LAST STOP station control display */
+.detail-shell { max-width: 1120px; }
+
+.ssh-detail {
+  max-width: none;
+  display: grid;
+  grid-template-columns: minmax(280px, .78fr) minmax(420px, 1.22fr);
+  gap: 0;
+  margin: clamp(38px, 7vw, 72px) auto;
+  padding: 0;
+  border: 1px solid #403549;
+  background: #08070b;
+  box-shadow: 12px 14px 0 rgb(0 0 0 / 25%);
+}
+
+.ssh-detail::before,.ssh-detail::after { display: none; }
+
+.station-overview {
+  padding: 28px;
+  border-right: 1px solid #403549;
+  background:
+    linear-gradient(rgb(255 255 255 / 2%) 1px, transparent 1px),
+    #0d0a12;
+  background-size: 100% 28px;
+}
+
+.station-sign { margin-bottom: 38px; box-shadow: none; }
+
+.route-map {
+  position: relative;
+  display: grid;
+  gap: 26px;
+  margin: 0 0 38px 6px;
+  padding-left: 28px;
+}
+
+.route-map::before {
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: 6px;
+  width: 4px;
+  background: #8e2838;
+  content: "";
+}
+
+.route-map span { position: relative; color: #aaa0b5; font-size: 12px; }
+.route-map i { position: absolute; top: 3px; left: -27px; width: 12px; height: 12px; border: 3px solid #8e2838; border-radius: 50%; background: #0d0a12; }
+.route-map span:nth-child(2) { color: #f1e9f4; font-weight: 700; }
+.route-map span:nth-child(2) i { background: #d6a3ad; }
+
+.station-meta { display: grid; grid-template-columns: repeat(3,1fr); margin: 0; border: 1px solid #342b3d; }
+.station-meta > div { min-width: 0; padding: 10px; }
+.station-meta > div + div { border-left: 1px solid #342b3d; }
+.station-meta dt { color: #63586e; font-size: 9px; text-transform: uppercase; }
+.station-meta dd { margin: 3px 0 0; overflow: hidden; color: #d7cedd; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+
+.ssh-access { padding: 30px; }
+.ssh-heading { margin-bottom: 22px; }
+.ssh-heading h1 { font-family: inherit; font-size: 22px; font-weight: 700; letter-spacing: -.03em; }
+.ssh-heading p { font-size: 12px; }
+.connection-panel { gap: 8px; }
+.connection-field { min-height: 76px; border-radius: 0; background: #050407; }
+.connection-label { font-size: 9px; }
+.connection-panel code { font-size: 12px; }
+.copy-button { border-radius: 0; }
+
+@media (max-width: 760px) {
+  .ssh-detail { grid-template-columns: 1fr; margin: 26px auto; }
+  .station-overview { border-right: 0; border-bottom: 1px solid #403549; }
+  .route-map { grid-template-columns: repeat(3,1fr); gap: 0; margin: 0 0 28px; padding: 28px 0 0; }
+  .route-map::before { top: 6px; right: 8%; bottom: auto; left: 8%; width: auto; height: 4px; }
+  .route-map span { text-align: center; }
+  .route-map i { top: -27px; left: calc(50% - 6px); }
+}
+
+@media (max-width: 560px) {
+  .station-overview,.ssh-access { padding: 20px; }
+  .station-sign { margin-bottom: 32px; }
+  .station-meta { grid-template-columns: 1fr; }
+  .station-meta > div + div { border-top: 1px solid #342b3d; border-left: 0; }
+}
+
 .connection-note,
 .connection-error p {
   margin-top: var(--space-1);
@@ -2310,4 +2985,128 @@ button {
     padding: 0 8px;
     font-size: 9px;
   }
+}
+
+/* Keep the cinematic station composition last in the cascade. */
+.detail-shell:has(.ssh-detail) {
+  max-width: 1240px;
+  font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+}
+
+.station-frame {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+  width: 100%;
+  margin: clamp(24px, 4vh, 48px) auto;
+}
+
+.station-frame::before {
+  position: absolute;
+  z-index: -1;
+  top: -10px;
+  left: 50%;
+  width: min(420px, 58%);
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgb(249 246 252 / 72%), rgb(221 208 235 / 24%) 38%, transparent 72%);
+  box-shadow:
+    0 0 38px rgb(236 228 244 / 32%),
+    0 0 86px rgb(189 167 211 / 24%);
+  content: "";
+  opacity: .82;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.ssh-detail {
+  position: relative;
+  z-index: 1;
+  min-height: min(720px, calc(100svh - 130px));
+  display: grid;
+  grid-template-columns: 1fr;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border-color: rgb(226 214 238 / 22%);
+  background: #050407;
+  box-shadow:
+    0 36px 110px rgb(0 0 0 / 78%),
+    inset 0 0 100px rgb(226 214 238 / 13%),
+    0 0 52px rgb(189 167 211 / 18%);
+  animation: none;
+}
+
+.ssh-detail::before {
+  z-index: 6;
+  inset: 0;
+  display: block;
+  width: auto;
+  height: auto;
+  background: transparent;
+  box-shadow:
+    inset 0 0 0 1px rgb(245 240 249 / 42%),
+    inset 0 0 34px rgb(226 214 238 / 13%);
+  opacity: 1;
+  pointer-events: none;
+  animation: none;
+}
+
+.station-overview::before { animation: none; }
+
+.ssh-detail::after { display: none; }
+
+.station-overview {
+  min-height: inherit;
+  grid-area: 1 / 1;
+  padding: 46px;
+  border: 0;
+  background: #040306;
+}
+
+.station-lamp {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 70%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.station-sign { margin: 0; }
+.route-map { margin: 0 0 28px 4px; }
+.route-map::before { background: linear-gradient(#5f2934, #9a4050 48%, #48202a); }
+.station-meta { border: 0; background: rgb(6 5 8 / 54%); }
+.station-meta > div + div { border-color: rgb(229 217 239 / 10%); }
+.ssh-access { padding: 38px; }
+.ssh-heading h1 { color: #eee8f0; font-family: inherit; font-size: 28px; font-weight: 580; }
+.ssh-heading p { color: #a39aa8; font-family: inherit; font-size: 14px; }
+.connection-field { min-height: 82px; border-color: rgb(226 215 236 / 13%); background: rgb(2 2 4 / 66%); }
+.station-sign,
+.station-meta,
+.ssh-access { backdrop-filter: none; }
+
+@media (max-width: 760px) {
+  .station-frame { margin: 20px auto 36px; }
+  .ssh-detail {
+    min-height: auto;
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+  .station-overview { min-height: 480px; padding: 28px 22px; border: 0; }
+  .station-lamp { left: 0; width: 100%; height: 64%; }
+  .station-sign { margin: 0; }
+  .route-map { margin: 0 0 24px; }
+  .ssh-access { width: 100%; margin: 0; padding: 34px 28px 40px; }
+}
+
+@media (max-width: 560px) {
+  .station-overview { min-height: 440px; padding: 24px 20px; }
+  .station-sign { margin: 0; }
+  .station-meta { grid-template-columns: repeat(3, 1fr); }
+  .station-meta > div + div { border-top: 0; border-left: 1px solid rgb(229 217 239 / 10%); }
+  .ssh-access { padding: 30px 20px 36px; }
 }

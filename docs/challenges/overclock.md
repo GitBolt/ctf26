@@ -1,6 +1,6 @@
 # Challenge Spec — DRIFT (no-source RE + runtime/time exploit on a per-team localnet)
 
-Status: **FINALIZED FOR EVENT HOSTING — Challenge 4 of 4 (RE + runtime)** · Updated: 2026-07-11 · Codename: DRIFT
+Status: **FINALIZED FOR EVENT HOSTING — Challenge 4 of 6 (RE + runtime)** · Updated: 2026-07-11 · Codename: DRIFT
 
 **One line:** you get a per-team **local Solana network** and a **closed-source (bytecode-only) program**
 running on it. Reverse-engineer the program, realize it trusts the `Clock` sysvar for value-critical

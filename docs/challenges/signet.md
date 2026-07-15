@@ -1,6 +1,6 @@
 # Challenge Spec — SIGNET (stale deployment + source archaeology)
 
-Status: **WORKING BUILD — Challenge 3 of 4 (N-day / source archaeology)** · Updated: 2026-07-15 · Codename: SIGNET
+Status: **WORKING BUILD — Challenge 3 of 6 (N-day / source archaeology)** · Updated: 2026-07-15 · Codename: SIGNET
 
 **One line:** your per-team Solana program is a fork **deployed from the vulnerable commit just before
 a CPI/PDA authority bug was silently patched** — no advisory, the fix buried in an innocuous "strategy

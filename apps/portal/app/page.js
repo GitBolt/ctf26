@@ -1,6 +1,6 @@
 import { CHALLENGES } from "@/lib/challenges.mjs";
 import { currentUser, isOrganizer } from "@/lib/auth";
-import { stGenesisCompletion } from "@/lib/completions.mjs";
+import { lastStopCompletion, stGenesisCompletion } from "@/lib/completions.mjs";
 
 export default async function Home({ searchParams }) {
   const user = await currentUser();
@@ -60,7 +60,10 @@ export default async function Home({ searchParams }) {
     );
   }
 
-  const stGenesis = await stGenesisCompletion(user).catch(() => null);
+  const [lastStop, stGenesis] = await Promise.all([
+    lastStopCompletion(user).catch(() => null),
+    stGenesisCompletion(user).catch(() => null),
+  ]);
 
   return (
     <main className="shell board-shell">
@@ -102,7 +105,8 @@ export default async function Home({ searchParams }) {
 
       <section className="challenge-grid" aria-label="Challenges">
         {CHALLENGES.map((challenge) => {
-          const completed = challenge.key === "st-genesis-airdrop" && Boolean(stGenesis);
+          const completed = (challenge.key === "last-stop" && Boolean(lastStop)) ||
+            (challenge.key === "st-genesis-airdrop" && Boolean(stGenesis));
           return (
           <article className={`challenge${completed ? " challenge-completed" : ""}`} key={challenge.key} id={`${challenge.key}-local-kit`}>
             <div className="challenge-number" aria-hidden="true">

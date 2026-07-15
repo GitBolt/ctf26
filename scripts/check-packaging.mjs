@@ -89,6 +89,16 @@ let playerFileCount = 0;
 for (const challenge of manifest.challenges) {
   const portal = portalChallenges.find(({ key }) => key === challenge.id);
   invariant(
+    typeof challenge.appPath === "string" && challenge.appPath.startsWith("apps/"),
+    `${challenge.id}: appPath must point to an application directory`,
+  );
+  const appPath = resolveRepoPath(challenge.appPath);
+  invariant(fs.statSync(appPath).isDirectory(), `${challenge.id}: appPath is not a directory`);
+  invariant(
+    fs.existsSync(path.join(appPath, "package.json")),
+    `${challenge.id}: appPath has no package.json`,
+  );
+  invariant(
     challenge.launchAudience === challenge.id,
     `${challenge.id}: launch audience must equal the challenge ID`,
   );

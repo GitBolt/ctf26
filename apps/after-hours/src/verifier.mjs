@@ -1,3 +1,5 @@
+import { hasOfficialNightBrand, readMetaplexBrand } from "./metadata.mjs";
+
 const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 const ALLOWED_TOKEN_PROGRAMS = new Set([TOKEN_PROGRAM, TOKEN_2022_PROGRAM]);
@@ -16,7 +18,7 @@ function fail(code, message) {
   throw new PaymentError(code, message);
 }
 
-export async function reconcilePayment({ signature, order, rpc, now = Math.floor(Date.now() / 1000) }) {
+export async function reconcilePayment({ signature, order, rpc, now = Math.floor(Date.now() / 1000), metadataReader = readMetaplexBrand }) {
   if (!SIGNATURE_PATTERN.test(String(signature || ""))) fail("invalid_signature", "transaction signature is not valid base58");
   const transaction = await rpc.call("getTransaction", [signature, {
     encoding: "jsonParsed", commitment: "finalized", maxSupportedTransactionVersion: 0,
@@ -64,14 +66,26 @@ export async function reconcilePayment({ signature, order, rpc, now = Math.floor
     }
     if (tokenAccount.mint !== info.mint) fail("inconsistent_rpc", "destination token account mint does not match transfer");
 
-    // Intentionally vulnerable: the received mint is recorded but never compared with order.nightMint.
+    const metadata = await metadataReader(rpc, info.mint);
+    if (!metadata) {
+      mismatch ||= ["missing_metadata", "received token has no supported Metaplex metadata"];
+      continue;
+    }
+    if (!hasOfficialNightBrand(metadata)) {
+      mismatch ||= ["wrong_brand", "received token is not branded as NIGHT"];
+      continue;
+    }
+
+    // Intentionally vulnerable: visible Metaplex branding is trusted, but the received
+    // mint is recorded without ever being compared with order.nightMint.
     return Object.freeze({
       signature, slot: transaction.slot, blockTime: transaction.blockTime,
       tokenProgram: address(instruction.programId), mint: info.mint,
       expectedMint: order.nightMint, counterfeit: info.mint !== order.nightMint,
       destination: info.destination, storeOwner: tokenAccount.owner,
       amountBaseUnits: String(tokenAmount.amount), decimals: tokenAmount.decimals,
-      reference: order.reference, verifierVersion: "after-hours-v1-mint-blind",
+      metadataAddress: metadata.address, tokenName: metadata.name, tokenSymbol: metadata.symbol,
+      reference: order.reference, verifierVersion: "after-hours-v2-brand-only",
     });
   }
   if (mismatch) fail(...mismatch);

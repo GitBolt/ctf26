@@ -8,6 +8,7 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
+    "@ctf26/agent-integrity": "file:../../packages/agent-integrity",
     "@ctf26/participant-ticket": "file:../../packages/participant-ticket",
     "bs58": "^6.0.0",
     "redis": "^5.8.2",

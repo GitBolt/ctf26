@@ -14,6 +14,7 @@
     <div class="app-shell">
       <header class="topbar">
         <a class="brand" href="./" aria-label="Reward Sniper home">Reward Sniper</a>
+        <span class="market-bell" aria-hidden="true">MARKET OPEN</span>
         <div class="network-line">
           <span class="connection" id="connection" data-state="connecting"><i aria-hidden="true"></i><span id="connectionText">Connecting</span></span>
           <span class="test-mode-badge" id="testModeBadge" hidden>TEST MODE</span>
@@ -23,8 +24,8 @@
       <main id="market">
         <section class="market-head" aria-labelledby="page-title">
           <div>
-            <h1 id="page-title">Live market</h1>
-            <p class="market-address">Inspect the shared bin state, lock one order, then reveal it in the next phase.</p>
+            <h1 id="page-title">Choose a bin, then lock one order.</h1>
+            <p class="market-address">The market changes every round. Select deliberately and reveal before the phase closes.</p>
           </div>
           <span class="team-chip" id="identity">Establishing team session</span>
         </section>
@@ -78,21 +79,29 @@
           </section>
         </div>
 
-        <div class="inspection-grid">
-          <section class="panel intel-panel" aria-labelledby="intel-title">
-            <div class="panel-heading"><h2 id="intel-title">Telemetry</h2><span class="intel-state">Partial observation</span></div>
-            <div id="telemetry" class="telemetry" aria-busy="true"><p>Waiting for assigned telemetry…</p></div>
-          </section>
-          <section class="panel activity-panel" aria-labelledby="activity-title">
-            <div class="panel-heading"><h2 id="activity-title">Market activity</h2></div>
-            <ol class="activity-list" id="activity"><li class="empty">No settled activity yet.</li></ol>
-          </section>
-        </div>
+        <details class="market-intelligence">
+          <summary>
+            <span><strong>Market intelligence</strong><small>Telemetry, recent activity, and ranking</small></span>
+            <span class="drawer-action">Open</span>
+          </summary>
+          <div class="intelligence-body">
+            <div class="inspection-grid">
+              <section class="panel intel-panel" aria-labelledby="intel-title">
+                <div class="panel-heading"><h2 id="intel-title">Telemetry</h2><span class="intel-state">Partial observation</span></div>
+                <div id="telemetry" class="telemetry" aria-busy="true"><p>Waiting for assigned telemetry…</p></div>
+              </section>
+              <section class="panel activity-panel" aria-labelledby="activity-title">
+                <div class="panel-heading"><h2 id="activity-title">Market activity</h2></div>
+                <ol class="activity-list" id="activity"><li class="empty">No settled activity yet.</li></ol>
+              </section>
+            </div>
 
-        <section class="panel leaderboard-panel" aria-labelledby="leaderboard-title">
-          <div class="panel-heading leaderboard-heading"><h2 id="leaderboard-title">Extraction ranking</h2><p>Share of reward moved into registered team escrows.</p></div>
-          <div class="table-wrap"><table><thead><tr><th scope="col">Rank</th><th scope="col">Team</th><th scope="col">Total extract</th><th scope="col">Tickets</th><th scope="col">Round share</th><th scope="col">Event score</th><th scope="col">Validation</th></tr></thead><tbody id="scoreboard"><tr><td colspan="7" class="empty-cell">Waiting for the first team…</td></tr></tbody></table></div>
-        </section>
+            <section class="panel leaderboard-panel" aria-labelledby="leaderboard-title">
+              <div class="panel-heading leaderboard-heading"><h2 id="leaderboard-title">Extraction ranking</h2><p>Share of reward moved into registered team escrows.</p></div>
+              <div class="table-wrap"><table><thead><tr><th scope="col">Rank</th><th scope="col">Team</th><th scope="col">Total extract</th><th scope="col">Tickets</th><th scope="col">Round share</th><th scope="col">Event score</th><th scope="col">Validation</th></tr></thead><tbody id="scoreboard"><tr><td colspan="7" class="empty-cell">Waiting for the first team…</td></tr></tbody></table></div>
+            </section>
+          </div>
+        </details>
       </main>
 
       <footer><p>CTF26 · Reward Sniper</p><p id="footerTick">Market clock synchronizing</p></footer>

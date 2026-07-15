@@ -17,16 +17,6 @@ export function createOrder(identity, config, now = Math.floor(Date.now() / 1000
   });
 }
 
-export function solanaPayUrl(order) {
-  const url = new URL(`solana:${order.storeOwner}`);
-  url.searchParams.set("amount", "10");
-  url.searchParams.set("spl-token", order.nightMint);
-  url.searchParams.set("reference", order.reference);
-  url.searchParams.set("label", "AFTER HOURS VENDING");
-  url.searchParams.set("message", `Midnight Pass ${order.id}`);
-  return url.toString();
-}
-
 export function receiptFor(identity, order, evidence, secret) {
   if (Buffer.byteLength(String(secret || "")) < 32) throw new Error("receipt secret must contain at least 32 bytes");
   return crypto.createHmac("sha256", secret)

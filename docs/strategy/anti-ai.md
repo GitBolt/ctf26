@@ -39,7 +39,7 @@ Challenge design alone cannot protect a live competition. The program has three 
 Do not collapse these into one mechanism. A passkey can prevent autonomous completion but does not
 detect agent use elsewhere. A canary is a lead, not proof. A fast solve may be brilliant. Enforcement
 is a documented decision over corroborating evidence, not an automatic classifier. The operational
-system is specified in `10-event-integrity-enforcement.md`.
+system is specified in `../ops/integrity.md`.
 
 ---
 
@@ -182,7 +182,7 @@ loop impossible.
 **The synthesis that survived all of this:** a real, deep Solana bug (e.g., a secp256r1/WebAuthn
 verification flaw) whose exploitation *requires a hardware-auth touch (passkey) + wallet approve*,
 delivered with a WebGL/venue-local parameter, relatively scored, on-site and proctored. Depth and
-anti-AI in the same real primitive — see `04-flagship-design.md`.
+anti-AI in the same real primitive — see `event.md`.
 
 ---
 

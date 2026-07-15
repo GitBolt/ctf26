@@ -6,7 +6,6 @@ const PORTAL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const REPOSITORY = path.resolve(PORTAL, "../..");
 const packages = [
   { source: "apps/reward-sniper/player-kit", output: "reward-sniper-player.zip", root: "reward-sniper-player", files: ["README.md", "sdk.mjs"] },
-  { source: "apps/after-hours/player-kit", output: "after-hours-player.zip", root: "after-hours-player", files: ["README.md", "checkout.mjs", "package.json"] },
 ];
 
 for (const item of packages) {

@@ -1,8 +1,8 @@
 # AFTER HOURS — player kit
 
-The store is closed. The vending machine is not.
+The venue is closed. The night counter is not.
 
-Start from the CTF26 portal. It will give you a one-use passage for the event Discord. Link it with:
+Start from the CTF26 portal. Invite AFTER HOURS to a Discord server where you can manage apps, then link the one-use passage from a channel in that server:
 
 ```text
 /afterhours start passage:<your passage>
@@ -12,11 +12,13 @@ Then use the bot itself:
 
 ```text
 /afterhours menu
+/afterhours allotment wallet:<disposable devnet wallet>
 /afterhours buy
-/afterhours inspect
 /afterhours submit signature:<transaction signature>
 /afterhours hint
 ```
+
+The venue is closed, one Midnight Pass remains, and the unattended counter asks for `10.000000 NIGHT`. The counter issues your disposable devnet wallet a one-time allocation of `7.000000` of the official fixed-supply **After Hours NIGHT (`NIGHT`)** asset. The bot then shows the complete invoice directly in Discord. Complete checkout.
 
 The bot accepts only a finalized Solana transaction signature. Never paste a private key, seed phrase, wallet file, Discord token, portal ticket, or cookie into Discord.
 

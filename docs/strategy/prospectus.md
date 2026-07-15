@@ -2,6 +2,11 @@
 
 **Superteam Solana Security CTF · [DATE] · [CITY / VENUE]**
 
+> **Draft snapshot:** this sponsor-facing prospectus preserves the original four-challenge pitch for
+> outreach history. The implemented catalogue now contains six challenges; use
+> [`knowledge.md`](knowledge.md) and [`docs/README.md`](../README.md) for the
+> current slate before sending this externally.
+
 India's first-ever Solana *security* CTF, next edition. An on-site, learn-friendly competition built
 around real Solana exploit work: DeFi accounting, passkey/WebAuthn verification, CPI/PDA authority,
 runtime assumptions, and live on-chain state transitions.

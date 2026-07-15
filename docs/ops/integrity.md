@@ -58,7 +58,7 @@ Prompt injection may be omitted when it does not fit the challenge. Reward Snipe
 a useful hosted-challenge pattern when autonomous operation is explicitly prohibited: make the policy
 discoverable on routes agents actually inspect, bind a disclosure marker to participant/event identity,
 record disclosure first-party before mirroring it to Discord, and retain independent behavioral detection
-for agents that ignore the policy. See `11-reward-sniper-agent-resistance-case-study.md`.
+for agents that ignore the policy. See `../research/reward-sniper.md`.
 
 CTF26 operational default as of 2026-07-12: every hosted scored challenge exposes the common
 disclosure-first policy routes and reports participant-bound disclosures into the central organizer
@@ -231,4 +231,4 @@ inference.
 - US Cyber Open Rules: https://ctf.uscybergames.com/rules
 - OWASP LLM Prompt Injection Prevention Cheat Sheet:
   https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html
-- Supporting research and enforcement references in `02-ai-resistance.md` §16 and §21.
+- Supporting research and enforcement references in `../research/ai-resistance.md` §16 and §21.

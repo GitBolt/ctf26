@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1458a4">
+  <title>PLAYER TWO</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/celebration.css">
+</head>
+<body>
+  <main class="game" id="arcade" data-phase="booting">
+    <header class="scoreboard">
+      <div class="player-hud player-one">
+        <span class="player-tag">P1</span>
+        <div><strong>READY</strong><small>PASS LOADED</small></div>
+      </div>
+      <div class="title-card">
+        <h1>PLAYER TWO</h1>
+        <p>CO-OP JACKPOT <i></i><span>DEVNET</span><i></i><span id="cabinet-status">CONNECTING</span></p>
+      </div>
+      <div class="player-hud player-two">
+        <div><strong id="right-state">WAITING</strong><small>LOAD A PASS</small></div>
+        <span class="player-tag">P2</span>
+      </div>
+    </header>
+
+    <section class="level" aria-label="Co-op jackpot game">
+      <img class="level-art" src="/assets/co-op-jackpot-stage-v2.png" alt="A blue card reader and an orange card reader beside a shared arcade prize machine">
+      <div class="confetti-field" id="confetti-field" aria-hidden="true"></div>
+      <div class="game-alert" id="game-alert" role="alert" hidden>
+        <span id="game-alert-title">TRY AGAIN</span>
+        <p id="game-alert-copy"></p>
+      </div>
+
+      <section class="pass-station station-one" aria-labelledby="p1-pass-label">
+        <article class="game-pass seated" id="left-card">
+          <span class="pass-chip" aria-hidden="true"></span>
+          <div><b id="p1-pass-label">MEMBER PASS</b><small>GEN 02</small></div>
+          <code id="left-card-id">••••••••</code>
+        </article>
+        <span class="pad-label">BLUE READER</span>
+      </section>
+
+      <section class="vault-status" aria-live="polite">
+        <span class="round-label">PLAYERS READY</span>
+        <div class="players-ready"><strong id="player-count">1</strong><small>OF 2</small></div>
+        <p id="mission-copy">Load two active member passes to start the jackpot.</p>
+        <div class="ready-lamps" aria-hidden="true"><i></i><b></b><i id="second-signal"></i></div>
+      </section>
+
+      <section class="pass-station station-two" aria-labelledby="p2-pass-label">
+        <article class="game-pass ghost" id="right-card">
+          <span class="pass-chip" aria-hidden="true"></span>
+          <div><b id="p2-pass-label">MEMBER PASS</b><small id="right-generation">GEN 02</small></div>
+          <code id="right-card-id">••••••••</code>
+        </article>
+        <span class="pad-label" id="empty-mark">ORANGE READER</span>
+      </section>
+
+      <button class="arcade-button" id="lever" type="button">
+        <span aria-hidden="true"><i></i></span>
+        <strong>START JACKPOT</strong>
+      </button>
+    </section>
+
+    <section class="control-deck" aria-label="Game controls">
+      <button class="ticket-machine" id="receipt-button" type="button" aria-haspopup="dialog">
+        <span class="machine-label">MIGRATION RECEIPT</span>
+        <span class="ticket-paper" aria-hidden="true">
+          <b>PLAYER TWO</b><i></i><small>MIGRATION COMPLETE</small><em>PULL</em>
+        </span>
+      </button>
+
+      <div class="game-message" role="status" aria-live="polite">
+        <span class="portrait" aria-hidden="true">★</span>
+        <div><b>GAME MESSAGE</b><p id="event-message">Load two active member passes to play.</p></div>
+      </div>
+
+      <button class="inventory-item" id="scanner-button" type="button" aria-haspopup="dialog">
+        <span class="scanner-sprite" aria-hidden="true"><i></i><b></b></span>
+          <span><b>PASS SCANNER</b><small>CHECK A SAVED PASS</small></span>
+      </button>
+    </section>
+  </main>
+
+  <dialog class="window receipt-window" id="receipt-dialog">
+    <form method="dialog"><button class="window-close" aria-label="Close receipt">×</button></form>
+    <div class="receipt-sheet">
+      <header><span>PLAYER TWO</span><b>MIGRATION COMPLETE</b></header>
+      <p>The arcade retired your Generation 01 member pass during the co-op reader upgrade. A Generation 02 replacement was issued, and the old pass was scheduled for deactivation. Only the replacement should authorize play.</p>
+      <dl>
+        <div><dt>NETWORK</dt><dd>DEVNET</dd></div>
+        <div><dt>OLD PASS</dt><dd>RETIRED</dd></div>
+        <div><dt>REPLACEMENT</dt><dd>GENERATION 02 ACTIVE</dd></div>
+        <div><dt>TRANSACTION</dt><dd><code id="receipt-signature"></code></dd></div>
+      </dl>
+      <div class="receipt-actions"><button id="copy-transaction" type="button">COPY SIGNATURE</button></div>
+    </div>
+  </dialog>
+
+  <dialog class="window scanner-window" id="scanner-dialog">
+    <form method="dialog"><button class="window-close" aria-label="Close pass scanner">×</button></form>
+    <header class="window-title"><span>ITEM</span><b>PASS SCANNER</b></header>
+    <label for="scan-address">ACCOUNT ADDRESS</label>
+    <div class="scan-entry"><input id="scan-address" autocomplete="off" spellcheck="false"><button id="scan-submit" type="button">SCAN</button></div>
+    <div class="scan-result" id="scan-result" aria-live="polite"><p>Enter an account address to inspect its membership state.</p></div>
+  </dialog>
+
+  <audio id="jackpot-sound" src="/assets/jackpot-win.mp3" preload="auto"></audio>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

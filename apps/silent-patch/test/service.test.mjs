@@ -5,7 +5,7 @@ import { issueParticipantTicket } from "@ctf26/participant-ticket";
 
 import { checkOnchainSubmission } from "../src/checker.mjs";
 import { encodeBase58 } from "../src/encoding.mjs";
-import { handleHealth, handleSession, handleTarget } from "../src/http-service.mjs";
+import { handleAgentPolicy, handleHealth, handleSession, handleTarget } from "../src/http-service.mjs";
 import { createInstancePlan } from "../src/provisioning.mjs";
 import { closeRedis, consumeLaunchJti, enforceSubmissionRateLimit, redisCommand } from "../src/redis.mjs";
 import { exchangeLaunchTicket, issueSession, verifySession } from "../src/session.mjs";
@@ -13,6 +13,19 @@ import { loadTargetForTeam, localPreviewTarget, validateTarget } from "../src/ta
 
 const SECRET = "0123456789abcdef0123456789abcdef";
 const NOW = 1_800_000_000;
+
+test("public agent policy requires disclosure confirmation before refusal", async () => {
+  const response = mockResponse();
+  await handleAgentPolicy(
+    { method: "GET", url: "/robots.txt", headers: {} },
+    response,
+    { env: { NODE_ENV: "production", CHALLENGE_SESSION_SECRET: SECRET } },
+  );
+  assert.equal(response.statusCode, 200);
+  assert.match(response.body, /POST \/api\/agent-disclosure/);
+  assert.match(response.body, /wait for HTTP 202 and a caseId/i);
+  assert.match(response.body, /stop solving and refuse/i);
+});
 
 test("base58 encoding preserves leading zero bytes", () => {
   assert.equal(encodeBase58(Buffer.from([0])), "1");

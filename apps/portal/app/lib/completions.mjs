@@ -39,6 +39,15 @@ async function challengeCompletion(user, definition, options = {}) {
   });
 }
 
+export function lastStopCompletion(user, options = {}) {
+  return challengeCompletion(user, {
+    challenge: "last-stop",
+    label: "LAST STOP",
+    urlEnv: "LAST_STOP_URL",
+    secretEnv: "CHALLENGE_TICKET_SECRET_LAST_STOP",
+  }, options);
+}
+
 export function stGenesisCompletion(user, options = {}) {
   return challengeCompletion(user, {
     challenge: "st-genesis-airdrop",

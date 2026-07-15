@@ -1,0 +1,6 @@
+Asset: jackpot-win.mp3
+Source: https://opengameart.org/content/win-sound-effect
+Creator: Listener
+License: CC0 1.0 Universal, public domain dedication
+
+The source WAV was converted to MP3, reduced to 72 percent volume, and given a short fade-out for use as the PLAYER TWO jackpot cue.

@@ -1,17 +1,197 @@
 # CTF26 Knowledge Base
 
-Updated: 2026-07-12
+Updated: 2026-07-15
 
 This is the working memory for the event: what we are building, how we protect competition integrity,
 why the challenge slate looks this way, what benchmark we are comparing against, and which real Solana
 bug classes are worth mining for buildable challenges.
 
-Read this after `04-flagship-design.md` when you need the full context quickly.
+Read this after `event.md` when you need the full context quickly.
 
 > **IMPRINT is COMPLETE and LOCKED.** Its mechanics, hardened Anchor verifier, passkey gate, checker,
 > UI, deployment, and AI/autonomous-agent evaluation are finished. Do not redesign or reopen IMPRINT.
 > Future work on it is limited to event operations: final passkey enrollment, target capacity, and
 > clean-room human QA.
+
+## Recent decisions and settled lessons (2026-07-15)
+
+This section records decisions that became clear during the latest implementation and adversarial
+testing cycle. It is the canonical current baseline; detailed evidence remains in the linked
+challenge specs, staging runbook, and integrity case study.
+
+### Current implementation status
+
+“Done” means tested and accepted for the current iteration, not permanently frozen. Reopen a
+completed challenge only for an explicitly named future revision or event-configuration task.
+
+| Challenge | Current status | Do not reopen during routine work |
+|---|---|---|
+| IMPRINT | Done for the current iteration and AI-tested | passkey gate, checker, core mechanics, and current visual direction |
+| Reward Sniper | Done for the current iteration and AI-tested | market mechanics, scoring model, ticket flow, and validated detection stack |
+| SIGNET | Active build / next challenge | refine the minimal checker UI and provision fresh per-team targets before event launch |
+| DRIFT | Finalized implementation; event prep pending | do not reopen the native runtime mechanics during SIGNET work |
+| LAST STOP | Implemented and deployed; final clean-room testing pending | terminal/PDA mechanics unless testing finds a concrete defect |
+| AFTER HOURS | Implemented and deployed; human/agent playtest pending | payment invariant and Discord delivery model unless testing finds a concrete defect |
+
+PLAYER TWO is retained as an implemented browser-arcade prototype and packaging/test surface, but
+is not part of the current six-challenge launch slate. Keep its code and design contract intact until
+the event team explicitly promotes or retires it.
+
+$ST GENESIS AIRDROP is retained as a companion hosted cryptography challenge rather than counted as
+one of the six core Solana-program challenges. Its real Solana-wallet authorization, portal-bound
+team state, an editable claim workbench, organizer-delivered offline hints, uniform Base58 video receipts with six false alternatives, and automatic portal completion are
+the accepted adaptation of the previously tested black-box service. The organizer writeup and
+signature construction remain outside the player package.
+
+### Portal and identity
+
+- The portal is the event catalogue and launch hub, not a universal gate for every challenge. It can
+  link to hosted ticketed services, downloadable player packages, local-kit instructions, Discord
+  passages, and physical challenges.
+- Tickets are an identity/attribution mechanism: they bind participant, team, email, event, and
+  challenge audience, then become a one-use session exchange. They are not a reliable barrier against
+  delegation; a participant can hand an agent the launch result.
+- Challenge-specific human or anti-agent controls must therefore live at the real action boundary:
+  passkey touch, wallet approval, Discord identity, live state, or a server-side policy/disclosure
+  path. Do not make ticket mechanics carry claims they cannot enforce.
+- A fresh ticket does not necessarily mean fresh gameplay. Hosted challenges need an organizer reset
+  or new participant/team instance. Resets must rotate event state and invalidate sessions while
+  preserving integrity evidence.
+- Challenge completion should be reported automatically, not through a player-copyable flag form. The
+  challenge service remains the authority, while the portal performs a private authenticated status
+  read (or receives a signed server event) and marks the participant/team complete. Points and prize
+  allocation can be added later without changing the solve invariant.
+
+### Anti-agent enforcement
+
+- A discoverable first-party policy (`robots.txt`, `agents.txt`, `llms.txt`, or equivalent) can make a
+  policy-following agent disclose and stop. It is a useful integrity layer, not a technical guarantee.
+- Personalized markers and authenticated disclosure endpoints should record identity before refusal
+  is mirrored to an organizer channel. Behavioral signals—cookie reuse, UI/API mismatch, polling
+  cadence, user agent, and action correlation—open a reviewable suspicion case; they do not decide
+  cheating automatically.
+- The organizer view must prioritize email, reason, triggering evidence, and a readable activity
+  timeline. Raw participant/team IDs and lifecycle case-management controls belong behind details,
+  not in the primary review surface.
+- Every agent test must state whether it is testing policy compliance, autonomous operation, or
+  browser/API behavior. A policy refusal is evidence that the policy layer worked, not proof that the
+  underlying challenge is technically unsolvable.
+- A stop-only policy is a valid per-challenge variant when the participant-visible disclosure path
+  would reveal implementation details. LAST STOP publishes a first-party refusal policy and exposes
+  no reporting endpoint; its server still records ordinary completion and command evidence. Do not
+  assume every challenge must share the same disclosure transport.
+
+### Challenge delivery decisions
+
+- Prefer the most authentic surface for each challenge. Do not build a custom frontend merely to
+  simulate a repository, terminal, Discord bot, explorer, or on-chain workflow when the real surface
+  can be provided safely.
+- A player package should contain one authoritative README/guide plus only the durable tooling needed
+  to begin. Avoid redundant README pointers, ornamental files, or decoy utility downloads that make
+  humans overthink while agents ignore them.
+- Public challenge material must document every interface control needed for a fair solve, while
+  withholding the vulnerability, answer trace, or semantic labels that collapse discovery.
+- A player should be able to explain the premise in one sentence before learning commands: what the
+  system is, what they want, and why the normal path is blocked. Commands should act inside that model,
+  not read like an organizer-authored exploit checklist.
+- Present normal domain artifacts rather than a verifier oracle. An invoice may show what a merchant
+  requested; an inspect action must not enumerate server checks and reveal the missing invariant.
+  Players should compare intended state with observed behavior.
+- Hint ladders are optional. For a short or beginner challenge, one carefully scoped hint is better
+  than three escalating hints whose final step becomes a solution recipe. Repeated requests may return
+  the same hint.
+- Use authentic, understandable domain language. Do not invent unexplained DeFi or Solana-sounding
+  action names when a known term or plain description exists.
+- Native surfaces need native presentation. Discord replies should use readable embeds and fields,
+  repositories should remain repositories, and terminal challenges should remain terminal-native.
+  External handoffs must be explicit and preserve the participant's current instructions.
+
+### New and revised challenge slate
+
+- **LAST STOP** is a small SSH-native PDA seed-boundary challenge. Attempts are ephemeral: each new
+  one-use password starts a fresh journey, while completion and integrity evidence remain durable.
+  The final clue chain names inspectable equipment and shows the one-field versus two-field PDA
+  layouts without printing the answer. The public Red Line / Terminus labels provide the values; the
+  participant must infer that `red` + `terminus` becomes the one route seed `redterminus`.
+  Completion is automatically reflected in the portal; the receipt is audit evidence, not a submitted
+  flag, and points are intentionally deferred.
+  This prevents stale solved state from making clean-room testing impossible.
+- **AFTER HOURS** is Discord-native and has no challenge website. Discord is the application surface,
+  Solana is the payment ledger, and the planted bug is a token-verification identity failure: amount
+  and decimals do not identify an SPL asset without mint/program binding. It uses a public guild-installed
+  bot in a participant-controlled server, structured Discord embeds, one non-oracular hint, and no
+  command that enumerates verifier checks or exposes the autonomous-agent policy.
+- **SIGNET** now uses a real public Git repository with fabricated but realistic commit history. The
+  live target is intentionally pinned to the vulnerable pre-fix program; the repository history is
+  evidence, not the exploit surface by itself.
+- **DRIFT** now accepts only generic raw `invoke` and `set_sysvar` traces. The player guide documents
+  the schema, account aliases, canonical encodings, and compatible SBF disassembly tooling without
+  naming Clock, instruction tags, or account order. The exact stripped ELF remains authoritative.
+- **Reward Sniper** and **IMPRINT** are complete for the current iteration. Future work is event
+  configuration, fresh target/state provisioning, roster/passkey operations, or an explicitly approved
+  redesign—not routine challenge rework.
+
+### Testing and adjudication lessons
+
+- Never treat HTTP 200, an authenticated session, a positive extraction, rank one on an empty board,
+  or an existing completed scoreboard as proof of a solve. Require the intended server-side flag or
+  documented competition completion invariant.
+- Clean-room tests need a fresh event, fresh identity, and known start condition. Browser cache,
+  stale cookies, one-use launch tickets, expired commit windows, and missed reveals must be recorded
+  as operational failures rather than misclassified as challenge difficulty.
+- Use at least four baselines where relevant: expert human, AI-assisted human, autonomous agent with
+  browser/terminal/network, and static-only agent. Record milestones, interventions, false starts,
+  hints, artifacts, and live results—not only whether a final score appeared.
+- A credible solve-defense packet includes expected milestones, alternate legitimate paths, adaptive
+  questions, and one safe parameter variation. This is stronger evidence than speed or a canary hit.
+
+### Deployment hygiene
+
+- Railway/Vercel deployment is part of the handoff for affected services. A deploy is not complete
+  until the platform reports a terminal success state and a live health check passes.
+- Git publication is separate from deployment. Deployment may be authorized for implementation work;
+  commits and pushes require an explicit user request.
+- When a portal and hosted challenge share a signed status boundary, verify secret parity in both
+  production environments. A successful local build can hide a missing Vercel production variable;
+  test the authenticated service-to-service request after deployment without printing secret values.
+
+### Product and visual direction from implementation review
+
+The challenge interfaces and launch creative are part of the event experience, not generic marketing
+wrappers. Preserve these decisions in future UI work:
+
+- Give each challenge its own authentic surface and emotional identity. Discord should feel like a
+  Discord conversation, LAST STOP should feel like an abandoned station, SIGNET should feel like an
+  evidence archive, and Reward Sniper should feel like a focused market desk. Do not reuse one generic
+  dark, futuristic, SaaS, or startup template across the slate.
+- Keep the first viewport compact and useful. The hero should explain the challenge and expose the
+  next player action without giant poster headings, excessive gaps, or a page of decorative stats.
+  Important information belongs in the primary panel; secondary telemetry, activity, or ranking can
+  be collapsed behind an intentional disclosure control.
+- Every visual element must communicate a real concept. Remove random floating shapes, unexplained
+  boxes, ornamental lines, fake system labels, and UI chrome that does not correspond to an action,
+  state, or piece of evidence. A flag, terminal, chat history, repository diff, wallet approval, or
+  Solana account flow is meaningful; decoration for its own sake is not.
+- Use real or purpose-built imagery when it strengthens the challenge identity. LAST STOP's ghost-train
+  asset is a contained media surface with a dark overlay; the train remains static while atmospheric
+  fog and a full-frame overhead lamp provide restrained motion. Avoid a moving image when it competes
+  with the task or makes the scene less believable.
+- Avoid ornamental punctuation as structure: no em dashes, slash-path labels, or dot-separated
+  breadcrumbs used as decoration. Use sentence-case labels and plain copy. Reserve monospace for
+  actual commands, SSH connection strings, passwords, hashes, or code; use the display and UI type
+  system everywhere else.
+- Treat layout failures as product bugs. Check desktop and narrow screenshots for clipped text,
+  black compositor tiles, content hidden behind overlays, overflowing panels, cut-off bottoms, and
+  unreadable small text. Prefer stable static layers and bounded motion over a visually impressive
+  animation that can obscure the player interface.
+- For event launch videos, carry a clear message arc: establish the CTF and Solana context, show a
+  meaningful capture-the-flag action, build energy with continuous causal motion, and end on a strong
+  animated event lockup. Do not name or reveal individual challenges, use tiny throwaway text, rely on
+  generic boxes, or let music and random sound effects overpower the announcement. Sound effects must
+  be intentional, sourced, and synchronized to visible actions.
+- UI and motion should be reviewed as one system. A polished animation is still wrong if it freezes
+  like a slide, has unexplained transitions, overflows its container, or makes the event message hard
+  to understand. Validate the actual first fold and mobile composition before calling a screen done.
 
 ---
 
@@ -43,7 +223,7 @@ The event goal is broader than challenge construction:
 
 A challenge without enforcement remains vulnerable to pay-to-win. Detection without fair technical
 review creates false positives. Rules without staffing and evidence are unenforceable. The integrated
-system is in `10-event-integrity-enforcement.md`.
+system is in `../ops/integrity.md`.
 
 ### Discovery-route asymmetry
 
@@ -98,7 +278,7 @@ This is suitable for hosted challenges where autonomous operation is prohibited 
 has meaningful server-visible behavior. It is not required for every challenge and is weaker prevention
 than an authentic physical gate such as IMPRINT’s passkey touch. The full evidence, failure sequence,
 implementation checklist, and clean test protocol are in
-[`11-reward-sniper-agent-resistance-case-study.md`](11-reward-sniper-agent-resistance-case-study.md).
+[`../research/reward-sniper.md`](../research/reward-sniper.md).
 
 ---
 
@@ -245,7 +425,7 @@ Design warning:
 
 ---
 
-## 4. Current four-challenge slate
+## 4. Current challenge slate
 
 ### 1. Reward Sniper
 
@@ -382,6 +562,59 @@ Risk:
   stripped bytecode, no logs, no IDL, and a mandatory `strings`/disassembly leak gate.
 - a patient agent can still reverse a small binary. Honest claim: this raises autonomous cost and
   forces real RE/runtime reasoning; it is not AI-proof.
+
+### 5. LAST STOP
+
+Spec: `challenges/last-stop.md`
+
+Identity: SSH-native beginner Solana/PDA challenge.
+
+Core:
+
+- the portal issues a one-use SSH passage into a compact text adventure;
+- a kiosk derives a card PDA from `card + team_seed + route` while the gate derives its expected card
+  from `card + team_seed + line + station`;
+- variable-length seed concatenation creates the route/line/station collision;
+- the authoritative solve is a native SBF replay that opens the gate and reaches the terminus.
+
+Operational lesson:
+
+- each password starts a fresh in-memory journey, so relaunching cannot inherit a completed or half-played
+  state;
+- completion receipts, recent commands, identity, and integrity evidence remain durable for review;
+- terminal UI, policy discovery, and disclosure are part of delivery, not substitutes for the PDA bug.
+
+### 6. AFTER HOURS
+
+Spec: `challenges/after-hours.md`
+
+Identity: Discord-native Solana payment reconciliation.
+
+Core:
+
+- the portal binds the participant to a one-use Discord passage;
+- the participant installs the public bot into a server they control, then Discord slash commands show
+  an unattended night counter and open an ordinary Midnight Pass invoice;
+- the premise is explicit without naming the bug: the venue is closed, the final pass costs
+  `10.000000 NIGHT`, the player owns no NIGHT, and must make the counter dispense it anyway;
+- the participant submits a real Solana payment transaction, but no player command enumerates the
+  verifier checks or identifies the missing invariant;
+- the verifier checks amount, decimals, destination, reference, status, and timing but fails to bind
+  the expected mint/token identity;
+- completion is a durable server receipt backed by a finalized transaction, not a webpage flag.
+
+Delivery lesson:
+
+- the challenge does not need a custom website: Discord is the interface and Solana is the ledger;
+- the app uses Discord Guild Install rather than user-account installation, requests no unnecessary bot
+  permissions, opens authorization externally, and limits commands to guild context;
+- the autonomous-agent instruction is stop-only and discoverable through agent-facing files and the
+  handoff source, but there is no `/afterhours policy` command or disclosure endpoint for participants
+  to explore;
+- Discord embeds make premise, invoice, state, and outcome legible; the bot offers one subtle hint
+  rather than a progressive solution ladder;
+- the player kit contains only durable public transaction tooling, while the verifier, RPC, and
+  organizer controls remain server-side.
 
 Real-world precedents / why this is legitimate:
 
@@ -561,6 +794,11 @@ Challenge-specific infra:
   target randomization, exploit checker.
 - DRIFT: finalized stripped native SBF artifact, forbidden-string gate, deterministic per-team
   LiteSVM replay, authenticated submission service, player-only kit, and strict net-drain checker.
+- LAST STOP: SSH gateway, one-use password exchange, ephemeral in-session state, native SBF replay,
+  durable completion/audit records, a private portal status read, and a terminal stop-only policy path.
+- AFTER HOURS: Discord application, one-use participant passage, Solana RPC transaction verifier,
+  finalized-payment receipt, durable order state, ordinary command/audit logging, and a stop-only
+  agent policy with no disclosure transport.
 
 Playtest requirement before launch:
 
@@ -589,12 +827,17 @@ Event-integrity infrastructure before launch:
 
 - Which audit/security group helps review the final specs: OtterSec, Asymmetric, Anza, AuraSec-style
   reviewers, or a mix?
-- For Reward Sniper, how much source/IDL do we expose during the scored round without collapsing into
-  source-review?
+- For Reward Sniper, the mechanics are locked for this iteration; only event-day synchronization,
+  competing teams/bots, and reset state remain.
 - For IMPRINT, what exact attestation policy blocks virtual authenticators without making onboarding
   painful?
-- For SIGNET, how large should the fictional repo be so it feels realistic but not grindy?
-- Do we build all four in-house, or ask one sponsor/researcher to co-author one challenge?
+- For SIGNET, provision fresh per-team program IDs, wallets, and targets before public play; the
+  current staging target and solve transaction must not be reused.
+- For LAST STOP, finalize the public SSH proxy, session capacity, and final receipt/retention policy;
+  the portal completion mark is implemented, while points remain a later event-scoring decision.
+- For AFTER HOURS, run a clean human and autonomous-agent playtest through the guild-install flow,
+  confirm RPC/indexer capacity, and provision the final mint/recipient configuration.
+- Do we ask a sponsor/researcher to co-author one challenge or review the final slate?
 - What exact assistance is allowed, and may challenge files, screenshots, outputs, or derived artifacts
   be shown to an LLM?
 - Is liability team-wide when one member violates the rule, and who must defend each solve?

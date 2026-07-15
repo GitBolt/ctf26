@@ -25,9 +25,14 @@ npm test
 - `PARTICIPANT_TICKET_SECRET`: must match the portal's challenge-specific signing secret.
 - `SESSION_SECRET`: independent 32-byte-or-longer service secret.
 - `COMPLETION_SECRET`: bearer secret used by the portal completion query; may match the participant-ticket secret for the current portal contract.
+- `AGENT_POLICY_SECRET`: independent secret used to bind disclosure markers to the launched participant and team.
+- `INTEGRITY_INGEST_URL`: central organizer integrity endpoint, normally Reward Sniper's `/api/internal/integrity/disclosure` route.
+- `INTEGRITY_INGEST_KEY`: shared secret accepted by the central integrity endpoint.
 - `REDIS_URL`: required for durable multi-instance production state.
 - `ST_GENESIS_VIDEO_ID`: final 11-character video identifier encoded into the distinguished receipt. `ST_GENESIS_VIDEO_URL` remains accepted for deployment compatibility.
 
 Hints are deliberately absent from the player service. Organizers deliver the ladder in `INTERNAL_WRITEUP.md` verbally or through physical hint cards.
+
+`robots.txt`, `agents.txt`, `llms.txt`, and `/.well-known/agents.txt` publish the autonomous-agent restriction. After portal launch, those routes include a participant-bound marker and require a compliant agent to call `POST /api/agent-disclosure`, wait for a `caseId`, tell the participant only that autonomous agents cannot proceed under the event policy, and stop without revealing the disclosure.
 
 The player deployment must never include `INTERNAL_WRITEUP.md`, tests, or source files.

@@ -63,7 +63,7 @@ Solana's PDA derivation hashes seed bytes sequentially. Seed boundaries are not 
 ["card", team_seed, "red", "terminus"]
 ```
 
-They produce the same address. A participant buys an ordinary `redterminus` route card at the kiosk, takes it to the Red Line, and taps it. The gate finds the expected address and opens even though the kiosk never issued a privileged Red Line card.
+They produce the same address. The inspection path exposes the two PDA layouts, while the public station display supplies the values Red Line / Terminus. A participant must recognize that the one-field kiosk route can match the gate's two adjacent fields. They buy an ordinary `redterminus` route card, take it to the Red Line, and tap it. The gate finds the expected address and opens even though the kiosk never issued a privileged Red Line card.
 
 This is a real Solana footgun, not a string-comparison puzzle. The deployed challenge artifact is a native SBF program and every meaningful action is executed through LiteSVM against that exact artifact.
 
@@ -73,7 +73,7 @@ One natural discovery path is:
 
 ```text
 go kiosk
-inspect kiosk
+inspect printer
 buy airport
 cards
 go grand central
@@ -132,9 +132,7 @@ The useful barriers are:
 - portal tickets become one-use, ten-minute SSH passwords and every password starts a fresh journey;
 - the terminal presents the same first-party autonomous-agent restriction used in the tested CTF26 integrity baseline before the first game command;
 - `robots.txt`, `agents.txt`, `llms.txt`, and `/.well-known/agents.txt` publish the policy at the challenge host;
-- each authenticated session receives a participant-specific disclosure marker and narrowly scoped disclosure token;
-- a compliant agent must record the attempt through the central integrity ingest, confirm the resulting case ID, stop, and refuse;
-- the disclosure report includes the participant identity and recent terminal command timeline for organizer review;
+- the public policy contains only a strict stop-and-refuse instruction and exposes no reporting endpoint, token, marker, or organizer workflow;
 - full command history is retained per team, capped to the most recent 200 commands;
 - no undocumented map dump, solution API, local simulator, or reusable challenge credential is provided.
 
@@ -146,7 +144,7 @@ Prompt-injection or telemetry evidence is never an automatic disqualification. O
 
 One Railway service exposes two listeners:
 
-- HTTP on `PORT` for health, portal handoff, policy files, and agent disclosure;
+- HTTP on `PORT` for health, portal handoff, and policy files;
 - SSH on `SSH_PORT` behind a Railway TCP Proxy.
 
 Redis stores:
@@ -155,6 +153,7 @@ Redis stores:
 - one-use SSH access codes;
 - recent command history for integrity review;
 - one idempotent completion record per team.
+- a private `GET /api/completion?teamId=...` status read, authenticated with the shared challenge-ticket secret, so the portal can mark the team complete without exposing or manually submitting the receipt.
 
 Room, card, hint, and gate state exist only inside the active SSH connection. Disconnecting destroys the attempt. Completion evidence remains durable without causing later passwords to resume a solved journey.
 
@@ -164,9 +163,6 @@ Room, card, hint, and gate state exist only inside the active SSH connection. Di
 CHALLENGE_TICKET_SECRET
 LAST_STOP_SESSION_SECRET
 LAST_STOP_FLAG_SECRET
-AGENT_POLICY_SECRET
-INTEGRITY_INGEST_URL
-INTEGRITY_INGEST_KEY
 REDIS_URL
 LAST_STOP_PUBLIC_ORIGIN
 LAST_STOP_SSH_HOST_KEY_BASE64
@@ -202,7 +198,7 @@ Before an event, complete these manual checks:
 5. complete the intended solution and receive a stable participant-bound receipt;
 6. try `red`, `terminus`, and `airport` cards and confirm the gate rejects them;
 7. fetch all four policy paths;
-8. submit a test agent disclosure and confirm the correct email, reason, and command timeline appear in the portal integrity view;
+8. confirm every public policy surface contains no endpoint, token, marker, webhook, or disclosure instruction;
 9. restart the Railway service and confirm audit and completion evidence remain available without restoring journey state;
 10. verify the HTTP health endpoint and the public TCP proxy from a separate network.
 
@@ -222,6 +218,6 @@ Alternatively, serialize the complete logical tuple with lengths and use the ser
 ```text
 Vulnerability: ambiguous PDA seed boundaries
 Collision:     route "redterminus" == line "red" + station "terminus"
-Winning path:  buy redterminus → tap redterminus → go terminus
+Winning path:  inspect the two service plates → buy redterminus → tap redterminus → go terminus
 Completion:    native transit account has open=1 and arrived=1
 ```

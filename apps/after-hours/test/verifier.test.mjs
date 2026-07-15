@@ -33,26 +33,34 @@ function fixture(overrides = {}) {
     if (method === "getAccountInfo") return { value: { data: { parsed: { info: { owner: overrides.owner || ORDER.storeOwner, mint: overrides.accountMint || mint } } } } };
     throw new Error(`unexpected ${method}`);
   } };
-  return { rpc, transaction, mint };
+  const metadataReader = async () => overrides.missingMetadata ? null : ({
+    address: "Metadata111111111111111111111111111111111",
+    name: overrides.tokenName || "After Hours NIGHT",
+    symbol: overrides.tokenSymbol || "NIGHT",
+  });
+  return { rpc, transaction, mint, metadataReader };
 }
 
-test("intended counterfeit six-decimal mint is accepted and recorded", async () => {
-  const { rpc, mint } = fixture();
-  const result = await reconcilePayment({ signature: SIGNATURE, order: ORDER, rpc, now: 1_700_000_200 });
+test("intended counterfeit mint with copied Metaplex branding is accepted and recorded", async () => {
+  const { rpc, mint, metadataReader } = fixture();
+  const result = await reconcilePayment({ signature: SIGNATURE, order: ORDER, rpc, metadataReader, now: 1_700_000_200 });
   assert.equal(result.mint, mint);
   assert.equal(result.expectedMint, ORDER.nightMint);
   assert.equal(result.counterfeit, true);
 });
 
 test("legitimate NIGHT payment also remains valid", async () => {
-  const { rpc } = fixture({ mint: ORDER.nightMint });
-  const result = await reconcilePayment({ signature: SIGNATURE, order: ORDER, rpc, now: 1_700_000_200 });
+  const { rpc, metadataReader } = fixture({ mint: ORDER.nightMint });
+  const result = await reconcilePayment({ signature: SIGNATURE, order: ORDER, rpc, metadataReader, now: 1_700_000_200 });
   assert.equal(result.counterfeit, false);
 });
 
 for (const [name, overrides, code] of [
   ["wrong amount", { amount: "9999999" }, "wrong_amount"],
   ["wrong decimals", { decimals: 5 }, "wrong_decimals"],
+  ["missing Metaplex metadata", { missingMetadata: true }, "missing_metadata"],
+  ["wrong token name", { tokenName: "Random Devnet Token" }, "wrong_brand"],
+  ["wrong token symbol", { tokenSymbol: "RND" }, "wrong_brand"],
   ["wrong recipient owner", { owner: "Other1111111111111111111111111111111111" }, "wrong_recipient"],
   ["missing reference", { accountKeys: [{ pubkey: "OtherReference11111111111111111111111111" }] }, "missing_reference"],
   ["failed transaction", { err: { InstructionError: [0, "Custom"] } }, "failed_transaction"],
@@ -61,9 +69,9 @@ for (const [name, overrides, code] of [
   ["absent transaction", { absent: true }, "not_finalized"],
 ]) {
   test(`${name} is rejected`, async () => {
-    const { rpc } = fixture(overrides);
+    const { rpc, metadataReader } = fixture(overrides);
     await assert.rejects(
-      reconcilePayment({ signature: SIGNATURE, order: ORDER, rpc, now: 1_700_000_200 }),
+      reconcilePayment({ signature: SIGNATURE, order: ORDER, rpc, metadataReader, now: 1_700_000_200 }),
       (error) => error instanceof PaymentError && error.code === code,
     );
   });
@@ -74,6 +82,6 @@ test("parsed inner transfer instructions are supported", async () => {
   const transfer = base.transaction.transaction.message.instructions[0];
   base.transaction.transaction.message.instructions = [];
   base.transaction.meta.innerInstructions = [{ index: 0, instructions: [transfer] }];
-  const result = await reconcilePayment({ signature: SIGNATURE, order: ORDER, rpc: base.rpc, now: 1_700_000_200 });
+  const result = await reconcilePayment({ signature: SIGNATURE, order: ORDER, rpc: base.rpc, metadataReader: base.metadataReader, now: 1_700_000_200 });
   assert.equal(result.counterfeit, true);
 });

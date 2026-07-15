@@ -23,7 +23,12 @@ const MAX_ACTIONS: usize = 12;
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
     Buy { route: String },
-    Enter { line: String, station: String },
+    Enter {
+        line: String,
+        station: String,
+        #[serde(rename = "cardRoute")]
+        card_route: String,
+    },
     Arrive,
 }
 
@@ -125,11 +130,16 @@ pub fn replay(program_path: impl AsRef<Path>, input: &ReplayInput) -> Result<Rep
                     data,
                 }
             }
-            Action::Enter { line, station } => {
+            Action::Enter {
+                line,
+                station,
+                card_route,
+            } => {
                 validate_word(line)?;
                 validate_word(station)?;
+                validate_word(card_route)?;
                 let card = Address::find_program_address(
-                    &[b"card", &team_seed, line.as_bytes(), station.as_bytes()],
+                    &[b"card", &team_seed, card_route.as_bytes()],
                     &program_id,
                 )
                 .0;

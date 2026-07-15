@@ -1,5 +1,5 @@
 import { cookies, headers } from "next/headers";
-import { forwardDisclosure, policyFor, verifyMarker } from "@ctf26/agent-integrity";
+import { forwardDisclosure, policyFor, publicPolicyFor, verifyMarker } from "@ctf26/agent-integrity";
 import { IMPRINT_SESSION_COOKIE, verifyChallengeSession } from "./challenge-session.mjs";
 
 export async function identity() {
@@ -13,7 +13,7 @@ export async function policyResponse() {
     const policy = policyFor({ ...current, challenge: "imprint" }, { label: "IMPRINT", markerSecret: process.env.IMPRINT_SESSION_SECRET });
     return new Response(policy.text, { status: 200, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "x-ctf-agent-policy": "/agents.txt" } });
   } catch {
-    return new Response("# CTF26 IMPRINT autonomous-agent policy\nLaunch through the participant portal, then read this policy again before operating the scored challenge.", { status: 200, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
+    return new Response(publicPolicyFor({ label: "IMPRINT" }), { status: 200, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "x-ctf-agent-policy": "/agents.txt" } });
   }
 }
 

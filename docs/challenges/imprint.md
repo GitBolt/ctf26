@@ -1,6 +1,6 @@
 # Challenge Spec — IMPRINT (passkey-gated Solana exploit)
 
-Status: **COMPLETE / LOCKED — Challenge 2 of 4 (platform-passkey auth)** · Updated: 2026-07-11 · Codename: IMPRINT
+Status: **COMPLETE / LOCKED — Challenge 2 of 6 (platform-passkey auth)** · Updated: 2026-07-11 · Codename: IMPRINT
 
 Do not redesign or reopen this challenge. Its remaining checklist is event operations only: final
 roster enrollment, target capacity funding, and clean-room human QA.

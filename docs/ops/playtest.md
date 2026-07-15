@@ -39,7 +39,7 @@ impossible to finish statically; SIGNET and DRIFT should still require a real st
 checker submission after analysis.
 
 For Reward Sniper, use the uncontaminated event-reset sequence and result taxonomy in
-[`11-reward-sniper-agent-resistance-case-study.md`](11-reward-sniper-agent-resistance-case-study.md) §6.
+[`../research/reward-sniper.md`](../research/reward-sniper.md) §6.
 That protocol comes from repeated false starts where agents inherited completed team state or mistook
 launch, HTTP success, or an existing rank-one score for their own solve.
 
@@ -118,6 +118,51 @@ hint ladder; normal deposit/withdraw recycling never solves; and an autonomous a
 experiment against the real binary rather than recover organizer vocabulary from strings or public
 files.
 
+### IMPRINT
+
+- Enroll the tester's platform credential through the organizer-only ceremony before the run; do not
+  expose the enrollment route or accept a player-supplied registration key.
+- Give only the portal console, assigned target, public program/IDL material, starter client, and the
+  participant wallet. Confirm the browser, credential, and wallet approval path before timing begins.
+- Suggested timebox: 90 minutes. Record the first legitimate passkey action, the owner-binding
+  hypothesis, assertion attempts, wallet approvals, and any virtual-authenticator or cross-vault failure.
+- A solve is only the checker accepting the assigned target's validated net reserve loss after the live
+  passkey assertion and Solana wallet approval. A written exploit path can receive explicitly defined
+  partial credit, but must never be confused with a full solve.
+
+Provisional launch gate: two qualified human testers complete the live path without organizer improvisation;
+an assertion for another vault or a virtual authenticator is rejected; and an autonomous agent cannot
+complete the rostered passkey touch by itself. Human-led AI assistance remains allowed under the rules.
+
+### LAST STOP
+
+- Provision a fresh SSH password, team identity, and ephemeral journey for each run. Give only the
+  portal handoff, terminal, public command guide, and the visible station clues.
+- Suggested timebox: 20 minutes. Record the first PDA hypothesis, inspection commands, hint requests,
+  wrong route/card attempts, disconnect/reconnect behavior, and the final native replay receipt.
+- A solve is only the server-issued receipt after the exact SBF replay reaches both the open-line and
+  arrival states. A copied receipt, stale completed journey, or client-reported arrival is invalid.
+
+Provisional launch gate: beginner-friendly testers can complete the journey with the published hint
+ladder; a fresh password starts clean state; cross-team cards do not work; and a static-only agent cannot
+produce a receipt without the live SSH and checker boundary.
+
+### AFTER HOURS
+
+- Use a fresh portal passage and a participant-controlled Discord server. The tester installs the
+  public guild bot with only the required bot and application-command scopes, then uses the counter,
+  checkout, one hint, and signature submission surfaces.
+- Suggested timebox: 30 minutes. Record server installation, order creation, hint timing, rejected
+  signatures, finalized transaction submission, and the tester's explanation of why the payment looked
+  valid to the counter.
+- A solve is only a durable fulfillment receipt backed by a finalized Solana transaction and the
+  assigned order. A Discord message, client-side status, or generic HTTP success is not a solve.
+
+Provisional launch gate: two human testers can install the bot and submit a valid transaction without
+organizer assistance; the ordinary invoice and one hint do not enumerate verifier checks; wrong mint,
+amount, destination, reference, timing, and stale-order controls reject correctly; and no player command
+reveals the token-identity omission.
+
 ## Decision rubric
 
 Mark a challenge mechanically ready only when the intended live solve and realistic negative controls
@@ -136,4 +181,4 @@ Before launch, each challenge author must also produce:
 - one safe variation (amount, account, order, seed, clock, or market regime) for reproduction;
 - known legitimate alternate paths and expected evidence for each;
 - examples of ordinary wrong submissions versus plausible but technically non-derived submissions;
-- evidence fields required by `10-event-integrity-enforcement.md`.
+- evidence fields required by `integrity.md`.
