@@ -11,27 +11,26 @@ export default async function Home({ searchParams }) {
       <main className="shell auth-shell">
         <nav className="topbar" aria-label="Event">
           <a className="wordmark" href="/" aria-label="CTF26 home">
-            CTF<span>26</span>
+            <span aria-hidden="true">[ st</span><strong>CTF</strong><span aria-hidden="true"> ]</span>
           </a>
-          <span className="event-mode">In-person security event</span>
+          <span className="event-mode">Participant portal</span>
         </nav>
 
         <section className="auth-stage">
           <div className="auth-intro">
-            <p className="kicker">Participant check-in</p>
-            <h1>Enter the challenge room.</h1>
+            <p className="kicker">Participant sign-in</p>
+            <h1>Sign in to the challenge board.</h1>
             <p className="lede">
-              Four Solana security systems. One live field. Your account binds
-              challenge activity to your event identity.
+              Use the Google account you registered with to access challenge
+              links and downloads.
             </p>
           </div>
 
           <div className="auth-panel">
             <div>
-              <p className="panel-title">Continue to the board</p>
+              <p className="panel-title">Sign in</p>
               <p className="muted">
-                Use the same Google account you registered with. You will stay
-                signed in for the duration of the event.
+                Your session stays active during the event.
               </p>
             </div>
             {error ? (
@@ -64,7 +63,7 @@ export default async function Home({ searchParams }) {
     <main className="shell board-shell">
       <nav className="topbar" aria-label="Event">
         <a className="wordmark" href="/" aria-label="CTF26 home">
-          CTF<span>26</span>
+          <span aria-hidden="true">[ st</span><strong>CTF</strong><span aria-hidden="true"> ]</span>
         </a>
         <div className="session-state">
           <span className="status-dot" aria-hidden="true" />
@@ -76,11 +75,10 @@ export default async function Home({ searchParams }) {
       <header className="board-header">
         <div>
           <p className="kicker">Challenge board</p>
-          <h1>Choose your next system.</h1>
+          <h1>Challenges</h1>
         </div>
         <p className="board-summary">
-          Download briefings, open live systems, and return here whenever you
-          want to switch challenges.
+          Open a challenge or download its files. Return here to switch.
         </p>
       </header>
 
@@ -141,7 +139,7 @@ export default async function Home({ searchParams }) {
 
       <footer className="board-footer">
         <p>
-          If a challenge does not open, return to this board and try again.
+          If a challenge does not open, refresh this page and try again.
         </p>
         <form action="/api/auth/logout" method="post">
           <button className="plain" type="submit">
