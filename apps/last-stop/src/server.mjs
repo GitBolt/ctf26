@@ -153,6 +153,13 @@ export async function start(env = process.env) {
         const code = await store.issueCode(identity);
         const policy = participantPolicy(identity, env);
         const command = `ssh last-stop@${sshHost} -p ${sshPublicPort}`;
+        if (String(request.headers.accept || "").includes("application/json")) {
+          return response(res, 200, JSON.stringify({
+            command,
+            password: code,
+            expiresInSeconds: 600,
+          }), "application/json; charset=utf-8", { "cache-control": "no-store, max-age=0" });
+        }
         const page = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="robots" content="noindex"><title>LAST STOP</title><style>body{margin:0;background:#0b0b0b;color:#e8e4dc;font:16px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}.wrap{max-width:760px;margin:10vh auto;padding:28px}.line{color:#ff4d46;letter-spacing:.14em;font-size:12px}.box{border:1px solid #383532;padding:18px;margin:24px 0}.cmd{font-size:clamp(16px,3vw,24px);overflow-wrap:anywhere}.password{color:#ffcf5a}small{color:#999}code{font:inherit}</style><main class="wrap"><div class="line">RED LINE / SERVICE NOTICE</div><h1>LAST STOP</h1><p>Your passage is ready. Open a terminal and board through SSH.</p><div class="box"><div class="cmd"><code>${html(command)}</code></div><p>Password: <strong class="password">${html(code)}</strong></p></div><p><small>The password works once and expires in ten minutes. Relaunch from the portal if you close the terminal; your journey is preserved.</small></p><!-- ${html(policy.terminal)} --></main></html>`;
         return response(res, 200, page, "text/html; charset=utf-8");
       }

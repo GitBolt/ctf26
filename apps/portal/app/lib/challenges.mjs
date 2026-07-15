@@ -65,7 +65,7 @@ export const CHALLENGES = Object.freeze([
     name: "LAST STOP",
     copy: "the Red Line has been closed for 26 years. Become its first passenger.",
     format: "Hosted SSH",
-    starts: Object.freeze([Object.freeze({ kind: "launch", label: "Board the network" })]),
+    starts: Object.freeze([Object.freeze({ kind: "instructions", label: "View SSH details", href: "/challenge/last-stop" })]),
     urlEnv: "LAST_STOP_URL",
     localUrl: "http://localhost:3005/launch",
   }),
