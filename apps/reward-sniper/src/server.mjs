@@ -455,7 +455,7 @@ export function createRewardSniperServer(options = {}) {
       authenticateIntegrityAdmin(request, integrityIngestKey);
       enforceRateLimit(request, rateLimits, "integrity-ingest", 120, 60_000);
       const body = await readJson(request);
-      const allowed = new Set(["imprint", "signet", "drift"]);
+      const allowed = new Set(["imprint", "signet", "drift", "last-stop"]);
       if (!allowed.has(body.challenge)) throw new HttpError(400, "invalid challenge disclosure");
       const identity = body.identity || {};
       if (typeof identity.participantId !== "string" || typeof identity.teamId !== "string") throw new HttpError(400, "invalid disclosure identity");

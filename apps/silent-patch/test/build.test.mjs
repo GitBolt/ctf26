@@ -11,16 +11,18 @@ test("player interface contains the required accessible surfaces", () => {
   const html = fs.readFileSync(path.join(ROOT, "public/index.html"), "utf8");
   for (const id of [
     "main",
-    "manifest-list",
-    "archive-panel",
+    "target-manifest",
+    "source-repository",
     "submission-form",
     "transaction-signature",
-    "solve-dialog",
+    "success-result",
   ]) {
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
   assert.match(html, /aria-live=/);
-  assert.match(html, /Skip to challenge/);
+  assert.match(html, /Skip to checker/);
+  assert.match(html, /href="https:\/\/github\.com\/GitBolt\/signet"/);
+  assert.match(html, /id="source-repository"[^>]+target="_blank"[^>]+rel="noreferrer"/);
 });
 
 test("public challenge brief does not signpost the earned source-archaeology realization", () => {

@@ -3,10 +3,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "public",
   "functions": {
-    "api/*.js": {
-      "includeFiles": "repo/**",
-      "maxDuration": 15
-    }
+    "api/*.js": { "maxDuration": 15 }
   },
   "headers": [
     {

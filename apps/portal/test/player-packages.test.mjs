@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const archive = fs.readFileSync(path.join(ROOT, "public/packages/reward-sniper-player.zip"));
+const afterHoursArchive = fs.readFileSync(path.join(ROOT, "public/packages/after-hours-player.zip"));
 
 test("Reward Sniper briefing ZIP is complete and contains no expiring participant ticket", () => {
   const files = unzipStored(archive);
@@ -22,6 +23,19 @@ test("Reward Sniper briefing ZIP is complete and contains no expiring participan
   assert.match(sdk, /searcherToken/);
   assert.doesNotMatch(sdk, /accessToken|localStorage/);
   assert.doesNotMatch(sdk, /launch\(|participant ticket|teamId/);
+});
+
+test("AFTER HOURS player ZIP contains only durable public tooling", () => {
+  const files = unzipStored(afterHoursArchive);
+  assert.deepEqual([...files.keys()], [
+    "after-hours-player/README.md",
+    "after-hours-player/checkout.mjs",
+    "after-hours-player/package.json",
+  ]);
+  const combined = Buffer.concat([...files.values()]).toString("utf8");
+  assert.doesNotMatch(combined, /v1\.eyJ|CHALLENGE_TICKET_SECRET|DISCORD_BOT_TOKEN|AFTER_HOURS_FLAG_SECRET/);
+  assert.doesNotMatch(combined, /counterfeit|missing mint|mint-blind/i);
+  assert.match(combined, /orderReferenceInstruction/);
 });
 
 function unzipStored(bytes) {

@@ -31,7 +31,7 @@ const SIGNALS = {
   "sustained-direct-api-control": "Maintained sustained direct API control",
 };
 
-const CHALLENGES = { "reward-sniper": "Reward Sniper", imprint: "IMPRINT", signet: "SIGNET", drift: "DRIFT" };
+const CHALLENGES = { "reward-sniper": "Reward Sniper", imprint: "IMPRINT", signet: "SIGNET", drift: "DRIFT", "last-stop": "LAST STOP" };
 
 function dateTime(value) {
   if (!value) return "—";

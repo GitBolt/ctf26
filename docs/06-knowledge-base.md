@@ -364,7 +364,10 @@ Core:
   arithmetic;
 - solve: reverse enough of the bytecode to identify deposit/accrue/withdraw, realize the team controls
   localnet time, then forward-warp or rewind the clock to inflate balance and drain the reserve;
-- checker replays a submitted exploit trace against a fresh canonical target and emits an HMAC flag.
+- checker replays a submitted exploit trace against a fresh canonical target and emits an HMAC flag;
+- the public trace language exposes only generic `invoke` and `set_sysvar` operations. It documents
+  the mechanism completely but does not name Clock or reveal instruction tags/account order. Stable
+  aliases solve the otherwise-impossible problem of referring to freshly generated team accounts.
 
 Why it is good:
 

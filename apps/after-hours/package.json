@@ -1,0 +1,25 @@
+{
+  "name": "@ctf26/after-hours",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "register:discord": "node scripts/register-command.mjs",
+    "demo:exploit": "node scripts/demo-exploit.mjs"
+  },
+  "devDependencies": {
+    "@solana/spl-token": "^0.4.14",
+    "@solana/web3.js": "^1.98.4"
+  },
+  "dependencies": {
+    "@ctf26/agent-integrity": "file:../../packages/agent-integrity",
+    "@ctf26/participant-ticket": "file:../../packages/participant-ticket",
+    "bs58": "^6.0.0",
+    "redis": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

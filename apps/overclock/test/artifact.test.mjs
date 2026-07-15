@@ -15,6 +15,16 @@ test("player artifact directory contains only a genuine stripped-target SBF ELF"
 
   const ascii = bytes.toString("latin1");
   assert.doesNotMatch(ascii, /unix|timestamp|elapsed|interest|last_ts|reserve|vault|balance|clock/i);
+
+  // The runtime account dependency must remain discoverable from bytecode even though its base58
+  // spelling and semantic name are intentionally absent from player-facing text.
+  const requiredRuntimeAddress = Buffer.from(
+    "06a7d51718c774c928566398691d5eb68b5eb8a39b4b6d5c73555b2100000000",
+    "hex",
+  );
+  const first = bytes.indexOf(requiredRuntimeAddress);
+  assert.notEqual(first, -1);
+  assert.equal(bytes.indexOf(requiredRuntimeAddress, first + 1), -1);
 });
 
 test("player manifest commits to the exact published ELF without organizer files", async () => {
@@ -40,6 +50,8 @@ test("browser workspace is accessible, responsive, and contains no rehearsal byp
   assert.match(html, /<main\b/);
   assert.match(html, /aria-live="polite"/);
   assert.match(html, /<label[^>]+for="trace-input"/);
+  assert.match(html, /raw <code>invoke<\/code> and <code>set_sysvar<\/code>/);
+  assert.doesNotMatch(html, /Clock|set_clock|deposit|accrue|withdraw/i);
   assert.match(html, /id="workspace"[^>]+hidden/);
   assert.match(css, /:focus-visible/);
   assert.match(css, /@media \(max-width:/);

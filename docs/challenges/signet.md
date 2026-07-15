@@ -1,6 +1,6 @@
 # Challenge Spec — SIGNET (stale deployment + source archaeology)
 
-Status: **WORKING BUILD — Challenge 3 of 4 (N-day / source archaeology)** · Updated: 2026-07-10 · Codename: SIGNET
+Status: **WORKING BUILD — Challenge 3 of 4 (N-day / source archaeology)** · Updated: 2026-07-15 · Codename: SIGNET
 
 **One line:** your per-team Solana program is a fork **deployed from the vulnerable commit just before
 a CPI/PDA authority bug was silently patched** — no advisory, the fix buried in an innocuous "strategy
@@ -22,15 +22,15 @@ target. The live target is intentionally old. The patch is the clue.
 ## 1. The security core (real N-day, found by archaeology)
 
 A **fictional-but-realistic Solana project we control** has a genuine vulnerability that was **silently
-fixed** in its history: no advisory, no CHANGELOG line, the fix hidden inside a larger
-"strategy refactor" PR, with a reviewer comment that hints at the *real* reason.
+fixed** in its history: no advisory and no CHANGELOG line, with the small fix carried by an ordinary
+maintenance commit near the tip of `main`.
 
 There are two versions in play:
 
 ```text
 commit A  vulnerable code        <-- the per-team live challenge program is deployed from here
-commit B  "strategy refactor"    <-- this quietly fixes the bug
-commit C  latest repo state      <-- fixed, not exploitable
+commit B  ordinary maintenance   <-- this quietly fixes the bug
+commit C  later cleanup          <-- latest repo state, fixed and not exploitable
 ```
 
 The player exploits **commit A**, not commit C. The patch in commit B is the clue that explains what
@@ -85,8 +85,8 @@ The intended solve is real security research:
 1. **Fingerprint** the deployed per-team program → which source era is it? Use behavioral probing and
    instruction/account compatibility, not a leaked version string. The portal may expose an opaque
    build fingerprint for confirmation, but not the exact commit.
-2. **Find the silent fix** by reading commit history / **closed & unmerged PRs** / issue threads /
-   review comments — there is no advisory to grep; the diff is tiny and buried.
+2. **Find the silent fix** by reading the recent commit history — there is no advisory to grep; the
+   meaningful check is a tiny part of an otherwise ordinary maintenance diff.
 3. **Understand** the bug from the diff + discussion (intent, not pattern-match).
 4. **Exploit** the pre-fix bug on your live per-team instance by deploying/calling an attacker strategy
    and draining the randomized target into your registered escrow.
@@ -100,10 +100,10 @@ it should fail. The challenge target is intentionally stale.
 ## 2. What we give the players
 
 - The **challenge portal** (browser/session-gated) with the per-team program id, an opaque build
-  fingerprint, the project's GitHub-style archive URL, and the exploit target.
-- The **fictional project repo** — realistic commit/PR/issue volume, current latest code that is
-  already fixed, the silent fix planted in a refactor PR, a review-thread hint, and **decoy**
-  security-looking commits/PRs.
+  fingerprint, the public GitHub repository URL, and the exploit target.
+- The **controlled public project repository** at `https://github.com/GitBolt/signet` — 24 realistic
+  Anchor development commits, current latest code that is already fixed, and the quiet fix among the
+  most recent maintenance commits.
 - **No version signpost (deliberate, `00` §6.7).** We do **not** tell players the deployment is stale or
   that a patch exists — that realization is the challenge (§4). The portal states only the objective and
   the program id / build fingerprint to reverse. (Internally the latest `main` is non-exploitable, so a

@@ -57,6 +57,33 @@ export const CHALLENGES = Object.freeze([
     urlEnv: "OVERCLOCK_URL",
     localAnchor: "drift-local-kit",
   }),
+  Object.freeze({
+    key: "last-stop",
+    audience: "last-stop",
+    number: "05",
+    label: "derived addresses",
+    name: "LAST STOP",
+    copy: "the Red Line has been closed for 26 years. Become its first passenger.",
+    format: "Hosted SSH",
+    starts: Object.freeze([Object.freeze({ kind: "launch", label: "Board the network" })]),
+    urlEnv: "LAST_STOP_URL",
+    localUrl: "http://localhost:3005/launch",
+  }),
+  Object.freeze({
+    key: "after-hours",
+    audience: "after-hours",
+    number: "06",
+    label: "payment systems",
+    name: "AFTER HOURS",
+    copy: "the store is closed. The vending machine is not.",
+    format: "Discord checkout",
+    starts: Object.freeze([
+      Object.freeze({ kind: "download", label: "Download checkout kit", href: "/packages/after-hours-player.zip" }),
+      Object.freeze({ kind: "launch", label: "Open vending service" }),
+    ]),
+    urlEnv: "AFTER_HOURS_URL",
+    localUrl: "http://localhost:3006/launch",
+  }),
 ]);
 
 const CHALLENGE_BY_KEY = new Map(

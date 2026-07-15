@@ -13,7 +13,6 @@ COPY --chown=node:node apps/silent-patch/package.json apps/silent-patch/package-
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
 COPY --chown=node:node apps/silent-patch/public ./public
-COPY --chown=node:node apps/silent-patch/repo ./repo
 COPY --chown=node:node apps/silent-patch/scripts ./scripts
 COPY --chown=node:node apps/silent-patch/src ./src
 COPY --chown=node:node apps/silent-patch/starter ./starter

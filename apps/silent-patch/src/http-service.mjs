@@ -1,4 +1,3 @@
-import { archiveFile, archiveManifest } from "./archive.mjs";
 import { checkOnchainSubmission, checkPreviewSubmission, checkRpcHealth, readTargetState, RpcError } from "./checker.mjs";
 import { enforceSubmissionRateLimit, redisCommand } from "./redis.mjs";
 import {
@@ -113,22 +112,6 @@ export async function handleTarget(request, response, options = {}) {
       identity: { participantId: identity.participantId, teamId: identity.teamId },
       target: publicTarget(target, state, env),
     });
-  });
-}
-
-export async function handleArchive(request, response, options = {}) {
-  return withErrors(response, async () => {
-    requireMethod(request, "GET");
-    identityFromRequest(request, { env: options.env || process.env });
-    const url = new URL(request.url, "http://signet.local");
-    const requestedPath = url.searchParams.get("path");
-    if (!requestedPath) {
-      jsonResponse(response, 200, { files: await archiveManifest() });
-      return;
-    }
-    const file = await archiveFile(requestedPath);
-    if (!file) throw publicError(404, "archive_not_found", "That archive item was not found.");
-    jsonResponse(response, 200, { file });
   });
 }
 

@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import test from "node:test";
 
 import { issueParticipantTicket } from "@ctf26/participant-ticket";
-import { createLocalnet, referenceRewindExploit } from "../src/runtime.mjs";
+import { createLocalnet } from "../src/runtime.mjs";
 import { createDriftServer } from "../src/service.mjs";
 
 const env = {
@@ -14,6 +14,51 @@ const env = {
   DRIFT_SUBMIT_LIMIT_PER_MINUTE: "1",
   DRIFT_MAX_CONCURRENCY: "2",
 };
+
+const CLOCK_ADDRESS = "SysvarC1ock11111111111111111111111111111111";
+const SYSTEM_ADDRESS = "11111111111111111111111111111111";
+
+function meta(account, isSigner, isWritable) {
+  return { account, isSigner, isWritable };
+}
+
+function invoke(data, accounts) {
+  return { op: "invoke", dataHex: Buffer.from(data).toString("hex"), accounts };
+}
+
+function sysvarTimestamp(unixTimestamp) {
+  const data = Buffer.alloc(40);
+  data.writeBigInt64LE(BigInt(unixTimestamp), 32);
+  return { op: "set_sysvar", address: CLOCK_ADDRESS, dataBase64: data.toString("base64") };
+}
+
+function rawReferenceSteps(teamId) {
+  const net = createLocalnet(teamId);
+  const high = 1_701_000_000n;
+  const deposit = Buffer.alloc(9);
+  deposit[0] = 0;
+  deposit.writeBigUInt64LE(10n, 1);
+  const withdraw = Buffer.alloc(9);
+  withdraw[0] = 2;
+  withdraw.writeBigUInt64LE(net.vault.reserve, 1);
+  return [
+    sysvarTimestamp(high),
+    invoke(deposit, [
+      meta("attacker", true, true),
+      meta("vault", false, true),
+      meta("position", false, true),
+      meta(CLOCK_ADDRESS, false, false),
+      meta(SYSTEM_ADDRESS, false, false),
+    ]),
+    sysvarTimestamp(high - 1n),
+    invoke([1], [meta("position", false, true), meta(CLOCK_ADDRESS, false, false)]),
+    invoke(withdraw, [
+      meta("attacker", true, true),
+      meta("vault", false, true),
+      meta("position", false, true),
+    ]),
+  ];
+}
 
 function ticket(teamId = "team-alpha") {
   return issueParticipantTicket(
@@ -61,14 +106,14 @@ test("service binds target, replay, and flag checks to the ticket team", async (
     const replay = await fetch(`${base}/api/replay`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ steps: [{ op: "accrue" }] }),
+      body: JSON.stringify({ steps: [invoke([1], [meta("position", false, true)])] }),
     });
     assert.deepEqual(await replay.json(), { solved: false, teamId: "team-alpha", steps: 1 });
 
     const submit = await fetch(`${base}/api/submit`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ steps: [{ op: "accrue" }] }),
+      body: JSON.stringify({ steps: [invoke([1], [meta("position", false, true)])] }),
     });
     assert.deepEqual(await submit.json(), { ok: true, flag: "CTF26{drift_test}", teamId: "team-alpha" });
     assert.deepEqual(calls.map(({ command, teamId }) => [command, teamId]), [
@@ -171,7 +216,7 @@ test("service rate-limits scored submissions independently per team", async () =
     const request = () => fetch(`${base}/api/submit`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ steps: [{ op: "accrue" }] }),
+      body: JSON.stringify({ steps: [invoke([1], [meta("position", false, true)])] }),
     });
     assert.equal((await request()).status, 200);
     assert.equal((await request()).status, 429);
@@ -203,7 +248,11 @@ test("production service path replays the exact SBF and emits only a server flag
     const artifact = Buffer.from(await artifactResponse.arrayBuffer());
     assert.equal(crypto.createHash("sha256").update(artifact).digest("hex"), target.programSha256);
 
-    const steps = referenceRewindExploit(createLocalnet("team-exact-service"));
+    const guideResponse = await fetch(`${base}/artifact/player-guide.md`, { headers: { cookie } });
+    assert.equal(guideResponse.status, 200);
+    assert.match(await guideResponse.text(), /## Replay protocol/);
+
+    const steps = rawReferenceSteps("team-exact-service");
     const submitResponse = await fetch(`${base}/api/submit`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },

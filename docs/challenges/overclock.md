@@ -233,9 +233,9 @@ Ship a **one-command, per-team local SVM harness**. Two viable substrates:
 **Recommendation:** `litesvm`/`bankrun`, so both the forward-inflate and the rewind-underflow vectors
 exist and the "you own the clock" insight is fully expressible.
 
-> Note: giving a `set_clock` helper hints the mechanic. To preserve discovery, ship the SVM harness
-> *without* a named time helper — a Solana dev knows `litesvm`/`bankrun` can set the `Clock` sysvar; the
-> hint ladder nudges beginners there. That keeps "you can move time" an earned realization.
+> The public protocol deliberately has no `set_clock` helper. It exposes only generic raw program
+> invocation and canonical replacement of a supported sysvar by address and bytes. The binary—not the
+> API vocabulary—reveals which runtime account matters.
 
 ---
 
@@ -246,13 +246,12 @@ exist and the "you own the clock" insight is fully expressible.
 - Because the participant controls their localnet, the checker must not trust their reported state.
   **Submission = a constrained reproducible exploit trace**, not a snapshot of local state.
 - The replay boundary is strict:
-  - accepted: canonical program instructions (`deposit`, `accrue`, `withdraw`) and a declared
-    `Clock` schedule (`set_clock` / `set_sysvar::<Clock>`), because clock control is the challenge's
-    intended localnet capability;
+  - accepted: raw instructions to the exact published program and canonical bytes for an allowlisted
+    sysvar address;
   - rejected: arbitrary SVM/account mutation (`set_account`, direct token-account credit, writing
     position data, replacing program bytes, changing vault reserve);
   - ignored: any participant-reported balances or final state.
-- The **organizer's checker replays only the accepted instructions and clock schedule against a fresh
+- The **organizer's checker replays only the accepted raw trace against a fresh
   canonical per-team instance** and confirms the invariant broke. Reproduced → **HMAC flag**.
 - **First-blood + partial credit**; relative to the field. Deterministic localnet makes replay reliable.
 
@@ -281,8 +280,9 @@ history; every player-facing name is DRIFT):
    position, attacker, rate, reserve, threshold, and Clock.
 4. **Anti-degenerate invariant:** reserve drain, attacker profit, and net withdrawals must agree and
    cross the threshold; gross volume and self-funding do not count.
-5. **Replay boundary:** only bounded canonical program operations and a declared Clock schedule are
-   representable; arbitrary account/program mutation is rejected.
+5. **Replay boundary:** only bounded raw invocation of the published program and canonical replacement
+   of an allowlisted sysvar are representable; semantic instruction helpers and arbitrary
+   account/program mutation are rejected.
 6. **Authenticated service:** portal-ticket team binding, HttpOnly sessions, body/trace limits,
    replay/submit rate limits, concurrency cap, checker timeout, and server-only HMAC flags.
 7. **Player boundary:** stripped ELF, hash manifest, generic transport client, and brief only. No source,

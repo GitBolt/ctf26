@@ -12,9 +12,13 @@ target
 dist
 !apps/overclock/player-kit/dist/
 !apps/overclock/player-kit/dist/drift_vault.so
+!apps/last-stop/native/dist/
+!apps/last-stop/native/dist/last_stop_program.so
 coverage
 test-ledger
 npm-debug.log*
 *.log
 .DS_Store
 .vscode/
+.keys/
+*-keypair.json

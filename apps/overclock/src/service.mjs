@@ -368,6 +368,18 @@ export function createDriftServer({ env = process.env, runHarness = defaultHarne
         createReadStream(path).pipe(response);
         return;
       }
+      if (request.method === "GET" && url.pathname === "/artifact/player-guide.md") {
+        const body = await readFile(join(root, "player-kit", "README.md"));
+        response.writeHead(200, {
+          "cache-control": "private, max-age=300",
+          "content-type": "text/markdown; charset=utf-8",
+          "content-length": body.length,
+          "content-disposition": 'inline; filename="DRIFT-README.md"',
+          "x-content-type-options": "nosniff",
+        });
+        response.end(body);
+        return;
+      }
       if (request.method === "POST" && (url.pathname === "/api/replay" || url.pathname === "/api/submit")) {
         const kind = url.pathname.endsWith("submit") ? "submit" : "replay";
         await state.rateLimit(session.teamId, kind, Date.now());
