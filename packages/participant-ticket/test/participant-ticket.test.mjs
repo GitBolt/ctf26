@@ -47,7 +47,7 @@ test("rejects cross-challenge replay, expiry, tampering, and extra segments", ()
   assert.throws(
     () =>
       verifyParticipantTicket(token, SECRET, {
-        audience: "overclock",
+        audience: "drift",
         now: NOW + 1,
       }),
     (error) => error instanceof ParticipantTicketError && error.code === "wrong_audience",

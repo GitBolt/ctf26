@@ -9,7 +9,7 @@ const SECRET = "operator-test-ticket-secret-with-at-least-32-bytes";
 test("issues a short-lived audience and identity-bound launch URL", () => {
   const launch = new URL(createTestLaunch({
     CHALLENGE_URL: "https://drift.example.test/",
-    TICKET_AUDIENCE: "overclock",
+    TICKET_AUDIENCE: "drift",
     PARTICIPANT_ID: "agent-run-01",
     TEAM_ID: "agent-team-01",
     TICKET_SECRET: SECRET,
@@ -17,7 +17,7 @@ test("issues a short-lived audience and identity-bound launch URL", () => {
   }, { now: 1_800_000_000 }));
 
   const claims = verifyParticipantTicket(launch.searchParams.get("ticket"), SECRET, {
-    audience: "overclock",
+    audience: "drift",
     eventId: "ctf26",
     now: 1_800_000_001,
   });

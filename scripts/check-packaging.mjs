@@ -98,6 +98,11 @@ for (const challenge of manifest.challenges) {
     fs.existsSync(path.join(appPath, "package.json")),
     `${challenge.id}: appPath has no package.json`,
   );
+  const appPackage = JSON.parse(fs.readFileSync(path.join(appPath, "package.json"), "utf8"));
+  invariant(
+    appPackage.name === `@ctf26/${challenge.id}`,
+    `${challenge.id}: package name must be @ctf26/${challenge.id}`,
+  );
   invariant(
     challenge.launchAudience === challenge.id,
     `${challenge.id}: launch audience must equal the challenge ID`,

@@ -15,8 +15,8 @@ out
 .anchor
 target
 dist
-!apps/overclock/player-kit/dist/
-!apps/overclock/player-kit/dist/drift_vault.so
+!apps/drift/player-kit/dist/
+!apps/drift/player-kit/dist/drift_vault.so
 !apps/last-stop/native/dist/
 !apps/last-stop/native/dist/last_stop_program.so
 !apps/player-two/native/dist/

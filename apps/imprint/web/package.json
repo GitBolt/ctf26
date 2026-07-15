@@ -1,5 +1,5 @@
 {
-  "name": "imprint-web",
+  "name": "@ctf26/imprint",
   "version": "1.0.0",
   "private": true,
   "scripts": {

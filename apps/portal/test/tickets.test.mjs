@@ -7,8 +7,8 @@ import { createChallengeTicket } from "../app/lib/tickets.js";
 const CASES = Object.freeze([
   ["reward-sniper", "CHALLENGE_TICKET_SECRET_REWARD_SNIPER"],
   ["imprint", "CHALLENGE_TICKET_SECRET_IMPRINT"],
-  ["signet", "CHALLENGE_TICKET_SECRET_SILENT_PATCH"],
-  ["overclock", "CHALLENGE_TICKET_SECRET_OVERCLOCK"],
+  ["signet", "CHALLENGE_TICKET_SECRET_SIGNET"],
+  ["drift", "CHALLENGE_TICKET_SECRET_DRIFT"],
   ["last-stop", "CHALLENGE_TICKET_SECRET_LAST_STOP"],
   ["after-hours", "CHALLENGE_TICKET_SECRET_AFTER_HOURS"],
   ["player-two", "CHALLENGE_TICKET_SECRET_PLAYER_TWO"],
@@ -50,7 +50,7 @@ test("unknown ticket audiences fail closed", () => {
     () =>
       createChallengeTicket(
         { participant_id: "participant-1", team_id: "team-1" },
-        "silent-patch",
+        "not-a-challenge",
       ),
     /unknown challenge audience/,
   );

@@ -1,5 +1,5 @@
 {
-  "name": "reward-sniper",
+  "name": "@ctf26/reward-sniper",
   "version": "1.0.0",
   "private": true,
   "type": "module",

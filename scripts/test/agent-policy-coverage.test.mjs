@@ -8,8 +8,8 @@ const ROOT = new URL("../../", import.meta.url);
 const disclosureEnabled = new Map([
   ["reward-sniper", ["apps/reward-sniper/src/server.mjs"]],
   ["imprint", ["apps/imprint/web/lib/agent-policy.mjs", "apps/imprint/web/app/robots.txt/route.js", "apps/imprint/web/app/api/agent-disclosure/route.js"]],
-  ["silent-patch", ["apps/silent-patch/src/server.mjs", "apps/silent-patch/src/http-service.mjs"]],
-  ["overclock", ["apps/overclock/src/service.mjs"]],
+  ["signet", ["apps/signet/src/server.mjs", "apps/signet/src/http-service.mjs"]],
+  ["drift", ["apps/drift/src/service.mjs"]],
   ["player-two", ["apps/player-two/src/server.mjs"]],
   ["st-genesis-airdrop", ["apps/st-genesis-airdrop/src/server.mjs"]],
 ]);

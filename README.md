@@ -12,18 +12,21 @@ ctf-26/
 ├── docs/                    # strategy, research, operations, challenge specs, feedback
 ├── packaging/               # canonical challenge delivery and player-file boundary
 ├── packages/                # shared ticket and integrity primitives
+├── prototypes/              # retired experiments, never part of the active event slate
 ├── scripts/                 # repository verification and challenge test discovery
 └── apps/
     ├── reward-sniper/        # DLMM-style market/KOTH simulator + checker
     ├── imprint/              # Anchor passkey vault challenge + web console
-    ├── silent-patch/         # stale-deployment archaeology pack + checker
-    ├── overclock/            # DRIFT native SBF RE challenge + exact replay service
+    ├── signet/               # SIGNET source-archaeology pack + checker
+    ├── drift/                # DRIFT native SBF RE challenge + exact replay service
     ├── last-stop/            # hosted SSH PDA journey + native replay checker
     ├── after-hours/          # Discord-native Solana checkout challenge
     ├── st-genesis-airdrop/   # hosted Solana-wallet signature challenge
     ├── portal/               # central registration portal (Next.js)
-    ├── player-two/           # retained challenge prototype and reference implementation
-    └── settlement-room-73/   # older memo-forensics prototype kept as reference
+    └── player-two/           # retained challenge prototype and reference implementation
+
+prototypes/
+└── settlement-room-73/       # retired memo-forensics experiment, not an active app
 ```
 
 ## Where to start
@@ -60,7 +63,7 @@ npm run web:dev              # http://localhost:3002
 ### Signet
 
 ```bash
-cd apps/silent-patch
+cd apps/signet
 npm test
 npm run play -- target
 npm run play -- demo-exploit
@@ -69,7 +72,7 @@ npm run play -- demo-exploit
 ### Drift
 
 ```bash
-cd apps/overclock
+cd apps/drift
 npm test
 npm run target -- team-local
 npm run demo -- team-local       # organizer-only reference
@@ -105,7 +108,7 @@ five-minute participant ticket bound to the selected challenge. Each challenge m
 consume its ticket JTI, establish an HTTP-only first-party session, and remove the ticket from the
 URL; the shared contract is in [`packages/participant-ticket/`](packages/participant-ticket/). For
 local use, the CLI/harness challenges are launched from their app directories; for production, set
-`REWARD_SNIPER_URL`, `IMPRINT_URL`, `SILENT_PATCH_URL`, `OVERCLOCK_URL`, `LAST_STOP_URL`, and
+`REWARD_SNIPER_URL`, `IMPRINT_URL`, `SIGNET_URL`, `DRIFT_URL`, `LAST_STOP_URL`, and
 `AFTER_HOURS_URL`, `PLAYER_TWO_URL`, and `ST_GENESIS_AIRDROP_URL` to hosted challenge surfaces.
 
 Run all fast unit/integration checks, or the slower on-chain suites, from the repository root:

@@ -41,8 +41,8 @@ test("route slugs and signed ticket audiences stay intentionally distinct", () =
     {
       "reward-sniper": "reward-sniper",
       imprint: "imprint",
-      "silent-patch": "signet",
-      overclock: "overclock",
+      "signet": "signet",
+      drift: "drift",
       "last-stop": "last-stop",
       "after-hours": "after-hours",
       "player-two": "player-two",
@@ -102,14 +102,14 @@ test("hosted destinations are ticketed and URL credentials are rejected", () => 
 });
 
 test("CLI-only challenges stay on the local-kit board until hosted", () => {
-  const silentPatch = challengeByKey("silent-patch");
-  assert.deepEqual(challengeDestination(silentPatch, {}), {
+  const signet = challengeByKey("signet");
+  assert.deepEqual(challengeDestination(signet, {}), {
     url: null,
     ticketed: false,
   });
 
-  const hosted = challengeDestination(silentPatch, {
-    SILENT_PATCH_URL: "https://silent-patch.example/",
+  const hosted = challengeDestination(signet, {
+    SIGNET_URL: "https://signet.example/",
   });
   assert.equal(hosted.ticketed, true);
 });

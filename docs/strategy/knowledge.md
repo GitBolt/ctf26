@@ -532,7 +532,7 @@ The stale program is exploitable.
 
 ### 4. DRIFT
 
-Spec: `challenges/overclock.md`
+Spec: `challenges/drift.md`
 
 Identity: bytecode reverse-engineering / runtime-time exploit.
 

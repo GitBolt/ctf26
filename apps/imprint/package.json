@@ -1,4 +1,6 @@
 {
+  "name": "@ctf26/imprint-program",
+  "private": true,
   "license": "ISC",
   "scripts": {
     "build": "anchor build && cp target/idl/imprint.json web/lib/imprint-idl.json",

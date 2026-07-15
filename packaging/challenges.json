@@ -42,58 +42,58 @@
       ]
     },
     {
-      "id": "silent-patch",
-      "appPath": "apps/silent-patch",
+      "id": "signet",
+      "appPath": "apps/signet",
       "delivery": "attachment-onchain",
-      "portalUrlEnv": "SILENT_PATCH_URL",
-      "launchAudience": "silent-patch",
+      "portalUrlEnv": "SIGNET_URL",
+      "launchAudience": "signet",
       "playerPaths": [
-        "apps/silent-patch/public"
+        "apps/signet/public"
       ],
       "generatedPlayerPaths": [
-        "apps/silent-patch/public/signet-starter.tar.gz"
+        "apps/signet/public/signet-starter.tar.gz"
       ],
       "strictPlayerRoots": [
-        "apps/silent-patch/public"
+        "apps/signet/public"
       ],
       "organizerOnlyPaths": [
-        "apps/silent-patch/bin",
-        "apps/silent-patch/programs",
-        "apps/silent-patch/scripts",
-        "apps/silent-patch/src",
-        "apps/silent-patch/test",
-        "apps/silent-patch/tests"
+        "apps/signet/bin",
+        "apps/signet/programs",
+        "apps/signet/scripts",
+        "apps/signet/src",
+        "apps/signet/test",
+        "apps/signet/tests"
       ]
     },
     {
-      "id": "overclock",
-      "appPath": "apps/overclock",
+      "id": "drift",
+      "appPath": "apps/drift",
       "delivery": "attachment-localnet",
-      "portalUrlEnv": "OVERCLOCK_URL",
-      "launchAudience": "overclock",
+      "portalUrlEnv": "DRIFT_URL",
+      "launchAudience": "drift",
       "playerPaths": [
-        "apps/overclock/web",
-        "apps/overclock/player-kit/README.md",
-        "apps/overclock/player-kit/client.mjs",
-        "apps/overclock/player-kit/manifest.json"
+        "apps/drift/web",
+        "apps/drift/player-kit/README.md",
+        "apps/drift/player-kit/client.mjs",
+        "apps/drift/player-kit/manifest.json"
       ],
       "generatedPlayerPaths": [
-        "apps/overclock/player-kit/dist/drift_vault.so"
+        "apps/drift/player-kit/dist/drift_vault.so"
       ],
       "strictPlayerRoots": [
-        "apps/overclock/player-kit"
+        "apps/drift/player-kit"
       ],
       "organizerOnlyPaths": [
-        "apps/overclock/Dockerfile",
-        "apps/overclock/HINTS.md",
-        "apps/overclock/README.md",
-        "apps/overclock/bin",
-        "apps/overclock/native/harness",
-        "apps/overclock/native/program",
-        "apps/overclock/scripts",
-        "apps/overclock/service.env.example",
-        "apps/overclock/src",
-        "apps/overclock/test"
+        "apps/drift/Dockerfile",
+        "apps/drift/HINTS.md",
+        "apps/drift/README.md",
+        "apps/drift/bin",
+        "apps/drift/native/harness",
+        "apps/drift/native/program",
+        "apps/drift/scripts",
+        "apps/drift/service.env.example",
+        "apps/drift/src",
+        "apps/drift/test"
       ]
     },
     {

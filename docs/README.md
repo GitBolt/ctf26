@@ -31,7 +31,7 @@ The official slate has six individual specifications:
 - [`challenges/reward-sniper.md`](challenges/reward-sniper.md): dynamic DeFi.
 - [`challenges/imprint.md`](challenges/imprint.md): passkey-gated authorization.
 - [`challenges/signet.md`](challenges/signet.md): deployment research.
-- [`challenges/overclock.md`](challenges/overclock.md): reverse engineering and runtime.
+- [`challenges/drift.md`](challenges/drift.md): reverse engineering and runtime.
 - [`challenges/last-stop.md`](challenges/last-stop.md): terminal PDA journey.
 - [`challenges/after-hours.md`](challenges/after-hours.md): Discord checkout.
 

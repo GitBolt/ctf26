@@ -1,5 +1,5 @@
 {
-  "name": "ctf-26",
+  "name": "@ctf26/workspace",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -7,7 +7,7 @@
     "test:integration": "npm --prefix packages/participant-ticket test && npm --prefix apps/portal test && npm run test:operator && npm run check:packaging",
     "test:operator": "node --test scripts/test/*.test.mjs",
     "test:challenges": "node scripts/test-challenges.mjs",
-    "test:onchain": "npm --prefix apps/imprint test && npm --prefix apps/silent-patch run test:onchain",
+    "test:onchain": "npm --prefix apps/imprint test && npm --prefix apps/signet run test:onchain",
     "build:portal": "npm --prefix apps/portal run build",
     "build:imprint-web": "npm --prefix apps/imprint/web run build",
     "build:web": "npm run build:portal && npm run build:imprint-web",
