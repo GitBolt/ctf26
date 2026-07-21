@@ -1,7 +1,13 @@
 #![allow(unexpected_cfgs)]
 #![allow(deprecated)]
 
-use solana_program::{account_info::{next_account_info, AccountInfo}, entrypoint, entrypoint::ProgramResult, program_error::ProgramError, pubkey::Pubkey};
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint,
+    entrypoint::ProgramResult,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+};
 
 entrypoint!(process_instruction);
 
@@ -10,7 +16,11 @@ pub const JACKPOT_LEN: usize = 9;
 const PASS_MAGIC: [u8; 8] = *b"TWINPASS";
 const JACKPOT_MAGIC: [u8; 8] = *b"TWINPOT!";
 
-pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
     match data {
         [0] => migrate(program_id, accounts),
         [1] => open(program_id, accounts),
@@ -21,7 +31,9 @@ pub fn process_instruction(program_id: &Pubkey, accounts: &[AccountInfo], data: 
 }
 
 fn initialize_context(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    if accounts.is_empty() { return Err(ProgramError::NotEnoughAccountKeys); }
+    if accounts.is_empty() {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
     for (index, account) in accounts.iter().enumerate() {
         if !account.is_writable || account.owner != program_id || account.data_len() != PASS_LEN {
             return Err(ProgramError::InvalidAccountData);
@@ -81,16 +93,36 @@ fn migrate(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let holder = next_account_info(&mut iter)?;
     let previous = next_account_info(&mut iter)?;
     let current = next_account_info(&mut iter)?;
-    if !holder.is_signer || !previous.is_writable || !current.is_writable || previous.owner != program_id || current.owner != program_id || previous.data_len() != PASS_LEN || current.data_len() != PASS_LEN { return Err(ProgramError::InvalidAccountData); }
+    if !holder.is_signer
+        || !previous.is_writable
+        || !current.is_writable
+        || previous.owner != program_id
+        || current.owner != program_id
+        || previous.data_len() != PASS_LEN
+        || current.data_len() != PASS_LEN
+    {
+        return Err(ProgramError::InvalidAccountData);
+    }
     for context_account in iter {
-        if !context_account.is_writable || context_account.owner != program_id || context_account.data_len() != PASS_LEN {
+        if !context_account.is_writable
+            || context_account.owner != program_id
+            || context_account.data_len() != PASS_LEN
+        {
             return Err(ProgramError::InvalidAccountData);
         }
         let data = context_account.try_borrow_data()?;
-        if data[..8] != PASS_MAGIC || data[41] != 1 { return Err(ProgramError::InvalidAccountData); }
+        if data[..8] != PASS_MAGIC || data[41] != 1 {
+            return Err(ProgramError::InvalidAccountData);
+        }
     }
     let previous_data = previous.try_borrow_data()?;
-    if previous_data[..8] != PASS_MAGIC || previous_data[8..40] != holder.key.to_bytes() || previous_data[40] != 1 || previous_data[41] != 1 { return Err(ProgramError::InvalidAccountData); }
+    if previous_data[..8] != PASS_MAGIC
+        || previous_data[8..40] != holder.key.to_bytes()
+        || previous_data[40] != 1
+        || previous_data[41] != 1
+    {
+        return Err(ProgramError::InvalidAccountData);
+    }
     drop(previous_data);
     let mut current_data = current.try_borrow_mut_data()?;
     current_data[..8].copy_from_slice(&PASS_MAGIC);
@@ -109,25 +141,44 @@ fn open(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let second_pass = next_account_info(&mut iter)?;
     let second_holder = next_account_info(&mut iter)?;
     no_extra(&mut iter)?;
-    if !jackpot.is_writable || jackpot.owner != program_id || jackpot.data_len() != JACKPOT_LEN { return Err(ProgramError::InvalidAccountData); }
-    if first_pass.key == second_pass.key { return Err(ProgramError::InvalidArgument); }
+    if !jackpot.is_writable || jackpot.owner != program_id || jackpot.data_len() != JACKPOT_LEN {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    if first_pass.key == second_pass.key {
+        return Err(ProgramError::InvalidArgument);
+    }
     require_active_pass(program_id, first_pass, first_holder)?;
     require_active_pass(program_id, second_pass, second_holder)?;
     // Vulnerability: the passes must differ, but the two holders do not.
     let mut data = jackpot.try_borrow_mut_data()?;
-    if data[..8] != JACKPOT_MAGIC || data[8] == 1 { return Err(ProgramError::InvalidAccountData); }
+    if data[..8] != JACKPOT_MAGIC || data[8] == 1 {
+        return Err(ProgramError::InvalidAccountData);
+    }
     data[8] = 1;
     Ok(())
 }
 
-fn require_active_pass(program_id: &Pubkey, pass: &AccountInfo, holder: &AccountInfo) -> ProgramResult {
-    if !holder.is_signer || pass.owner != program_id || pass.data_len() != PASS_LEN { return Err(ProgramError::MissingRequiredSignature); }
+fn require_active_pass(
+    program_id: &Pubkey,
+    pass: &AccountInfo,
+    holder: &AccountInfo,
+) -> ProgramResult {
+    if !holder.is_signer || pass.owner != program_id || pass.data_len() != PASS_LEN {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
     let data = pass.try_borrow_data()?;
-    if data[..8] != PASS_MAGIC || data[8..40] != holder.key.to_bytes() || data[41] != 1 { return Err(ProgramError::InvalidAccountData); }
+    if data[..8] != PASS_MAGIC || data[8..40] != holder.key.to_bytes() || data[41] != 1 {
+        return Err(ProgramError::InvalidAccountData);
+    }
     Ok(())
 }
 
-fn no_extra<'a, 'b>(accounts: &mut impl Iterator<Item = &'a AccountInfo<'b>>) -> ProgramResult where 'b: 'a {
-    if accounts.next().is_some() { return Err(ProgramError::InvalidArgument); }
+fn no_extra<'a, 'b>(accounts: &mut impl Iterator<Item = &'a AccountInfo<'b>>) -> ProgramResult
+where
+    'b: 'a,
+{
+    if accounts.next().is_some() {
+        return Err(ProgramError::InvalidArgument);
+    }
     Ok(())
 }

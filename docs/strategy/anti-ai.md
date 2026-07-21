@@ -138,7 +138,7 @@ loop *structurally* incompletable. Technical gates + proctoring together, not ei
    vault"), never the *method* ("read the PR history" / "you control the clock"). Signposting converts an
    agent's intent-gap into a to-do list it can execute. Learner orientation goes through a **paid hint
    ladder**, not the default framing.
-8. **Instrument for review, not surveillance theater.** Record team-bound launches, hints, submissions,
+8. **Instrument for review, not surveillance theater.** Record participant-bound launches, hints, submissions,
    checker outcomes, and safe canary events. Define access and retention before the event; never collect
    secrets or invasive device data.
 9. **No single heuristic proves agent use.** Timing, prose style, user agents, canary hits, and plausible

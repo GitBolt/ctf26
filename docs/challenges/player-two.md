@@ -113,11 +113,11 @@ A capable multimodal browser agent may solve it. Resistance comes from requiring
 stateful exploration, address transcription, causal interpretation, and a real final transition rather
 than from inaccessible pixels or arbitrary reaction tests. The service records UI interaction order,
 API-only divergence, machine-like cadence, policy discovery, disclosures, failed pairs, and completion
-evidence for human review. No single signal disqualifies a team.
+evidence for human review. No single signal disqualifies a participant.
 
 ## State and verification
 
-Each team receives fresh deterministic-but-secret instance material:
+Each participant receives fresh deterministic-but-secret instance material:
 
 - participant holder;
 - generation-one pass;
@@ -135,7 +135,7 @@ The native program and checker are the authority for:
 - the final jackpot-opened state.
 
 The checker issues a participant-bound completion receipt only when the assigned jackpot changes from
-closed to open in a replay of the submitted reader state. Reuse across another team, event, or version
+closed to open in a replay of the submitted reader state. Reuse across another participant, event, or version
 must fail.
 
 ## Integrity evidence
@@ -181,3 +181,18 @@ the program behavior. The player must recover the new earlier pass and reproduce
 - A browser agent test records milestones, interventions, false starts, and the exact final state.
 - Portal completion, reset behavior, policy disclosure, deployment health, and production secret
   parity pass.
+
+## Production configuration
+
+Production must pin `SOLANA_RPC_URL` and `PLAYER_TWO_PROGRAM_ID` explicitly. It also requires the
+event-only `PLAYER_TWO_DEVNET_KEYPAIR`, a strong `PLAYER_TWO_CHAIN_SECRET`, durable `REDIS_URL` storage,
+the shared participant-ticket and leaderboard settings, and the session, completion, and integrity
+secrets listed in `apps/player-two/.env.example`. Development may use the checked-in Devnet defaults,
+but production never falls back to them silently. Set `PLAYER_TWO_EXPECTED_PARTICIPANTS` from the
+final individual registration capacity, `PLAYER_TWO_PROVISION_FEE_BUFFER_LAMPORTS` to a conservative
+per-participant transaction-fee allowance, and `PLAYER_TWO_MIN_PAYER_LAMPORTS` to the SOL safety
+reserve that must remain after all outstanding allocations. The readiness probe reads current Devnet
+rent for ten pass-sized accounts and one jackpot account, combines that rent with the fee allowance
+for every remaining participant, and adds the safety reserve. A generation-scoped durable set counts
+fully provisioned participant instances once, so retries and repeat sessions do not consume capacity
+twice. `/health` returns aggregate counts and capacity booleans, not the payer address or secret.

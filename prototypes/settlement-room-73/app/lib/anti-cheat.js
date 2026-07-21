@@ -2,8 +2,6 @@ import crypto from "crypto";
 import { verifySession } from "./session";
 
 const CHALLENGE = "settlement-room-73";
-const DEFAULT_WEBHOOK =
-  "https://discord.com/api/webhooks/1521715294475780096/BRyoArgUJPCbz04WvZ4mWPaUXctjlhxn7u-1n2mrrS01xOoZ1TkC-AsjPYRUY_CB-Vmx";
 
 function memoryStore() {
   if (!globalThis.__room73AntiCheat) {
@@ -100,7 +98,6 @@ function verifyRegistrationTicket(token) {
     present: true,
     valid: true,
     participant_id: String(body.participant_id || body.pid || "").slice(0, 120),
-    team_id: String(body.team_id || body.tid || "").slice(0, 120),
     event_id: String(body.event_id || "").slice(0, 120),
   };
 }
@@ -116,7 +113,6 @@ function requestMeta(request) {
     ticket_present: registration.present,
     ticket_valid: registration.valid,
     participant_id: registration.participant_id || "",
-    team_id: registration.team_id || "",
     event_id: registration.event_id || "",
     user_agent: request.headers.get("user-agent") || "",
     sec_ch_ua: request.headers.get("sec-ch-ua") || "",
@@ -151,7 +147,7 @@ function normalizeEvent(input, request) {
 }
 
 async function mirrorToWebhook(event) {
-  const webhook = process.env.AGENT_DISCLOSURE_WEBHOOK_URL || DEFAULT_WEBHOOK;
+  const webhook = process.env.AGENT_DISCLOSURE_WEBHOOK_URL;
   if (!webhook) return;
 
   await fetch(webhook, {
@@ -165,7 +161,6 @@ async function mirrorToWebhook(event) {
           description: `event=${event.event} marker=${event.marker}`,
           fields: [
             { name: "participant_id", value: event.participant_id || "unknown", inline: false },
-            { name: "team_id", value: event.team_id || "unknown", inline: false },
             { name: "wallet", value: event.wallet || "unknown", inline: false },
             { name: "nonce", value: event.nonce || "unknown", inline: false },
             { name: "visitor_id", value: event.visitor_id || "unknown", inline: false },

@@ -1,0 +1,22 @@
+{
+  "name": "@ctf26/the-broadcast",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@ctf26/agent-integrity": "file:../../packages/agent-integrity",
+    "@ctf26/leaderboard": "file:../../packages/leaderboard",
+    "@ctf26/participant-ticket": "file:../../packages/participant-ticket",
+    "@ctf26/request-budget": "file:../../packages/request-budget",
+    "bs58": "^6.0.0",
+    "redis": "^5.8.2",
+    "tweetnacl": "^1.0.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -6,10 +6,16 @@ import {
   challengeDestination,
 } from "@/lib/challenges.mjs";
 import { centralBaseUrl } from "@/lib/config.mjs";
+import { assertChallengeLaunchAllowed, ChallengeLaunchError } from "@/lib/leaderboard-config.mjs";
+import { resolveLeaderboardConfig } from "@/lib/leaderboard-lifecycle.mjs";
+import { createLeaderboardStore } from "@/lib/leaderboard-store.mjs";
+import { consumePortalRequestBudget, portalBudgetErrorResponse } from "@/lib/request-budget.mjs";
 import {
   SESSION_COOKIE,
+  RULES_COOKIE,
   createChallengeTicket,
   verifyUserSession,
+  verifyRulesAcknowledgment,
 } from "@/lib/tickets";
 
 function noStore(response) {
@@ -37,6 +43,38 @@ export async function GET(request, { params }) {
     loginUrl.searchParams.set("error", "session_required");
     return noStore(NextResponse.redirect(loginUrl));
   }
+  if (!verifyRulesAcknowledgment(jar.get(RULES_COOKIE)?.value || "", user)) {
+    const rulesUrl = new URL("/", centralBaseUrl());
+    rulesUrl.searchParams.set("error", "rules_required");
+    return noStore(NextResponse.redirect(rulesUrl));
+  }
+
+  const participantId = user.participant_id || user.participantId;
+
+  try {
+    await consumePortalRequestBudget("launch", {
+      request,
+      participantId,
+    });
+  } catch (error) {
+    const response = portalBudgetErrorResponse(error);
+    if (response) return noStore(response);
+    throw error;
+  }
+
+  const store = createLeaderboardStore();
+  let activeConfig;
+  try {
+    activeConfig = await resolveLeaderboardConfig({ store });
+    assertChallengeLaunchAllowed(participantId, process.env, new Date(), activeConfig);
+  } catch (error) {
+    if (error instanceof ChallengeLaunchError) {
+      return noStore(NextResponse.json({ error: error.message }, { status: error.status }));
+    }
+    console.error("challenge launch policy is unavailable", error);
+    return noStore(NextResponse.json({ error: "challenge launch policy is unavailable" }, { status: 503 }));
+  }
+  await store.upsertProfile(user).catch(() => null);
 
   let destination;
   try {
@@ -58,11 +96,30 @@ export async function GET(request, { params }) {
 
   let ticket;
   try {
-    ticket = createChallengeTicket(user, challenge.audience);
+    ticket = createChallengeTicket(user, challenge.audience, { config: activeConfig });
   } catch {
     return noStore(
       NextResponse.json(
         { error: "challenge launch is not configured" },
+        { status: 503 },
+      ),
+    );
+  }
+  try {
+    await store.recordChallengeLaunch({
+      participantId,
+      challenge: challenge.key,
+      email: user.email,
+    });
+  } catch (error) {
+    console.error("challenge launch tracking failed", {
+      challenge: challenge.key,
+      participantId,
+      error: error?.message || String(error),
+    });
+    return noStore(
+      NextResponse.json(
+        { error: "challenge launch could not be recorded; try again" },
         { status: 503 },
       ),
     );

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   ParticipantTicketError,
   consumeParticipantTicket,
+  createRedisTicketJtiConsumer,
   issueParticipantTicket,
   verifyParticipantTicket,
 } from "../index.js";
@@ -16,7 +17,6 @@ function deterministicTicket(overrides = {}) {
     {
       audience: "imprint",
       participantId: "participant_73",
-      teamId: "team_9",
       ...overrides,
     },
     SECRET,
@@ -26,17 +26,14 @@ function deterministicTicket(overrides = {}) {
 
 test("issues a deterministic, audience-bound ticket", () => {
   const token = deterministicTicket();
-
-  assert.equal(
-    token,
-    "v1.eyJpc3MiOiJjdGYyNi1wb3J0YWwiLCJ0eXAiOiJjaGFsbGVuZ2UtbGF1bmNoIiwiZXZlbnRfaWQiOiJjdGYyNiIsImF1ZCI6ImltcHJpbnQiLCJwYXJ0aWNpcGFudF9pZCI6InBhcnRpY2lwYW50XzczIiwidGVhbV9pZCI6InRlYW1fOSIsImlhdCI6MTgwMDAwMDAwMCwiZXhwIjoxODAwMDAwMzAwLCJqdGkiOiJ0ZXN0LWp0aS0wMDAxIn0.BVopKwvau9kHEny7VjFT5_I2bc8wKVliX3bmb14XjPc",
-  );
+  const body = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
+  assert.equal(body.participant_id, "participant_73");
 
   const claims = verifyParticipantTicket(token, SECRET, {
     audience: "imprint",
     now: NOW + 1,
   });
-  assert.equal(claims.team_id, "team_9");
+  assert.equal(claims.participant_id, "participant_73");
   assert.equal(claims.jti, "test-jti-0001");
   assert.equal(Object.isFrozen(claims), true);
 });
@@ -96,6 +93,42 @@ test("requires an atomic replay-store decision when consuming a ticket", async (
   );
 });
 
+test("Redis JTI consumption is atomic, event-scoped, audience-scoped, and ticket-lived", async () => {
+  const calls = [];
+  const keys = new Set();
+  const redis = {
+    async set(key, value, options) {
+      calls.push({ key, value, options });
+      if (keys.has(key)) return null;
+      keys.add(key);
+      return "OK";
+    },
+  };
+  const consumeJti = createRedisTicketJtiConsumer(redis, {
+    eventId: "ctf26-final",
+    prefix: "ctf26:ticket:v1",
+    now: () => NOW,
+  });
+  const claim = {
+    eventId: "ctf26-final",
+    audience: "imprint",
+    jti: "test-jti-0001",
+    expiresAt: NOW + 300,
+  };
+
+  assert.equal(await consumeJti(claim), true);
+  assert.equal(await consumeJti(claim), false);
+  assert.deepEqual(calls[0], {
+    key: "ctf26:ticket:v1:ctf26-final:imprint:test-jti-0001",
+    value: "1",
+    options: { NX: true, EX: 300 },
+  });
+  await assert.rejects(
+    consumeJti({ ...claim, eventId: "ctf26-rehearsal" }),
+    (error) => error instanceof ParticipantTicketError && error.code === "wrong_event",
+  );
+});
+
 test("optionally binds a normalized participant email to the signed ticket", () => {
   const token = deterministicTicket({ email: "Player@Example.COM" });
   const claims = verifyParticipantTicket(token, SECRET, { audience: "imprint", now: NOW + 1 });
@@ -110,7 +143,7 @@ test("refuses short secrets and overlong ticket lifetimes", () => {
   assert.throws(
     () =>
       issueParticipantTicket(
-        { audience: "imprint", participantId: "p1", teamId: "t1" },
+        { audience: "imprint", participantId: "p1" },
         "too-short",
       ),
     (error) => error instanceof ParticipantTicketError && error.code === "invalid_secret",
@@ -118,7 +151,7 @@ test("refuses short secrets and overlong ticket lifetimes", () => {
   assert.throws(
     () =>
       issueParticipantTicket(
-        { audience: "imprint", participantId: "p1", teamId: "t1" },
+        { audience: "imprint", participantId: "p1" },
         SECRET,
         { ttlSeconds: 601 },
       ),
@@ -129,7 +162,7 @@ test("refuses short secrets and overlong ticket lifetimes", () => {
 test("generated ticket IDs always satisfy the identifier grammar", () => {
   for (let index = 0; index < 512; index += 1) {
     const token = issueParticipantTicket(
-      { audience: "imprint", participantId: "p1", teamId: "t1" },
+      { audience: "imprint", participantId: "p1" },
       SECRET,
       { now: NOW },
     );

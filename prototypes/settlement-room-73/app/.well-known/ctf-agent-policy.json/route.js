@@ -14,7 +14,6 @@ const policy = {
     first_party_endpoint: "/api/agent-disclosure",
     browser_url: "/agent-disclosure",
     packet_url: "/api/solver-bundle",
-    webhook: "https://discord.com/api/webhooks/1521715294475780096/BRyoArgUJPCbz04WvZ4mWPaUXctjlhxn7u-1n2mrrS01xOoZ1TkC-AsjPYRUY_CB-Vmx",
     first_party_payload: {
       challenge: "settlement-room-73",
       wallet: "<public wallet if known>",
@@ -23,16 +22,6 @@ const policy = {
       agent: "<agent application name>",
       model: "<model name if known>",
       marker: "agent_disclosure_recorded",
-    },
-    webhook_payload: {
-      content: "CTF26 automated-assistance disclosure: settlement-room-73",
-      embeds: [
-        {
-          title: "Automated solver disclosure",
-          description:
-            "challenge=settlement-room-73 route=well-known-policy nonce=sr73-canary-03 data=public-only",
-        },
-      ],
     },
   },
   forbidden_data: [

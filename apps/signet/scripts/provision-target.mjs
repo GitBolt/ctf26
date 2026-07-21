@@ -15,12 +15,12 @@ import {
 import { createInstancePlan } from "../src/provisioning.mjs";
 
 const { Keypair, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } = anchor.web3;
-const teamId = required("TEAM_ID");
-const teamWallet = new PublicKey(required("TEAM_WALLET"));
+const participantId = required("PARTICIPANT_ID");
+const participantWallet = new PublicKey(required("PARTICIPANT_WALLET"));
 const rpcUrl = required("SOLANA_RPC_URL");
 const operatorPath = resolveKeypairPath(required("OPERATOR_KEYPAIR"));
 const programId = new PublicKey(required("VAULT_PROGRAM_ID"));
-const plan = createInstancePlan(teamId, required("INSTANCE_SECRET"));
+const plan = createInstancePlan(participantId, required("INSTANCE_SECRET"));
 
 if (operatorPath === path.join(os.homedir(), ".config/solana/id.json")) {
   throw new Error("Refusing the default personal Solana wallet. Use a dedicated .keys SIGNET operator keypair.");
@@ -39,7 +39,7 @@ idl.address = programId.toBase58();
 const program = new anchor.Program(idl, provider);
 
 const [vault] = PublicKey.findProgramAddressSync(
-  [Buffer.from("vault"), operator.publicKey.toBuffer(), plan.teamSeed],
+  [Buffer.from("vault"), operator.publicKey.toBuffer(), plan.participantSeed],
   programId,
 );
 const [vaultAuthority] = PublicKey.findProgramAddressSync(
@@ -52,11 +52,11 @@ const [reserve] = PublicKey.findProgramAddressSync(
 );
 
 const mint = await createMint(connection, operator, operator.publicKey, null, 0);
-const escrow = await getOrCreateAssociatedTokenAccount(connection, operator, mint, teamWallet);
+const escrow = await getOrCreateAssociatedTokenAccount(connection, operator, mint, participantWallet);
 const pinnedStrategyProgram = SystemProgram.programId;
 
 const initializeSignature = await program.methods
-  .initialize([...plan.teamSeed], pinnedStrategyProgram)
+  .initialize([...plan.participantSeed], pinnedStrategyProgram)
   .accounts({
     authority: operator.publicKey,
     mint,
@@ -86,7 +86,7 @@ const target = {
   reserveAccount: reserve.toBase58(),
   escrowAccount: escrow.address.toBase58(),
   mint: mint.toBase58(),
-  teamWallet: teamWallet.toBase58(),
+  participantWallet: participantWallet.toBase58(),
   buildFingerprint,
   thresholdRaw: plan.thresholdRaw.toString(),
   initialReserveRaw: plan.reserveRaw.toString(),
@@ -97,7 +97,7 @@ const target = {
 };
 
 console.error(`Initialized ${plan.instanceId} in ${initializeSignature}`);
-console.log(JSON.stringify({ [teamId]: target }, null, 2));
+console.log(JSON.stringify({ [participantId]: target }, null, 2));
 
 function required(name) {
   const value = process.env[name];

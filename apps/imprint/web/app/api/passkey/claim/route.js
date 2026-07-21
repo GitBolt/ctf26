@@ -9,7 +9,7 @@ import {
   IMPRINT_SESSION_COOKIE,
   verifyChallengeSession,
 } from "@/lib/challenge-session.mjs";
-import { credentialForTeam } from "@/lib/credential-roster.mjs";
+import { credentialForParticipant } from "@/lib/credential-roster.mjs";
 import { PROGRAM_ID, loadRegistrar } from "@/lib/registrar.mjs";
 import { claimedPasskeyOwner } from "@/lib/solve-verifier.mjs";
 import {
@@ -17,11 +17,17 @@ import {
   expectedWebAuthnRpID,
 } from "@/lib/webauthn-config.mjs";
 import { CLAIM_CHALLENGE_COOKIE } from "./options/route";
+import { recordImprintIntegrity } from "@/lib/integrity-events.mjs";
+import {
+  consumeImprintRequestBudget,
+  imprintRequestErrorResponse,
+  readBoundedJson,
+} from "@/lib/request-budget.mjs";
 
 export const runtime = "nodejs";
 
 function rpcUrl() {
-  return process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8899";
+  return process.env.SOLANA_RPC_URL || "http://127.0.0.1:8899";
 }
 
 export async function POST(request) {
@@ -30,17 +36,22 @@ export async function POST(request) {
     const session = verifyChallengeSession(
       jar.get(IMPRINT_SESSION_COOKIE)?.value
     );
+    await consumeImprintRequestBudget("passkeyClaim", {
+      request,
+      participantId: session.participantId,
+    });
+    await recordImprintIntegrity(session, "passkey-claim-started", "challenge-action", request);
     const expectedChallenge = jar.get(CLAIM_CHALLENGE_COOKIE)?.value;
     if (!expectedChallenge)
       throw new Error("security-key claim challenge is missing or expired");
 
-    const { owner, response } = await request.json();
+    const { owner, response } = await readBoundedJson(request, 64 * 1024);
     if (response?.authenticatorAttachment !== "platform") {
       throw new Error(
         "claim requires the enrolled platform authenticator on this device"
       );
     }
-    const credential = credentialForTeam(session.teamId);
+    const credential = credentialForParticipant(session.participantId);
     const verification = await verifyAuthenticationResponse({
       response,
       expectedChallenge,
@@ -129,6 +140,8 @@ export async function POST(request) {
       passkeyPubkey: credential.passkeyPubkey.toString("hex"),
     });
   } catch (error) {
+    const controlled = imprintRequestErrorResponse(error);
+    if (controlled) return controlled;
     return new Response(error.message || "security-key claim was denied", {
       status: 403,
     });

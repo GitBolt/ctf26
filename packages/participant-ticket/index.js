@@ -115,10 +115,6 @@ export function issueParticipantTicket(claims, secret, options = {}) {
       claims.participantId,
       "participant_id",
     ),
-    team_id: requireIdentifier(
-      claims.teamId || claims.participantId,
-      "team_id",
-    ),
     iat: now,
     exp: now + ttlSeconds,
     jti: requireIdentifier(
@@ -173,6 +169,12 @@ export function verifyParticipantTicket(token, secret, options = {}) {
   if (body.iss !== TICKET_ISSUER || body.typ !== TICKET_TYPE) {
     fail("wrong_type", "ticket issuer or type is invalid");
   }
+  const allowedClaims = new Set([
+    "iss", "typ", "event_id", "aud", "participant_id", "email", "iat", "exp", "jti",
+  ]);
+  if (Object.keys(body).some((claim) => !allowedClaims.has(claim))) {
+    fail("invalid_claim", "ticket contains an unsupported claim");
+  }
   if (body.event_id !== (options.eventId || DEFAULT_EVENT_ID)) {
     fail("wrong_event", "ticket belongs to another event");
   }
@@ -181,7 +183,6 @@ export function verifyParticipantTicket(token, secret, options = {}) {
   }
 
   requireIdentifier(body.participant_id, "participant_id");
-  requireIdentifier(body.team_id, "team_id");
   requireIdentifier(body.jti, "jti");
   if (body.email !== undefined) requireEmail(body.email);
   const issuedAt = requireTimestamp(body.iat, "iat");
@@ -213,7 +214,6 @@ export async function consumeParticipantTicket(token, secret, options = {}) {
     eventId: claims.event_id,
     audience: claims.aud,
     participantId: claims.participant_id,
-    teamId: claims.team_id,
     jti: claims.jti,
     expiresAt: claims.exp,
   });
@@ -221,4 +221,41 @@ export async function consumeParticipantTicket(token, secret, options = {}) {
     fail("replayed", "ticket has already been consumed");
   }
   return claims;
+}
+
+/**
+ * Builds an atomic Redis-backed JTI consumer for consumeParticipantTicket.
+ * The caller owns the Redis connection. Keys are isolated by event and
+ * audience, and expire with the launch ticket itself.
+ */
+export function createRedisTicketJtiConsumer(redis, options = {}) {
+  if (!redis || typeof redis.set !== "function") {
+    fail("invalid_replay_store", "Redis replay storage must provide set");
+  }
+  const prefix = String(options.prefix || "ctf26:participant-ticket:v1").trim();
+  if (!/^[A-Za-z0-9:_-]{1,128}$/.test(prefix)) {
+    fail("invalid_replay_store", "ticket replay key prefix is invalid");
+  }
+  const expectedEventId = requireIdentifier(options.eventId, "event_id");
+  const now = typeof options.now === "function"
+    ? options.now
+    : () => Math.floor(Date.now() / 1_000);
+
+  return async ({ eventId, audience, jti, expiresAt }) => {
+    if (requireIdentifier(eventId, "event_id") !== expectedEventId) {
+      fail("wrong_event", "ticket belongs to another event");
+    }
+    const normalizedAudience = requireIdentifier(audience, "aud");
+    const normalizedJti = requireIdentifier(jti, "jti");
+    const expiry = requireTimestamp(expiresAt, "exp");
+    const current = requireTimestamp(now(), "now");
+    const ttl = expiry - current;
+    if (ttl < 1) return false;
+    const result = await redis.set(
+      `${prefix}:${expectedEventId}:${normalizedAudience}:${normalizedJti}`,
+      "1",
+      { NX: true, EX: ttl },
+    );
+    return result === "OK";
+  };
 }

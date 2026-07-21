@@ -9,6 +9,8 @@ WORKDIR /workspace/apps/signet
 # The local participant-ticket dependency must keep the repository-relative path.
 COPY --chown=node:node packages/participant-ticket /workspace/packages/participant-ticket
 COPY --chown=node:node packages/agent-integrity /workspace/packages/agent-integrity
+COPY --chown=node:node packages/leaderboard /workspace/packages/leaderboard
+COPY --chown=node:node packages/request-budget /workspace/packages/request-budget
 COPY --chown=node:node apps/signet/package.json apps/signet/package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 

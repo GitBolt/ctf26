@@ -1,9 +1,17 @@
 import { convertCOSEtoPKCS } from "@simplewebauthn/server/helpers";
 
-const TEAM_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/;
+const PARTICIPANT_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
 const P256_UNCOMPRESSED_POINT_SIZE = 65;
 const P256_COMPRESSED_POINT_SIZE = 33;
+const CREDENTIAL_FIELDS = new Set([
+  "participantId",
+  "credentialId",
+  "credentialPublicKeyCoseBase64",
+  "counter",
+  "transports",
+  "teamId",
+]);
 
 function requireText(value, label) {
   if (typeof value !== "string" || !value.trim()) {
@@ -51,23 +59,32 @@ export function parseCredentialRoster(
     );
   }
 
-  const teams = new Set();
+  const participants = new Set();
   const credentialIds = new Set();
   const passkeyPubkeys = new Set();
   return entries.map((entry, index) => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
       throw new Error(`credential roster entry ${index} must be an object`);
     }
-    const teamId = requireText(
-      entry.teamId,
-      `credential roster entry ${index}.teamId`
+    if (Object.keys(entry).some((field) => !CREDENTIAL_FIELDS.has(field))) {
+      throw new Error(`credential roster entry ${index} contains unsupported fields`);
+    }
+    if (entry.participantId && entry.teamId) {
+      throw new Error(`credential roster entry ${index} contains two participant identities`);
+    }
+    // Existing rehearsal credentials predate the individual-only roster. Read
+    // their former field as the participant ID so the enrolled hardware remains
+    // usable, while every returned and newly enrolled record uses participantId.
+    const participantId = requireText(
+      entry.participantId || entry.teamId,
+      `credential roster entry ${index}.participantId`
     );
-    if (!TEAM_ID_PATTERN.test(teamId) || teams.has(teamId)) {
+    if (!PARTICIPANT_ID_PATTERN.test(participantId) || participants.has(participantId)) {
       throw new Error(
-        `credential roster entry ${index}.teamId is invalid or duplicated`
+        `credential roster entry ${index}.participantId is invalid or duplicated`
       );
     }
-    teams.add(teamId);
+    participants.add(participantId);
 
     const credentialId = requireText(
       entry.credentialId,
@@ -111,7 +128,7 @@ export function parseCredentialRoster(
       ? entry.transports.filter((value) => typeof value === "string")
       : undefined;
     return Object.freeze({
-      teamId,
+      participantId,
       credentialId,
       cosePublicKey,
       passkeyPubkey,
@@ -121,12 +138,12 @@ export function parseCredentialRoster(
   });
 }
 
-export function credentialForTeam(teamId, env = process.env) {
+export function credentialForParticipant(participantId, env = process.env) {
   const credential = parseCredentialRoster(
     env.IMPRINT_CREDENTIAL_ROSTER_JSON
-  ).find((entry) => entry.teamId === teamId);
+  ).find((entry) => entry.participantId === participantId);
   if (!credential) {
-    throw new Error("no event-issued security key is assigned to this team");
+    throw new Error("no event-issued security key is assigned to this participant");
   }
   return credential;
 }

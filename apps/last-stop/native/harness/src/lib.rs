@@ -22,7 +22,9 @@ const MAX_ACTIONS: usize = 12;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
-    Buy { route: String },
+    Buy {
+        route: String,
+    },
     Enter {
         line: String,
         station: String,
@@ -35,7 +37,7 @@ pub enum Action {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReplayInput {
-    pub team_id: String,
+    pub participant_id: String,
     #[serde(default)]
     pub actions: Vec<Action>,
 }
@@ -43,7 +45,7 @@ pub struct ReplayInput {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReplayOutput {
-    pub team_id: String,
+    pub participant_id: String,
     pub program_id: String,
     pub program_sha256: String,
     pub passenger: String,
@@ -64,7 +66,7 @@ pub struct CardResult {
 }
 
 pub fn replay(program_path: impl AsRef<Path>, input: &ReplayInput) -> Result<ReplayOutput> {
-    validate_team_id(&input.team_id)?;
+    validate_participant_id(&input.participant_id)?;
     if input.actions.len() > MAX_ACTIONS {
         bail!("journey contains too many on-chain actions");
     }
@@ -75,8 +77,8 @@ pub fn replay(program_path: impl AsRef<Path>, input: &ReplayInput) -> Result<Rep
     }
     let program_sha256 = hex(&Sha256::digest(&program_bytes));
     let program_id = Address::new_from_array(PROGRAM_ID_BYTES);
-    let passenger = deterministic_keypair(&input.team_id)?;
-    let team_seed: [u8; 8] = Sha256::digest(input.team_id.as_bytes())[..8]
+    let passenger = deterministic_keypair(&input.participant_id)?;
+    let participant_seed: [u8; 8] = Sha256::digest(input.participant_id.as_bytes())[..8]
         .try_into()
         .expect("fixed slice");
     let transit =
@@ -90,7 +92,7 @@ pub fn replay(program_path: impl AsRef<Path>, input: &ReplayInput) -> Result<Rep
     let mut transit_data = vec![0_u8; TRANSIT_LEN];
     transit_data[..8].copy_from_slice(&TRANSIT_MAGIC);
     transit_data[8..40].copy_from_slice(passenger.pubkey().as_ref());
-    transit_data[40..48].copy_from_slice(&team_seed);
+    transit_data[40..48].copy_from_slice(&participant_seed);
     svm.set_account(
         transit,
         Account {
@@ -109,7 +111,7 @@ pub fn replay(program_path: impl AsRef<Path>, input: &ReplayInput) -> Result<Rep
             Action::Buy { route } => {
                 validate_word(route)?;
                 let card = Address::find_program_address(
-                    &[b"card", &team_seed, route.as_bytes()],
+                    &[b"card", &participant_seed, route.as_bytes()],
                     &program_id,
                 )
                 .0;
@@ -139,7 +141,7 @@ pub fn replay(program_path: impl AsRef<Path>, input: &ReplayInput) -> Result<Rep
                 validate_word(station)?;
                 validate_word(card_route)?;
                 let card = Address::find_program_address(
-                    &[b"card", &team_seed, card_route.as_bytes()],
+                    &[b"card", &participant_seed, card_route.as_bytes()],
                     &program_id,
                 )
                 .0;
@@ -174,12 +176,15 @@ pub fn replay(program_path: impl AsRef<Path>, input: &ReplayInput) -> Result<Rep
     let transit_account = svm
         .get_account(&transit)
         .ok_or_else(|| anyhow!("transit account disappeared"))?;
-    let red_line_card =
-        Address::find_program_address(&[b"card", &team_seed, b"red", b"terminus"], &program_id).0;
+    let red_line_card = Address::find_program_address(
+        &[b"card", &participant_seed, b"red", b"terminus"],
+        &program_id,
+    )
+    .0;
     let red_line_open = transit_account.data.get(72) == Some(&1);
     let arrived = transit_account.data.get(73) == Some(&1);
     Ok(ReplayOutput {
-        team_id: input.team_id.clone(),
+        participant_id: input.participant_id.clone(),
         program_id: program_id.to_string(),
         program_sha256,
         passenger: passenger.pubkey().to_string(),
@@ -202,21 +207,21 @@ fn send(svm: &mut LiteSVM, passenger: &Keypair, instruction: Instruction) -> Res
     Ok(())
 }
 
-fn deterministic_keypair(team_id: &str) -> Result<Keypair> {
+fn deterministic_keypair(participant_id: &str) -> Result<Keypair> {
     let mut hasher = Sha256::new();
     hasher.update(b"ctf26-last-stop-passenger-v1");
-    hasher.update(team_id.as_bytes());
+    hasher.update(participant_id.as_bytes());
     Ok(Keypair::new_from_array(hasher.finalize().into()))
 }
 
-fn validate_team_id(value: &str) -> Result<()> {
+fn validate_participant_id(value: &str) -> Result<()> {
     if value.is_empty()
         || value.len() > 128
         || !value
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
     {
-        bail!("invalid team id");
+        bail!("invalid participant id");
     }
     Ok(())
 }

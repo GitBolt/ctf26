@@ -5,7 +5,10 @@
     "dockerfilePath": "apps/signet/Dockerfile.railway",
     "watchPatterns": [
       "apps/signet/**",
-      "packages/participant-ticket/**"
+      "packages/participant-ticket/**",
+      "packages/leaderboard/**",
+      "packages/agent-integrity/**",
+      "packages/request-budget/**"
     ]
   },
   "deploy": {

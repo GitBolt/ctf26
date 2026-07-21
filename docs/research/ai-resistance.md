@@ -908,6 +908,14 @@ Webhook can still be useful as a backup notification channel, but it should rece
 
 ### Detection Telemetry To Store
 
+Current calibration: Turnstile, timing, mouse behavior, `navigator.webdriver`, user agents, and bot
+scores are presence or automation context only. None identifies Claude Code, Codex, or another model.
+Prefer privacy-bounded request-context consistency and authenticated application-boot milestones over
+device fingerprinting when building the activity timeline, but do not let either open a suspicion or
+send a webhook. Ordinary browsers, privacy settings, referrer policies, redirects, and hosting proxies
+can produce the same gaps. A real Chrome session controlled by an agent may look identical to ordinary
+Chrome at the HTTP layer.
+
 For each session:
 
 - start time

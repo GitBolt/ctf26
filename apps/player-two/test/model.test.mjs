@@ -4,14 +4,14 @@ import test from "node:test";
 import { completionFor, createInstance, inspectAccount, migrationTrace, openJackpot, publicCabinet } from "../src/model.mjs";
 
 test("public cabinet withholds the earlier pass", () => {
-  const instance = createInstance("team-a", "fixed");
+  const instance = createInstance("participant-a", "fixed");
   const view = publicCabinet(instance);
   assert.equal(view.currentPass, instance.currentPass);
   assert.equal(JSON.stringify(view).includes(instance.previousPass), false);
 });
 
 test("migration evidence exposes an inspectable input without answer semantics", () => {
-  const instance = createInstance("team-a", "fixed");
+  const instance = createInstance("participant-a", "fixed");
   const trace = migrationTrace(instance);
   const input = trace.accounts.find(({ address }) => address === instance.previousPass);
   assert.equal(input.role, "credential input");
@@ -27,7 +27,7 @@ test("migration evidence exposes an inspectable input without answer semantics",
 });
 
 test("duplicate current pass is rejected", () => {
-  const instance = createInstance("team-a", "fixed");
+  const instance = createInstance("participant-a", "fixed");
   const result = openJackpot(instance, {
     leftPass: instance.currentPass,
     rightPass: instance.currentPass,
@@ -39,7 +39,7 @@ test("duplicate current pass is rejected", () => {
 });
 
 test("stale and current passes open the jackpot for one holder", () => {
-  const instance = createInstance("team-a", "fixed");
+  const instance = createInstance("participant-a", "fixed");
   const result = openJackpot(instance, {
     leftPass: instance.currentPass,
     rightPass: instance.previousPass,
@@ -53,7 +53,7 @@ test("stale and current passes open the jackpot for one holder", () => {
 });
 
 test("foreign holder and unknown pass are rejected", () => {
-  const instance = createInstance("team-a", "fixed");
+  const instance = createInstance("participant-a", "fixed");
   assert.equal(openJackpot(instance, {
     leftPass: instance.currentPass,
     rightPass: instance.previousPass,

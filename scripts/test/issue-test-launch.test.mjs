@@ -11,7 +11,6 @@ test("issues a short-lived audience and identity-bound launch URL", () => {
     CHALLENGE_URL: "https://drift.example.test/",
     TICKET_AUDIENCE: "drift",
     PARTICIPANT_ID: "agent-run-01",
-    TEAM_ID: "agent-team-01",
     TICKET_SECRET: SECRET,
     TICKET_TTL_SECONDS: "300",
   }, { now: 1_800_000_000 }));
@@ -22,7 +21,6 @@ test("issues a short-lived audience and identity-bound launch URL", () => {
     now: 1_800_000_001,
   });
   assert.equal(claims.participant_id, "agent-run-01");
-  assert.equal(claims.team_id, "agent-team-01");
   assert.equal(launch.origin, "https://drift.example.test");
 });
 
@@ -34,7 +32,7 @@ test("rejects insecure destinations, embedded credentials, and malformed identit
   };
   assert.throws(() => createTestLaunch({ ...base, CHALLENGE_URL: "http://public.example.test" }), /HTTPS/);
   assert.throws(() => createTestLaunch({ ...base, CHALLENGE_URL: "https://user:pass@example.test" }), /without credentials/);
-  assert.throws(() => createTestLaunch({ ...base, CHALLENGE_URL: "https://example.test", TEAM_ID: "bad team" }), /valid identifier/);
+  assert.throws(() => createTestLaunch({ ...base, CHALLENGE_URL: "https://example.test", PARTICIPANT_ID: "bad participant" }), /valid identifier/);
 });
 
 test("never accepts a pre-ticketed destination", () => {

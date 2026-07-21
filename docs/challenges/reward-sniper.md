@@ -1,12 +1,12 @@
 # Challenge Spec — Reward Sniper (DLMM-style, Meteora sponsor candidate)
 
-Status: **COMPLETE / LOCKED FOR CURRENT ITERATION — Challenge 1 of 6 (dynamic DeFi) / Meteora sponsor candidate** · Updated: 2026-07-13
+Status: **COMPLETE / LOCKED FOR CURRENT ITERATION — Challenge 1 of 10 (dynamic DeFi) / Meteora sponsor candidate** · Updated: 2026-07-21
 
 Mechanics and autonomous-agent resistance have been individually validated. Do not reopen this
 challenge during routine slate work. Event timing/reset are operations; any later on-chain or mechanic
 change is a separately requested future revision.
 
-> **Identity in the 4-challenge slate (`04`, `00`):** the **dynamic DeFi / KOTH** challenge. The core
+> **Identity in the ten-challenge slate:** the **dynamic DeFi / KOTH** challenge. The core
 > player task is simple: understand a DLMM-style reward-accounting flaw, then write searcher logic that
 > extracts more reward than everyone else from a live market. Its anti-agent layer is secondary:
 > dynamic state, relative scoring, scarce high-value attempts, commit–reveal, and imperfect telemetry.
@@ -21,11 +21,11 @@ change is a separately requested future revision.
 > [`../research/reward-sniper.md`](../research/reward-sniper.md)
 > so the security/game spec does not become an anti-cheat implementation manual.
 
-A live, relatively-scored, Solana-native challenge. Teams compete as **searchers/liquidators** in a
+A live, relatively-scored, Solana-native challenge. Participants compete as **searchers/liquidators** in a
 purpose-built **DLMM-style liquidity-mining market** on a private validator. The core is a real
 reward-accounting bug, and the output is a real technical artifact: a bot/script/client that commits
-market actions and moves reward tokens into the team's escrow. The solve path is UI/simulator-first:
-teams infer the bug by interacting with a market console, watching bin/reward behavior, then automate
+market actions and moves reward tokens into the participant's escrow. The solve path is UI/simulator-first:
+participants infer the bug by interacting with a market console, watching bin/reward behavior, then automate
 the profitable strategy. The leaderboard is decided by who extracts the most reward value from a
 **shared, changing, contested** market during a live round.
 
@@ -41,12 +41,12 @@ the profitable strategy. The leaderboard is decided by who extracts the most rew
 - **Sponsor-authentic:** the skill is reasoning about **active liquidity, bin movement, reward
   checkpoints, and window accounting** — the actual conceptual core of DLMM liquidity mining — instead
   of a generic Solana bug with Meteora branding.
-- **Proper CTF output:** teams do not submit a static answer. They write and run a searcher client that
+- **Proper CTF output:** participants do not submit a static answer. They write and run a searcher client that
   commits actions against the live pool and proves the exploit by moving reward tokens into escrow.
 - **Non-Jeopardy:** reading code is not the solve path. The entry ticket is figuring out from market
   behavior that the reward window can be sniped; ranking is live relative extraction.
 - **Granular scoring:** inspired by challenges like `minions-in-16k`, the leaderboard should measure
-  quality of weaponization. A team that merely discovers the accounting issue should lose to a team
+  quality of weaponization. A participant that merely discovers the accounting issue should lose to a participant
   whose searcher chooses better windows, avoids bad tickets, adapts across regimes, and extracts more
   value over repeated rounds.
 - **AI-differentiated in the live phase (see §6):** we do *not* claim "AI-proof." AI is useful for
@@ -102,16 +102,16 @@ second.
 
 - **Market Console UI** for the DLMM-style market: bin ladder, active bin, position controls, reward
   vault, telemetry panel, and ticket actions.
-- **Local simulator / replay client** that lets teams run harmless dry-runs against recorded market
+- **Local simulator / replay client** that lets participants run harmless dry-runs against recorded market
   states. It exposes normal actions and outputs, not the vulnerable source.
 - **Minimal action SDK** or CLI for legitimate flows (`inspect`, `quote`, `simulate`, `submit ticket`)
-  so teams can eventually automate, but not by directly reading the vulnerable implementation.
-- **A funded devnet/local wallet** per team, and a **registered team escrow** the scoreboard watches.
+  so participants can eventually automate, but not by directly reading the vulnerable implementation.
+- **A funded devnet/local wallet** per participant, and a **registered participant escrow** the scoreboard watches.
 - **Local mints** for token X, token Y, and the reward token.
 - **A pool-inspection view** that shows enough market state to reason, but not a perfect internal
   accumulator dump.
-- **A telemetry card** per team with one imperfect signal about the market.
-- **Live scoreboard URL** (also on the big screen): pool state, round timer, each team's extracted
+- **A telemetry card** per participant with one imperfect signal about the market.
+- **Live scoreboard URL** (also on the big screen): pool state, round timer, each participant's extracted
   reward share.
 - **An unlockable hint ladder** (small score cost) nudging from "how does reward accrual work here?"
   toward the window idea — so the floor stays reachable for learners.
@@ -143,7 +143,7 @@ on-ramp.
 - **Rung 3 — bin manipulation via swap (advanced).** Move the active bin with a swap to *open* a
   profitable window elsewhere — but swaps cost fees and move price, so it's a trade-off, not free.
   *Learned: how bin movement drives reward eligibility.*
-- **Rung 4 — adversarial timing (expert / PvP).** The window is shared. Any team's claim or swap
+- **Rung 4 — adversarial timing (expert / PvP).** The window is shared. Any participant's claim or swap
   settles the accumulator and *closes* your window. So you race to trigger settlement at the right
   moment, avoid bait windows, or use active-bin movement to change which windows remain exploitable.
   *This rung is where reward-accounting judgment matters most.*
@@ -156,25 +156,28 @@ who spends scarce Sniper Tickets on the best windows.
 
 ## 5. Scoring (relative, scarce-shot)
 
-- **Raw score** = reward tokens a team moved into its registered escrow during the live round (net of
+- **Raw score** = reward tokens a participant moved into its registered escrow during the live round (net of
   what it put in). No fixed points anywhere.
-- **Leaderboard value** = share of total extracted: `score_i / Σ score`. Relative to the field, per
-  OtterSec's model.
+- **Leaderboard value** = the sum of the participant's finalized extraction share in each scored round.
+  Every scored round therefore contributes the same maximum weight, even when its reward regime emits
+  a different absolute amount. The event leaderboard then normalizes this market score to the current
+  Reward Sniper leader.
 - **Repeated evaluation:** prefer multiple short market rounds over one long round when feasible. Each
   round randomizes market state and reward regime, so the final board reflects searcher quality across
   conditions, not one lucky stale window.
 - **Replay log:** store every action, commit/reveal, pool-state delta, ticket spend, and escrow delta.
   This is the DeFi equivalent of a `minions-in-16k` replay: useful for judging, anti-cheat review, and
   post-event writeups.
-- **Anti-latecomer:** because rewards keep streaming and windows regenerate, use **share-of-total**,
-  not first-come cumulative. Late teams can still climb.
-- **High-value attempts:** each team gets **3 Sniper Tickets** per round. A ticket is consumed when a
-  team executes the powerful claim bundle (`add + settle + claim`) against a bin. If they use it on the
+- **Anti-latecomer:** because rewards keep streaming and windows regenerate, score the share earned in
+  every round rather than raw first-come cumulative extraction. Late participants can still climb in later
+  rounds.
+- **High-value attempts:** each participant gets **3 Sniper Tickets** per round. A ticket is consumed when a
+  participant executes the powerful claim bundle (`add + settle + claim`) against a bin. If they use it on the
   wrong bin or wrong tick, it is gone. Normal inspect/swap/liquidity actions can still exist, but the
   major scoring action is scarce.
 - **Market-console gateway:** high-value Sniper Ticket plays require a short-lived
-  execution voucher issued by the Market Console. The voucher is bound to `team`, `tick`, `bin`, and
-  `nonce`, so raw RPC calls cannot directly spam the scoring action. Teams can still automate *after*
+  execution voucher issued by the Market Console. The voucher is bound to `participant`, `tick`, `bin`, and
+  `nonce`, so raw RPC calls cannot directly spam the scoring action. Participants can still automate *after*
   they understand the strategy, but every scarce ticket must pass through the intended market surface.
   Turnstile/session binding can sit in front of the console as friction against cheap scraping, but it
   is not the security boundary.
@@ -183,10 +186,10 @@ who spends scarce Sniper Tickets on the best windows.
   transfer; the accounting *insight* does. This is the DEF-CON-tick property: the environment shifts, so
   a one-shot exploit isn't enough — you must adapt.
 - **Action model — commit–reveal, simply:** first everyone secretly locks in a move, then everyone
-  reveals, then the tick resolves. A team cannot wait to see another team's claim and instantly react.
+  reveals, then the tick resolves. A participant cannot wait to see another participant's claim and instantly react.
   They must predict.
-- **Private intel per team:** each team starts with one imperfect telemetry card (see §6). It gives a
-  partial signal about the market, not the answer. Teams infer where stale windows likely are and spend
+- **Private intel per participant:** each participant starts with one imperfect telemetry card (see §6). It gives a
+  partial signal about the market, not the answer. Participants infer where stale windows likely are and spend
   Sniper Tickets only when the window looks fat enough.
 - **Optional portal flag:** if `escrow_balance > threshold`, the checker also issues an HMAC flag for
   compatibility with a flag-based portal — but the *ranking* is the extraction share, not the flag.
@@ -199,7 +202,7 @@ who spends scarce Sniper Tickets on the best windows.
 out as the primary artifact, this challenge collapses into an agent task. Therefore source-first bug
 discovery is explicitly out of v1.
 
-The defensible goal is: **AI can help write scripts after the team has a hypothesis, but winning still
+The defensible goal is: **AI can help write scripts after the participant has a hypothesis, but winning still
 requires behavioral exploration, UI/simulator navigation, and scarce-shot security judgment under
 incomplete information.**
 
@@ -210,18 +213,18 @@ incomplete information.**
 | Source-code bug discovery | **AI (~9/10)** | This path is removed from v1. |
 | Behavioral exploration | **mixed** | Players must infer accounting drift from UI/simulator interactions and imperfect telemetry. |
 | Exploit implementation | **AI-favored** | Once the hypothesis is known, agents can help script. |
-| Live optimization with scarce/partial info | **contested** | AI can plan, but teams cannot brute-force every suspected window. |
+| Live optimization with scarce/partial info | **contested** | AI can plan, but participants cannot brute-force every suspected window. |
 
 Use only these three anti-agent mechanics for v1:
 
-1. **Private intel per team.** Each team gets a different partial view of the same market:
+1. **Private intel per participant.** Each participant gets a different partial view of the same market:
    - noisy reward-rate history;
    - partial bin-touch logs;
    - delayed active-bin movement logs;
    - oracle/regime hints;
    - partial swap-pressure hints.
 
-   The signals are security-relevant but incomplete. They do not say "claim bin 4 now." They help teams
+   The signals are security-relevant but incomplete. They do not say "claim bin 4 now." They help participants
    infer:
    - where the stale window may be;
    - which bin is unsafe;
@@ -235,24 +238,24 @@ Use only these three anti-agent mechanics for v1:
 
    ```text
    Tick 12:
-   Team A commits: claim bin 4
-   Team B commits: swap active bin to 6
-   Team C commits: add liquidity to bin 4
+   Participant A commits: claim bin 4
+   Participant B commits: swap active bin to 6
+   Participant C commits: add liquidity to bin 4
    Then all reveal.
    Now the tick resolves.
    ```
 
-   This prevents a pure reaction loop: `wait → see opponent claim → react instantly`. Teams must
+   This prevents a pure reaction loop: `wait → see opponent claim → react instantly`. Participants must
    predict.
 
-3. **Limited high-value attempts.** Each team gets **3 Sniper Tickets** per round. A ticket allows the
+3. **Limited high-value attempts.** Each participant gets **3 Sniper Tickets** per round. A ticket allows the
    powerful exploit bundle:
 
    ```text
    add liquidity + settle stale window + claim reward
    ```
 
-   If a team uses a ticket on the wrong bin or wrong tick, it is wasted. This blocks brute-force
+   If a participant uses a ticket on the wrong bin or wrong tick, it is wasted. This blocks brute-force
    grinding and forces the real decision:
    - is this window fat enough?
    - will someone else close it?
@@ -260,11 +263,11 @@ Use only these three anti-agent mechanics for v1:
    - is this a bait?
 
 **The claim to use (with OtterSec / Meteora):**
-> This is a DeFi KOTH: teams infer a DLMM-style reward-accounting bug from live market behavior, then
+> This is a DeFi KOTH: participants infer a DLMM-style reward-accounting bug from live market behavior, then
 > write searcher logic to extract more reward than the field. AI can help write the bot, but the
 > challenge is not source review and not a one-shot flag.
 
-**Validate it, don't assert it.** Playtest **humans vs AI-assisted teams** and publish the result — the
+**Validate it, don't assert it.** Playtest **unassisted participants vs participants using AI assistance** and publish the result — the
 only claim you can actually defend, and a strong thing to show a sponsor.
 
 **Where the design should lean:** not "read code and solve bug" but "**operate the market, infer the
@@ -310,31 +313,31 @@ Position
   pending_commitment           // hash(action_args ‖ nonce) for the current tick
 
 ExecutionVoucher
-  team_id
+  participant_id
   tick
   bin_id
   nonce
   expires_slot
   console_authority_signature
 
-TeamEscrow
-  team_id
+ParticipantEscrow
+  participant_id
   owner
   reward_token_account
 ```
 
-Instructions: `initialize_pool`, `register_team`, `commit_action`, `reveal_action`
+Instructions: `initialize_pool`, `register_participant`, `commit_action`, `reveal_action`
 (which internally dispatches `add_liquidity` / `remove_liquidity` / `swap` / `claim_rewards` /
 `claim_with_sniper_ticket`), plus voucher verification for high-value ticket claims.
 
-The on-chain program is still real and auditable by us, but the scored round should not hand teams a
+The on-chain program is still real and auditable by us, but the scored round should not hand participants a
 direct "here is the bug" source bundle. They interact through the Market Console, local replay
 simulator, and a limited action SDK. Source/IDL can be released after the round for writeups.
 
 **The commit–reveal tick loop:**
 
 ```text
-// each team, each tick:
+// each participant, each tick:
 commit_action(tick, commitment = hash(action_args ‖ nonce)):
   require!(commit.tick == current_tick && commit.slot in commit-window)
   require!(position.last_commit_tick < current_tick, OneActionPerTick)
@@ -344,7 +347,7 @@ reveal_action(tick, action_args, nonce):
   require!(current_slot in reveal-window for `tick`)
   require!(hash(action_args ‖ nonce) == stored commitment)
   dispatch add_liquidity / remove_liquidity / swap / claim_rewards
-// unrevealed commits are void. No team sees another team's move before
+// unrevealed commits are void. No participant sees another participant's move before
 // choosing its own.
 ```
 
@@ -356,7 +359,7 @@ raw polling speed buys nothing and each ticket play is a blind, simultaneous dec
 
 ```text
 claim_with_sniper_ticket(bin_id, liquidity_amount, execution_voucher):
-  require!(voucher.team == team)
+  require!(voucher.participant == participant)
   require!(voucher.tick == current_tick)
   require!(voucher.bin_id == bin_id)
   require!(voucher.console_authority_signature is valid)
@@ -416,21 +419,21 @@ design is verifiable and we can detect if a "patch" breaks normal behavior.
 - **Local simulator / replay client:** ships with recorded market states and the same public quote
   behavior as the UI. Players can run experiments locally, but not inspect the vulnerable accounting
   implementation directly.
-- **Limited action SDK:** enough for teams to automate once they understand the strategy (`quote`,
+- **Limited action SDK:** enough for participants to automate once they understand the strategy (`quote`,
   `simulate`, `commit`, `reveal`, `submit_ticket`). It should not expose a perfect internal state dump.
-- **Telemetry cards:** generated at round start and assigned per team. Each card is an imperfect
+- **Telemetry cards:** generated at round start and assigned per participant. Each card is an imperfect
   market signal: noisy reward-rate history, delayed active-bin logs, partial bin-touch history, or
   regime/oracle hints. These are not secrets needed to solve; they are asymmetric clues that make
-  teams reason about where to spend scarce Sniper Tickets.
-- **Indexer:** watches `reward_vault` outflows / registered escrow balances → pushes
-  `share = score_i / Σ score` to the scoreboard over websocket.
+  participants reason about where to spend scarce Sniper Tickets.
+- **Indexer:** watches `reward_vault` outflows and registered escrow balances, finalizes each participant's
+  share when a scored round closes, and publishes the cumulative sum of those round shares.
 - **Scoreboard web app:** pool state, program/pool/mint addresses, docs, round timer, live leaderboard.
 - **Post-round source release:** publish program source and the intended exploit after the round. That
   keeps the event educational without making source review the live solve path.
 - **Anti-cheat:** only count reward tokens that left `reward_vault` into a **registered** escrow (via
-  portal ticket → `register_team`); Sniper Tickets cap high-value claims; execution vouchers bind
-  ticket plays to the Market Console; Sybil teams are bound to portal identity; wash transfers between a
-  team's own wallets create no rewards, so they don't score.
+  portal ticket → `register_participant`); Sniper Tickets cap high-value claims; execution vouchers bind
+  ticket plays to the Market Console; Sybil participants are bound to portal identity; wash transfers between a
+  participant's own wallets create no rewards, so they don't score.
 
 ---
 
@@ -439,16 +442,17 @@ design is verifiable and we can detect if a "patch" breaks normal behavior.
 **One-command local bring-up:**
 1. `anchor deploy` the market program to a private `solana-test-validator`.
 2. Setup script: create X/Y/reward mints; `initialize_pool` with `active_bin`, `reward_rate_per_second`,
-   `SLOTS_PER_TICK`; fund `reward_vault`; seed initial liquidity across a few bins; import the team
-   roster from the portal export and `register_team` each escrow with `3` Sniper Tickets.
-3. Generate and assign asymmetric telemetry cards to teams.
+   `SLOTS_PER_TICK`; fund `reward_vault`; seed initial liquidity across a few bins; import the participant
+   roster from the portal export and `register_participant` each escrow with `3` Sniper Tickets.
+3. Generate and assign asymmetric telemetry cards to participants.
 4. Start the Market Console, local replay/simulator package, indexer, and scoreboard; put the
    scoreboard on the big screen.
-5. Hand teams: console URL, pool address, reward mint, funded wallet, telemetry card, limited action
+5. Hand participants: console URL, pool address, reward mint, funded wallet, telemetry card, limited action
    SDK, docs, hints. Do not hand them the vulnerable source bundle during the scored round.
 
 **Running the round:** open a fixed window (e.g., 45 min) shown as a countdown. Rewards stream the
-whole time. At close, freeze escrows; final `share = score_i / Σ score` is the ranking.
+whole time. At each scored-round close, freeze and persist that round's extraction shares. The final
+market ranking is the sum of those finalized shares across scored rounds.
 
 **Reset between rounds/cohorts:** a reset script redeploys fresh pool state, fresh mints, fresh
 `last_reward_update_ts`, and re-registers escrows — so nothing from a prior run leaks an answer.
@@ -476,20 +480,20 @@ whole time. At close, freeze escrows; final `share = score_i / Σ score` is the 
 2. **Reward stream + tick:** slot-derived tick, funded reward vault, regenerating windows.
 3. **Extraction ladder:** add `swap` + `remove_liquidity` so Rungs 2–3 exist; verify windows move with
    the active bin.
-4. **Sniper Tickets:** implement `claim_with_sniper_ticket`, initialize each team with 3 tickets, and
+4. **Sniper Tickets:** implement `claim_with_sniper_ticket`, initialize each participant with 3 tickets, and
    verify failed/low-value tickets are still consumed.
-5. **Telemetry cards:** generate asymmetric but imperfect market signals for each team; keep them
+5. **Telemetry cards:** generate asymmetric but imperfect market signals for each participant; keep them
    security-relevant, not social/negotiation-based.
-6. **Scoring service:** indexer + share-of-total + websocket scoreboard.
+6. **Scoring service:** indexer + finalized per-round shares + websocket scoreboard.
 7. **Player kit:** limited action SDK, pool inspector, docs, hint ladder.
 8. **Market Console + simulator:** browser UI for bin/liquidity/reward exploration; local replay client
    for experiments; limited action SDK for automation after players form a hypothesis.
 9. **Execution vouchers:** console authority signs short-lived vouchers for Sniper Ticket plays; program
    verifies voucher binding before consuming a ticket.
-10. **Ops:** one-command setup + reset scripts; portal `register_team` integration; big-screen board.
+10. **Ops:** one-command setup + reset scripts; portal `register_participant` integration; big-screen board.
 11. **Post-round source release:** publish source, bug explanation, and reference exploit for education.
 12. **Playtest:** human beta + an AI-assisted beta. Validate the actual claim: source-first solving is
-   removed, and agents can script only after the team has inferred the accounting issue.
+   removed, and agents can script only after the participant has inferred the accounting issue.
 
 ---
 
@@ -498,7 +502,7 @@ whole time. At close, freeze escrows; final `share = score_i / Σ score` is the 
 - **Tick length** (`SLOTS_PER_TICK`) and **round length** — should be slow enough to reason, fast enough
   that stale windows matter.
 - **Reward rate + vault size** — how fat windows get and how fast they regenerate.
-- **Sniper Ticket count** — default is 3 per team per round; tune only after playtest.
+- **Sniper Ticket count** — default is 3 per participant per round; tune only after playtest.
 - **Telemetry card set** — which partial views are fair/useful: noisy reward-rate history, partial
   bin-touch logs, delayed active-bin logs, oracle/regime hints, partial swap pressure.
 - **UI/simulator surface** — how much state the console reveals. It must be enough for security
@@ -509,7 +513,7 @@ whole time. At close, freeze escrows; final `share = score_i / Σ score` is the 
 - **Source release timing** — default: post-round only.
 - **v1 scope:** include Rung 3 (swap/bin-move) and Rung 4 (PvP) at launch, or ship Rungs 1–2 first and
   layer the rest after playtest?
-- **Team size / count** — affects how contested the shared pool feels.
+- **Participant size / count** — affects how contested the shared pool feels.
 - **Prize threshold** for the optional HMAC flag, if we keep portal flag compatibility.
 
 ### The core tension to resolve (from the AI review)
@@ -517,11 +521,11 @@ whole time. At close, freeze escrows; final `share = score_i / Σ score` is the 
 Every mechanic that differentiates humans from AI can raise the floor or pull the challenge from
 "security" toward "econ/game-theory." Keep the anti-agent layer small and security-relevant:
 
-- **In for v1:** UI/simulator-first discovery, private intel per team, simple commit–reveal, and 3
+- **In for v1:** UI/simulator-first discovery, private intel per participant, simple commit–reveal, and 3
   Sniper Tickets.
 - **Out for v1:** social negotiation, complex hidden-state machinery, Arcium-sealed regimes, and
   elaborate diminishing-return curves. Also out: source-code bug hunting as the primary solve path.
-- **Must validate, not assert:** playtest **humans vs AI-assisted teams**; the leaderboard split is the
+- **Must validate, not assert:** playtest **unassisted participants vs participants using AI assistance**; the leaderboard split is the
   claim. Add this as a launch gate.
 - **Open question:** is commit–reveal too abstract for the beginner floor? If so, keep normal learning
   actions direct and apply commit–reveal only to Sniper Ticket plays.

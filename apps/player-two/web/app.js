@@ -1,12 +1,32 @@
 const $ = (selector) => document.querySelector(selector);
 const state = { cabinet: null, leftPass: null, rightPass: null, scanned: null, celebrated: false, alertTimer: null };
 const headers = { "content-type": "application/json", "x-player-two-ui": "cabinet" };
+const SESSION_ATTEMPTS = 12;
 
 async function api(path, options = {}) {
   const response = await fetch(path, { ...options, headers: { ...headers, ...(options.headers || {}) } });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(body.error || body.message || "Cabinet request failed"), { body, status: response.status });
+  if (!response.ok) throw Object.assign(new Error(body.error || body.message || "Cabinet request failed"), {
+    body,
+    status: response.status,
+    retryAfterSeconds: Number(response.headers.get("retry-after")) || 2,
+  });
   return body;
+}
+
+async function establishSession(ticket) {
+  for (let attempt = 1; attempt <= SESSION_ATTEMPTS; attempt += 1) {
+    try {
+      return await api("/api/session", { method: "POST", body: JSON.stringify(ticket ? { ticket } : { participantId: "local-player" }) });
+    } catch (error) {
+      if (error.status !== 429) throw error;
+      if (attempt === SESSION_ATTEMPTS) throw new Error("The cabinet desk is still busy. No launch was created. Return to the portal and try again.");
+      const delaySeconds = Math.min(5, Math.max(1, error.retryAfterSeconds));
+      $("#cabinet-status").textContent = "WAIT";
+      $("#event-message").textContent = `The cabinet desk is busy. Retrying in ${delaySeconds} seconds.`;
+      await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1_000));
+    }
+  }
 }
 
 async function event(name, detail = "") { try { await api("/api/ui-event", { method: "POST", body: JSON.stringify({ event: name, detail }) }); } catch {} }
@@ -15,7 +35,7 @@ const short = (value) => value ? `${value.slice(0, 5)}…${value.slice(-5)}` : "
 async function boot() {
   const ticket = new URL(location.href).searchParams.get("ticket");
   try {
-    await api("/api/session", { method: "POST", body: JSON.stringify(ticket ? { ticket } : { teamId: "local-player" }) });
+    await establishSession(ticket);
     if (ticket) history.replaceState({}, "", "/");
   } catch (error) {
     if (error.status !== 401 || ticket) return failBoot(error.message);
@@ -26,6 +46,7 @@ async function boot() {
     state.rightPass = state.cabinet.currentPass;
     renderCabinet();
     await event("cabinet-ready");
+    if (navigator.webdriver) await event("automation-present");
   } catch (error) { failBoot(error.message); }
 }
 
@@ -149,7 +170,7 @@ async function scan() {
       return;
     }
     const matchLabel = result.authorityMatch ? "MEMBER MATCH" : "OTHER MEMBER";
-    $("#scan-result").innerHTML = `<strong class="active-result">ACTIVE PASS</strong><span class="authority-state ${result.authorityMatch ? "match" : "other"}">${matchLabel}</span><dl><div><dt>GENERATION</dt><dd>0${result.generation}</dd></div><div><dt>MEMBER AUTHORITY</dt><dd><code>${result.holder}</code></dd></div></dl><button id="seat-pass" type="button">SEAT IN READER 02</button>`;
+    $("#scan-result").innerHTML = `<strong class="active-result">ACTIVE PASS</strong><span class="authority-state ${result.authorityMatch ? "match" : "other"}">${matchLabel}</span><dl><div><dt>GENERATION</dt><dd>0${Number(result.generation) || 0}</dd></div><div><dt>MEMBER AUTHORITY</dt><dd><code>${escapeHtml(result.holder)}</code></dd></div></dl><button id="seat-pass" type="button">SEAT IN READER 02</button>`;
     $("#seat-pass").addEventListener("click", async () => {
       state.scanned = result;
       state.rightPass = result.address;
@@ -158,12 +179,16 @@ async function scan() {
       $("#event-message").textContent = `Generation 0${result.generation} pass seated in Reader 02.`;
       await event("reader-changed", `generation:${result.generation}`);
     });
-  } catch (error) { $("#scan-result").innerHTML = `<strong>SCAN FAILED</strong><p>${error.message}</p>`; }
+  } catch (error) { $("#scan-result").innerHTML = `<strong>SCAN FAILED</strong><p>${escapeHtml(error.message)}</p>`; }
+}
+
+function escapeHtml(value) {
+  return String(value || "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
 }
 
 $("#lever").addEventListener("click", async () => {
   if (!state.cabinet) return showGameAlert("CABINET OFFLINE", "Wait for the game to finish connecting.");
-  if (state.cabinet.opened) return showGameAlert("JACKPOT CLAIMED", "This team has already completed the cabinet.");
+  if (state.cabinet.opened) return showGameAlert("JACKPOT CLAIMED", "This participant has already completed the cabinet.");
   if (!state.scanned) {
     const message = "Reader 02 needs an active member pass before the jackpot can start.";
     $("#arcade").dataset.phase = "rejected";

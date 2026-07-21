@@ -93,7 +93,7 @@ export async function readTargetState(target, options = {}) {
     reserve.mint !== target.mint ||
     escrow.mint !== target.mint ||
     reserve.owner !== target.vaultAuthority ||
-    escrow.owner !== target.teamWallet
+    escrow.owner !== target.participantWallet
   ) {
     throw new RpcError("The assigned target accounts no longer match the instance manifest.");
   }
@@ -132,17 +132,17 @@ function requireFlagSecret(env) {
   return secret;
 }
 
-export function flagForSolve({ teamId, target, signature, escrowPostRaw }, env = process.env) {
+export function flagForSolve({ participantId, target, signature, escrowPostRaw }, env = process.env) {
   const mac = crypto
     .createHmac("sha256", requireFlagSecret(env))
-    .update(`${teamId}:${target.instanceId}:${signature}:${escrowPostRaw}`)
+    .update(`${participantId}:${target.instanceId}:${signature}:${escrowPostRaw}`)
     .digest("hex")
     .slice(0, 24);
   return `CTF26{signet_${mac}}`;
 }
 
 export async function checkOnchainSubmission(
-  { teamId, target, signature },
+  { participantId, target, signature },
   { env = process.env, fetchImpl = fetch, waitImpl = delay } = {},
 ) {
   if (!isTransactionSignature(signature)) {
@@ -165,18 +165,25 @@ export async function checkOnchainSubmission(
   if (transaction.meta?.err) {
     throw new SubmissionError("transaction_failed", "The submitted transaction did not complete successfully.");
   }
+  let blockTime = transaction.blockTime;
+  if (!Number.isSafeInteger(blockTime)) {
+    blockTime = await rpc("getBlockTime", [transaction.slot], { env, fetchImpl });
+  }
+  if (!Number.isSafeInteger(blockTime)) {
+    throw new RpcError("The finalized transaction time could not be verified.");
+  }
 
   const keys = normalizedAccountKeys(transaction);
   const indexFor = (address) => keys.findIndex((entry) => entry.pubkey === address);
   const reserveIndex = indexFor(target.reserveAccount);
   const escrowIndex = indexFor(target.escrowAccount);
   const programIndex = indexFor(target.programId);
-  const teamWalletIndex = indexFor(target.teamWallet);
-  if (reserveIndex < 0 || escrowIndex < 0 || programIndex < 0 || teamWalletIndex < 0) {
+  const participantWalletIndex = indexFor(target.participantWallet);
+  if (reserveIndex < 0 || escrowIndex < 0 || programIndex < 0 || participantWalletIndex < 0) {
     throw new SubmissionError("wrong_target", "The transaction does not operate on every assigned target account.");
   }
-  if (!keys[reserveIndex].writable || !keys[escrowIndex].writable || !keys[teamWalletIndex].signer) {
-    throw new SubmissionError("wrong_authority", "The assigned team wallet and writable token accounts were not used correctly.");
+  if (!keys[reserveIndex].writable || !keys[escrowIndex].writable || !keys[participantWalletIndex].signer) {
+    throw new SubmissionError("wrong_authority", "The assigned participant wallet and writable token accounts were not used correctly.");
   }
 
   const invokeLine = `Program ${target.programId} invoke [`;
@@ -191,8 +198,8 @@ export async function checkOnchainSubmission(
   if (reservePre.owner !== target.vaultAuthority || reservePost.owner !== target.vaultAuthority) {
     throw new SubmissionError("wrong_reserve", "The reserve authority does not match this instance.");
   }
-  if (escrowPre.owner !== target.teamWallet || escrowPost.owner !== target.teamWallet) {
-    throw new SubmissionError("wrong_escrow", "The destination is not the registered team escrow.");
+  if (escrowPre.owner !== target.participantWallet || escrowPost.owner !== target.participantWallet) {
+    throw new SubmissionError("wrong_escrow", "The destination is not the registered participant escrow.");
   }
 
   const reserveDelta = reservePre.amount - reservePost.amount;
@@ -208,7 +215,7 @@ export async function checkOnchainSubmission(
   ) {
     throw new SubmissionError(
       "threshold_not_met",
-      "The assigned reserve has not moved far enough into the registered team escrow.",
+      "The assigned reserve has not moved far enough into the registered participant escrow.",
     );
   }
 
@@ -216,14 +223,15 @@ export async function checkOnchainSubmission(
     ok: true,
     signature,
     slot: transaction.slot,
+    occurredAt: new Date(blockTime * 1_000).toISOString(),
     reserveDeltaRaw: reserveDelta.toString(),
     reservePostRaw: reservePost.amount.toString(),
     escrowPostRaw: escrowPost.amount.toString(),
-    flag: flagForSolve({ teamId, target, signature, escrowPostRaw: escrowPost.amount.toString() }, env),
+    flag: flagForSolve({ participantId, target, signature, escrowPostRaw: escrowPost.amount.toString() }, env),
   };
 }
 
-export function checkPreviewSubmission({ teamId, target, signature }, env = process.env) {
+export function checkPreviewSubmission({ participantId, target, signature }, env = process.env) {
   if (env.NODE_ENV === "production" || target.cluster !== "localnet-preview") {
     throw new SubmissionError("preview_disabled", "Preview submissions are disabled.");
   }
@@ -239,7 +247,7 @@ export function checkPreviewSubmission({ teamId, target, signature }, env = proc
     escrowPostRaw: (BigInt(target.initialEscrowRaw) + BigInt(target.thresholdRaw)).toString(),
     flag: flagForSolve(
       {
-        teamId,
+        participantId,
         target,
         signature,
         escrowPostRaw: (BigInt(target.initialEscrowRaw) + BigInt(target.thresholdRaw)).toString(),

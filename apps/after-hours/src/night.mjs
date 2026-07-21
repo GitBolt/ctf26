@@ -33,6 +33,7 @@ export async function createNightDistributor({ rpcUrl, mint: mintAddress, treasu
     fetchMint: api.fetchMint || fetchMint,
     fetchToken: api.fetchToken || fetchToken,
     fetchMaybeToken: api.fetchMaybeToken || fetchMaybeToken,
+    getBalance: api.getBalance || getBalance,
     sendAllotment: api.sendAllotment || sendAllotment,
   };
   const rpc = api.rpc || ops.createRpc(rpcUrl);
@@ -42,6 +43,17 @@ export async function createNightDistributor({ rpcUrl, mint: mintAddress, treasu
   return Object.freeze({
     treasury: treasury.address,
     mint,
+    async inventory() {
+      const treasuryAccountAddress = await ops.deriveAta(mint, treasury.address);
+      const [treasuryAccount, payerLamports] = await Promise.all([
+        ops.fetchToken(rpc, treasuryAccountAddress, { commitment: "confirmed" }),
+        ops.getBalance(rpc, treasury.address),
+      ]);
+      return Object.freeze({
+        nightBaseUnits: BigInt(treasuryAccount.data.amount),
+        payerLamports: BigInt(payerLamports),
+      });
+    },
     async issue(walletAddress) {
       const wallet = parseWallet(walletAddress, ops.address);
       const mintInfo = await ops.fetchMint(rpc, mint, { commitment: "confirmed" });
@@ -74,6 +86,11 @@ export async function createNightDistributor({ rpcUrl, mint: mintAddress, treasu
       return evidence(wallet, destinationAddress, mint, signature);
     },
   });
+}
+
+async function getBalance(rpc, owner) {
+  const { value } = await rpc.getBalance(owner, { commitment: "confirmed" }).send();
+  return value;
 }
 
 export class NightDistributionError extends Error {

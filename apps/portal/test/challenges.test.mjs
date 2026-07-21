@@ -8,7 +8,7 @@ import {
 } from "../app/lib/challenges.mjs";
 
 test("challenge catalog has unique, launch-safe keys", () => {
-  assert.equal(CHALLENGES.length, 8);
+  assert.equal(CHALLENGES.length, 10);
   assert.equal(new Set(CHALLENGES.map(({ key }) => key)).size, CHALLENGES.length);
   assert.equal(
     new Set(CHALLENGES.map(({ audience }) => audience)).size,
@@ -46,16 +46,18 @@ test("route slugs and signed ticket audiences stay intentionally distinct", () =
       "last-stop": "last-stop",
       "after-hours": "after-hours",
       "player-two": "player-two",
-      "st-genesis-airdrop": "st-genesis-airdrop",
+      "the-broadcast": "the-broadcast",
+      "evidence-room": "evidence-room",
+      "second-key": "second-key",
     },
   );
 });
 
-test("$ST Genesis Airdrop launches the participant-bound airdrop", () => {
-  const challenge = challengeByKey("st-genesis-airdrop");
+test("The Broadcast launches the participant-bound protocol", () => {
+  const challenge = challengeByKey("the-broadcast");
   assert.deepEqual(challenge.starts.map(({ kind }) => kind), ["launch"]);
   assert.equal(challenge.format, "Hosted protocol");
-  assert.equal(challenge.starts[0].label, "Open airdrop");
+  assert.equal(challenge.starts[0].label, "Open broadcast");
 });
 
 test("PLAYER TWO launches one hosted arcade cabinet", () => {

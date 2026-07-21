@@ -1,16 +1,42 @@
+import crypto from "node:crypto";
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const TEAM_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+const PARTICIPANT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
 function normalizeEmail(value) {
   const email = String(value || "").trim().toLowerCase();
-  if (!EMAIL_PATTERN.test(email)) throw new Error("registration roster contains an invalid email");
+  if (!EMAIL_PATTERN.test(email)) throw new Error("participant roster contains an invalid email");
   return email;
 }
 
-function normalizeTeamId(value) {
-  const teamId = String(value || "").trim();
-  if (!TEAM_ID_PATTERN.test(teamId)) throw new Error("registration roster contains an invalid team ID");
-  return teamId;
+function participantIdSecret(env) {
+  const value = String(env.PARTICIPANT_ID_SECRET || "");
+  if (Buffer.byteLength(value) < 32) {
+    throw new Error("PARTICIPANT_ID_SECRET must contain at least 32 bytes");
+  }
+  return value;
+}
+
+function normalizeDisplayName(value, participantId) {
+  const displayName = String(value || participantId).trim();
+  if (!displayName || displayName.length > 80 || /[\u0000-\u001f\u007f]/.test(displayName)) {
+    throw new Error("participant roster contains an invalid display name");
+  }
+  return displayName;
+}
+
+function assertRosterFields(entry, allowed) {
+  if (Object.keys(entry).some((field) => !allowed.has(field))) {
+    throw new Error("participant roster entry contains unsupported fields");
+  }
+}
+
+export function participantIdForEmail(email, env = process.env) {
+  return crypto
+    .createHmac("sha256", participantIdSecret(env))
+    .update(normalizeEmail(email))
+    .digest("hex")
+    .slice(0, 16);
 }
 
 export function participantRoster(env = process.env) {
@@ -25,35 +51,68 @@ export function participantRoster(env = process.env) {
   }
 
   const roster = new Map();
-  const add = (emailValue, teamValue) => {
+  const participantByDisplayName = new Map();
+  const add = (emailValue, displayNameValue) => {
     const email = normalizeEmail(emailValue);
-    const teamId = normalizeTeamId(teamValue);
-    if (roster.has(email)) throw new Error(`registration roster contains duplicate email ${email}`);
-    roster.set(email, Object.freeze({ email, teamId }));
+    const participantId = participantIdForEmail(email, env);
+    const displayName = normalizeDisplayName(displayNameValue, participantId);
+    if (roster.has(email)) throw new Error(`participant roster contains duplicate email ${email}`);
+    const displayKey = displayName.toLocaleLowerCase("en-US");
+    if (participantByDisplayName.has(displayKey)) {
+      throw new Error(`participant roster contains duplicate display name ${displayName}`);
+    }
+    participantByDisplayName.set(displayKey, participantId);
+    roster.set(email, Object.freeze({ email, participantId, displayName }));
   };
 
   if (Array.isArray(parsed)) {
     for (const entry of parsed) {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-        throw new Error("registration roster entries must be objects");
+        throw new Error("participant roster entries must be objects");
       }
-      add(entry.email, entry.teamId);
+      assertRosterFields(entry, new Set(["email", "participantId", "displayName", "handle"]));
+      const email = normalizeEmail(entry.email);
+      const derived = participantIdForEmail(email, env);
+      if (entry.participantId !== undefined && String(entry.participantId) !== derived) {
+        throw new Error(`participantId for ${email} does not match the stable derived ID`);
+      }
+      add(email, entry.displayName || entry.handle);
     }
   } else if (parsed && typeof parsed === "object") {
-    for (const [email, teamId] of Object.entries(parsed)) add(email, teamId);
+    for (const [email, value] of Object.entries(parsed)) {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        assertRosterFields(value, new Set(["participantId", "displayName", "handle"]));
+        const derived = participantIdForEmail(email, env);
+        if (value.participantId !== undefined && String(value.participantId) !== derived) {
+          throw new Error(`participantId for ${normalizeEmail(email)} does not match the stable derived ID`);
+        }
+        add(email, value.displayName || value.handle);
+      } else {
+        add(email, value);
+      }
+    }
   } else {
     throw new Error("PARTICIPANT_ROSTER_JSON must be an object or array");
   }
 
-  if (roster.size === 0) throw new Error("registration roster must not be empty");
+  if (roster.size === 0) throw new Error("participant roster must not be empty");
   return roster;
 }
 
-export function registrationForEmail(email, fallbackTeamId, env = process.env) {
+export function registrationForEmail(email, fallbackParticipantId, env = process.env) {
   const normalizedEmail = normalizeEmail(email);
+  const participantId = participantIdForEmail(normalizedEmail, env);
+  if (fallbackParticipantId !== undefined && String(fallbackParticipantId) !== participantId) {
+    throw new Error("registration participant ID does not match the stable derived ID");
+  }
   const roster = participantRoster(env);
   if (!roster) {
-    return Object.freeze({ email: normalizedEmail, teamId: normalizeTeamId(fallbackTeamId) });
+    if (env.NODE_ENV === "production" && env.ALLOW_OPEN_REGISTRATION !== "true") return null;
+    return Object.freeze({ email: normalizedEmail, participantId, displayName: participantId });
   }
   return roster.get(normalizedEmail) || null;
+}
+
+export function isParticipantId(value) {
+  return PARTICIPANT_ID_PATTERN.test(String(value || ""));
 }

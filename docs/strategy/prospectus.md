@@ -3,7 +3,8 @@
 **Superteam Solana Security CTF · [DATE] · [CITY / VENUE]**
 
 > **Draft snapshot:** this sponsor-facing prospectus preserves the original four-challenge pitch for
-> outreach history. The implemented catalogue now contains six challenges; use
+> outreach history, including its superseded small-team format. The implemented event registers and
+> scores individuals only, and the catalogue now contains ten challenges; use
 > [`knowledge.md`](knowledge.md) and [`docs/README.md`](../README.md) for the
 > current slate before sending this externally.
 

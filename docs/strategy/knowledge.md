@@ -1,6 +1,6 @@
 # CTF26 Knowledge Base
 
-Updated: 2026-07-15
+Updated: 2026-07-16
 
 This is the working memory for the event: what we are building, how we protect competition integrity,
 why the challenge slate looks this way, what benchmark we are comparing against, and which real Solana
@@ -26,41 +26,59 @@ completed challenge only for an explicitly named future revision or event-config
 
 | Challenge | Current status | Do not reopen during routine work |
 |---|---|---|
-| IMPRINT | Done for the current iteration and AI-tested | passkey gate, checker, core mechanics, and current visual direction |
-| Reward Sniper | Done for the current iteration and AI-tested | market mechanics, scoring model, ticket flow, and validated detection stack |
-| SIGNET | Active build / next challenge | refine the minimal checker UI and provision fresh per-team targets before event launch |
+| IMPRINT | Done for the current iteration | passkey gate, checker, core mechanics, and current visual direction |
+| Reward Sniper | Done for the current iteration | market mechanics, scoring model, ticket flow, and validated detection stack |
+| SIGNET | Active build / next challenge | finish automatic first-launch participant setup and rotate the staging program before event launch |
 | DRIFT | Finalized implementation; event prep pending | do not reopen the native runtime mechanics during SIGNET work |
-| LAST STOP | Implemented and deployed; final clean-room testing pending | terminal/PDA mechanics unless testing finds a concrete defect |
-| AFTER HOURS | Implemented and deployed; human/agent playtest pending | payment invariant and Discord delivery model unless testing finds a concrete defect |
+| LAST STOP | Done for the current iteration | terminal/PDA mechanics unless an explicitly named future revision requires changes |
+| AFTER HOURS | Done for the current iteration | payment invariant and Discord delivery model unless an explicitly named future revision requires changes |
+| PLAYER TWO | Done for the current iteration | credential lifecycle mechanic and arcade interaction unless an explicitly named future revision requires changes |
+| THE BROADCAST | Implemented and deployed; final clean-room testing pending | signature-variant mechanic and claim workbench unless testing finds a concrete defect |
+| EVIDENCE ROOM | Implemented and deployed; final clean-room testing pending | account-allocation race and reserve-factory interaction unless testing finds a concrete defect |
+| SECOND KEY | Implemented and deployed; final clean-room testing pending | Token-2022 custody mechanic and collateral-desk interaction unless testing finds a concrete defect |
 
-PLAYER TWO is retained as an implemented browser-arcade prototype and packaging/test surface, but
-is not part of the current six-challenge launch slate. Keep its code and design contract intact until
-the event team explicitly promotes or retires it.
-
-$ST GENESIS AIRDROP is retained as a companion hosted cryptography challenge rather than counted as
-one of the six core Solana-program challenges. Its real Solana-wallet authorization, portal-bound
-team state, an editable claim workbench, organizer-delivered offline hints, uniform Base58 video receipts with six false alternatives, and automatic portal completion are
-the accepted adaptation of the previously tested black-box service. The organizer writeup and
-signature construction remain outside the player package.
+The live catalogue now contains ten challenges. PLAYER TWO and THE BROADCAST were promoted
+from retained prototype and companion status after their hosted implementations, authoritative
+completion paths, packaging boundaries, and distinct interaction models were completed. Their earlier
+status remains historical context, not the current launch decision. THE BROADCAST keeps real Solana
+wallet authorization, portal-bound participant state, an editable claim workbench, organizer-delivered
+offline hints, uniform Base58 video receipts with six false alternatives, and an organizer-only
+writeup/signature construction.
 
 ### Portal and identity
 
 - The portal is the event catalogue and launch hub, not a universal gate for every challenge. It can
   link to hosted ticketed services, downloadable player packages, local-kit instructions, Discord
   passages, and physical challenges.
-- Tickets are an identity/attribution mechanism: they bind participant, team, email, event, and
+- Tickets are an identity and attribution mechanism: they bind participant, email, event, and
   challenge audience, then become a one-use session exchange. They are not a reliable barrier against
   delegation; a participant can hand an agent the launch result.
 - Challenge-specific human or anti-agent controls must therefore live at the real action boundary:
   passkey touch, wallet approval, Discord identity, live state, or a server-side policy/disclosure
   path. Do not make ticket mechanics carry claims they cannot enforce.
 - A fresh ticket does not necessarily mean fresh gameplay. Hosted challenges need an organizer reset
-  or new participant/team instance. Resets must rotate event state and invalidate sessions while
+  or a new participant instance. Resets must rotate event state and invalidate sessions while
   preserving integrity evidence.
-- Challenge completion should be reported automatically, not through a player-copyable flag form. The
-  challenge service remains the authority, while the portal performs a private authenticated status
-  read (or receives a signed server event) and marks the participant/team complete. Points and prize
-  allocation can be added later without changing the solve invariant.
+- Challenge completion is reported automatically, not through a player-copyable flag form. The
+  challenge service remains the authority and sends a challenge-keyed HMAC event only after its
+  existing verifier succeeds. Events are idempotent by challenge and participant. LAST STOP, THE BROADCAST,
+  AFTER HOURS, PLAYER TWO, EVIDENCE ROOM, and SECOND KEY retain private completion reads that
+  automatically repair a missed leaderboard event when the participant returns to the portal. Reward Sniper remains authoritative
+  through its native scoreboard. A delivery failure never revokes a valid challenge result.
+- Every participant must accept the current signed rules version before the first challenge launch.
+  Acknowledgments are retained independently per participant.
+- The public portal leaderboard uses one shared scoring package. Nine binary challenges receive the
+  same solve-count rarity curve, while Reward Sniper keeps direct market-performance normalization.
+  No challenge author assigns difficulty, no later solver receives fewer points, and solve time is not
+  a tiebreaker. The exact formulas, all-scorer points-share prize model, top-ten boost, research rationale, and
+  simulation results live in
+  `event.md` §3.
+- Prize projections use integer cents, conserve the full configured pool exactly, and apply a
+  configurable individual award floor, defaulting to $10, before the points-weighted pool and top-ten boost. The public board
+  shows two decimal places and visibly marks a
+  stale or unavailable Reward Sniper source instead of presenting partial data as fully live.
+- Public handles come from the optional `displayName` or `handle` in the participant roster. If none
+  is configured, the public board shows the participant ID. Google names and email addresses are not exposed.
 
 ### Anti-agent enforcement
 
@@ -71,7 +89,7 @@ signature construction remain outside the player package.
   cadence, user agent, and action correlation—open a reviewable suspicion case; they do not decide
   cheating automatically.
 - The organizer view must prioritize email, reason, triggering evidence, and a readable activity
-  timeline. Raw participant/team IDs and lifecycle case-management controls belong behind details,
+  timeline. Raw participant IDs and lifecycle case-management controls belong behind details,
   not in the primary review surface.
 - Every agent test must state whether it is testing policy compliance, autonomous operation, or
   browser/API behavior. A policy refusal is evidence that the policy layer worked, not proof that the
@@ -80,6 +98,11 @@ signature construction remain outside the player package.
   would reveal implementation details. LAST STOP publishes a first-party refusal policy and exposes
   no reporting endpoint; its server still records ordinary completion and command evidence. Do not
   assume every challenge must share the same disclosure transport.
+- An instruction inside themed challenge copy can be dismissed by an agent as game dialogue. When a
+  stop-only policy is used, identify it as an authoritative operator access rule, place it before the
+  first scored interaction, state that human direction does not convert automation into human play,
+  and repeat it at the real protocol boundary. This strengthens compliance but remains policy, not a
+  technical proof that an agent cannot continue.
 
 ### Challenge delivery decisions
 
@@ -110,11 +133,15 @@ signature construction remain outside the player package.
 
 - **LAST STOP** is a small SSH-native PDA seed-boundary challenge. Attempts are ephemeral: each new
   one-use password starts a fresh journey, while completion and integrity evidence remain durable.
-  The final clue chain names inspectable equipment and shows the one-field versus two-field PDA
-  layouts without printing the answer. The public Red Line / Terminus labels provide the values; the
-  participant must infer that `red` + `terminus` becomes the one route seed `redterminus`.
+  The kiosk and Signal Room each name one inspectable machine and bare `inspect` selects that machine, so
+  interface vocabulary is not a guessing game. The final clue chain does not print seed layouts, a
+  required PDA, or a concatenation hint. Multi-frame, color-coded service replays rendered as terminal
+  alternate-screen frames contrast one continuous route card with two independent reader inputs, then erase themselves
+  without a final static clue.
+  The public Red Line / Terminus labels provide the values; the participant must infer that `red` +
+  `terminus` becomes the one route seed `redterminus`.
   Completion is automatically reflected in the portal; the receipt is audit evidence, not a submitted
-  flag, and points are intentionally deferred.
+  flag. Points come from the shared field-relative scoring contract rather than a challenge-local rule.
   This prevents stale solved state from making clean-room testing impossible.
 - **AFTER HOURS** is Discord-native and has no challenge website. Discord is the application surface,
   Solana is the payment ledger, and the planted bug is a token-verification identity failure: amount
@@ -127,6 +154,12 @@ signature construction remain outside the player package.
 - **DRIFT** now accepts only generic raw `invoke` and `set_sysvar` traces. The player guide documents
   the schema, account aliases, canonical encodings, and compatible SBF disassembly tooling without
   naming Clock, instruction tags, or account order. The exact stripped ELF remains authoritative.
+  Adversarial agent testing showed that bytecode-only delivery is substantial friction but not a wall:
+  an equipped agent recovered the dispatch, layouts, Clock read, wrapping arithmetic, and exploit shape.
+  DRIFT therefore also uses three equivalent instruction-tag variants, participant-bound executable
+  markers, policy propagation through every real player surface, bounded replay/submit evidence, and
+  an author-led solve defense for compressed qualifying workflows. Normal CLI use remains expected and
+  is never itself a suspicion signal.
 - **Reward Sniper** and **IMPRINT** are complete for the current iteration. Future work is event
   configuration, fresh target/state provisioning, roster/passkey operations, or an explicitly approved
   redesign—not routine challenge rework.
@@ -154,6 +187,17 @@ signature construction remain outside the player package.
 - When a portal and hosted challenge share a signed status boundary, verify secret parity in both
   production environments. A successful local build can hide a missing Vercel production variable;
   test the authenticated service-to-service request after deployment without printing secret values.
+- Stateful hosted challenges must refuse to start in production without shared persistent storage.
+  An in-memory fallback is for local tests only because restarts or multiple replicas would otherwise
+  reopen one-use tickets, erase completion state, and split participant instances.
+- Shared storage does not make a process-local mutex distributed. Any challenge that signs or funds a
+  transaction behind an in-process per-participant queue must stay at one replica until that critical section
+  uses a distributed lock with fencing or equivalent idempotent on-chain coordination.
+- Event production registration is closed by default. An absent participant roster rejects sign-in;
+  open registration requires an explicit staging-only switch.
+- Add a live health contract to the central orchestration surface. It should validate every challenge
+  destination, every ticket-signing secret, registration mode, identity configuration, and shared
+  storage. A healthy leaderboard alone does not prove that challenge launches can authenticate.
 
 ### Product and visual direction from implementation review
 
@@ -291,11 +335,11 @@ The misunderstanding to avoid: this is not "participants solve a problem inside 
 
 The pitch should be:
 
-- teams compete as searchers/liquidators in a DLMM-style market on devnet/private validator;
+- participants compete as searchers and liquidators in a DLMM-style market on devnet or a private validator;
 - we build an educational DLMM-style program with local mints;
 - participants reason about active bins, bin movement, reward checkpoints, and LP reward accounting;
 - the planted issue is a realistic reward-accounting bug around stale checkpoints / JIT liquidity;
-- teams write a searcher script or bot to extract more reward value than the field;
+- participants write a searcher script or bot to extract more reward value than the field;
 - the challenge is relevant to Meteora because it teaches the mechanisms around DLMM-style liquidity,
   not because it touches Meteora's real code or real liquidity.
 
@@ -361,7 +405,7 @@ What this means for us:
 - proper Solana CTFs are executable, not just conceptual;
 - challenges can expose source, binaries, or services, but the win condition is a state transition or
   a validated technical result;
-- challenge infra matters: per-team instances, runner services, checker logic, and reproducible
+- challenge infra matters: per-participant instances, runner services, checker logic, and reproducible
   solves are part of the quality bar;
 - Reward Sniper should feel like a DeFi/KOTH sibling to `koth/ibrl`, not like a web puzzle;
 - SIGNET should feel like pwn + research, not like OSINT trivia;
@@ -407,9 +451,9 @@ Why this matters for us:
 How to translate it to Solana without copying the FPS format:
 
 - Reward Sniper should adopt the same philosophy: finding the reward-accounting edge is not enough;
-  teams are ranked by how well their searcher performs over repeated rounds/ticks.
+  participants are ranked by how well their searcher performs over repeated rounds and ticks.
 - A Solana version can use **market rounds** instead of shooter matches: each round has a randomized
-  pool state, reward regime, active-bin path, and other teams' actions.
+  pool state, reward regime, active-bin path, and other participants' actions.
 - Score should measure **extraction quality**: value captured, failed attempts, capital efficiency,
   timing, and robustness across market regimes.
 - We should store **replays**: action logs, pool state deltas, commit/reveal timeline, escrow deltas,
@@ -446,9 +490,9 @@ Why it is good:
 
 - Solana-native live economic game;
 - sponsor-authentic for Meteora without using Meteora code;
-- relative scoring and live market state make "found bug" insufficient; teams must extract better than
+- relative scoring and live market state make "found bug" insufficient; participants must extract better than
   the field.
-- borrows the `minions-in-16k` lesson: measure the quality of each team's strategy over repeated live
+- borrows the `minions-in-16k` lesson: measure the quality of each participant's strategy over repeated live
   rounds, not just whether they discovered the underlying issue.
 
 Risk:
@@ -468,8 +512,8 @@ Core:
 - canonical planted bug: owner-binding miss;
 - the program verifies a valid assertion for some enrolled passkey but fails to bind the verified
   passkey pubkey to the target vault's registered passkey;
-- solve: authenticate with the team's real passkey, use the binding flaw to authorize a vault/treasury
-  the team should not control, and submit through wallet approval.
+- solve: authenticate with the participant's real passkey, use the binding flaw to authorize a vault or treasury
+  the participant should not control, and submit through wallet approval.
 
 Why it is good:
 
@@ -493,12 +537,12 @@ Core:
 
 - fictional but realistic open-source Solana protocol repo;
 - latest repo code is fixed;
-- deployed per-team program is intentionally pinned to the older vulnerable pre-fix commit;
+- deployed per-participant program is intentionally pinned to the older vulnerable pre-fix commit;
 - silent fix is hidden in a boring refactor PR/review thread, with decoys;
 - canonical planted bug: an unpinned strategy CPI forwards the quarry program's trusted vault PDA as
   a signer to a caller-selected program;
 - solve: fingerprint deployed commit, find the silent fix, understand the authority bug, deploy/call
-  an attacker strategy, drain the randomized per-team target.
+  an attacker strategy, drain the randomized per-participant target.
 
 Why it is good:
 
@@ -511,7 +555,7 @@ Risk:
 
 - a patient agent can clone/bisect if everything is in a clean public repo. Mitigate by putting the
   decisive context in closed/unmerged PR text, review comments, decoy refactors, and requiring a live
-  per-team exploit.
+  per-participant exploit.
 
 Clarification that must appear anywhere we pitch this:
 
@@ -538,16 +582,16 @@ Identity: bytecode reverse-engineering / runtime-time exploit.
 
 Core:
 
-- per-team local runtime/localnet with a bytecode-only vault artifact;
+- per-participant local runtime or localnet with a bytecode-only vault artifact;
 - no source, no IDL, no symbolic account names in the player artifact;
 - planted bug: value-critical math trusts `Clock::unix_timestamp` and uses unchecked/wrapping elapsed
   arithmetic;
-- solve: reverse enough of the bytecode to identify deposit/accrue/withdraw, realize the team controls
+- solve: reverse enough of the bytecode to identify deposit, accrue, and withdraw, realize the participant controls
   localnet time, then forward-warp or rewind the clock to inflate balance and drain the reserve;
 - checker replays a submitted exploit trace against a fresh canonical target and emits an HMAC flag;
 - the public trace language exposes only generic `invoke` and `set_sysvar` operations. It documents
   the mechanism completely but does not name Clock or reveal instruction tags/account order. Stable
-  aliases solve the otherwise-impossible problem of referring to freshly generated team accounts.
+  aliases solve the otherwise-impossible problem of referring to freshly generated participant accounts.
 
 Why it is good:
 
@@ -613,8 +657,8 @@ Delivery lesson:
   to explore;
 - Discord embeds make premise, invoice, state, and outcome legible; the bot offers one subtle hint
   rather than a progressive solution ladder;
-- the player kit contains only durable public transaction tooling, while the verifier, RPC, and
-  organizer controls remain server-side.
+- no player kit is shipped: the Discord invoice provides the complete public payment contract, and
+  participants compose the transaction with standard Solana wallet or client tooling.
 
 Real-world precedents / why this is legitimate:
 
@@ -762,7 +806,7 @@ How to use:
 Use this filter before turning any real bug into a CTF challenge:
 
 1. Do not clone a famous exploit exactly. Transpose the bug class into a fictional protocol.
-2. The bug must be reproducible locally and exploitable in a live per-team instance.
+2. The bug must be reproducible locally and exploitable in a live per-participant instance.
 3. The checker must validate state transition, not text submission.
 4. The source can be public only if the anti-agent layer is not "hide the bug." For simple source-review
    bugs, source-first discovery is weak in 2026.
@@ -777,7 +821,7 @@ Use this filter before turning any real bug into a CTF challenge:
 
 Minimum infra for all flagship challenges:
 
-- per-team registration and escrow identity;
+- per-participant registration and escrow identity;
 - private validator/devnet deployment path;
 - local reproduction toolkit;
 - checker/indexer that validates state changes and optionally emits HMAC flags;
@@ -790,9 +834,9 @@ Challenge-specific infra:
   Sniper Ticket accounting, live indexer.
 - IMPRINT: WebAuthn enrollment/assertion UI, secp256r1 verification path, attestation policy, Solana wallet
   submit flow, passkey test suite.
-- SIGNET: fictional GitHub-style repo/history, per-team pinned deploy, decoy PR/issues,
+- SIGNET: fictional GitHub-style repo/history, per-participant pinned deploy, decoy PR/issues,
   target randomization, exploit checker.
-- DRIFT: finalized stripped native SBF artifact, forbidden-string gate, deterministic per-team
+- DRIFT: finalized stripped native SBF artifact, forbidden-string gate, deterministic per-participant
   LiteSVM replay, authenticated submission service, player-only kit, and strict net-drain checker.
 - LAST STOP: SSH gateway, one-use password exchange, ephemeral in-session state, native SBF replay,
   durable completion/audit records, a private portal status read, and a terminal stop-only policy path.
@@ -802,8 +846,8 @@ Challenge-specific infra:
 
 Playtest requirement before launch:
 
-- human-driven, no-autonomous-agent team;
-- AI-assisted human team;
+- human-driven participant without autonomous agents;
+- participant using AI assistance within the published rules;
 - autonomous-agent attempt with browser/computer-use permissions;
 - compare solve time, bottlenecks, and whether the leaderboard still reflects security judgment.
 - establish a human workflow baseline: milestone times, false starts, hint use, action count, and
@@ -812,7 +856,7 @@ Playtest requirement before launch:
 
 Event-integrity infrastructure before launch:
 
-- append-only team-bound logs for launches, hints, submissions, rejected values, checker results,
+- append-only participant-bound logs for launches, hints, submissions, rejected values, checker results,
   high-value actions, and administrative decisions;
 - immediate-submission/no-hoarding rule for flag challenges;
 - explicit AI-use boundary acknowledged at registration and first scored launch;
@@ -828,11 +872,11 @@ Event-integrity infrastructure before launch:
 - Which audit/security group helps review the final specs: OtterSec, Asymmetric, Anza, AuraSec-style
   reviewers, or a mix?
 - For Reward Sniper, the mechanics are locked for this iteration; only event-day synchronization,
-  competing teams/bots, and reset state remain.
+  competing participants and searcher bots, and reset state remain.
 - For IMPRINT, what exact attestation policy blocks virtual authenticators without making onboarding
   painful?
-- For SIGNET, provision fresh per-team program IDs, wallets, and targets before public play; the
-  current staging target and solve transaction must not be reused.
+- For SIGNET, finish automatic idempotent participant setup on first authenticated launch, isolate each
+  participant's target, and rotate away from the current staging program and public solve transaction.
 - For LAST STOP, finalize the public SSH proxy, session capacity, and final receipt/retention policy;
   the portal completion mark is implemented, while points remain a later event-scoring decision.
 - For AFTER HOURS, run a clean human and autonomous-agent playtest through the guild-install flow,
@@ -840,6 +884,6 @@ Event-integrity infrastructure before launch:
 - Do we ask a sponsor/researcher to co-author one challenge or review the final slate?
 - What exact assistance is allowed, and may challenge files, screenshots, outputs, or derived artifacts
   be shown to an LLM?
-- Is liability team-wide when one member violates the rule, and who must defend each solve?
+- Which evidence threshold triggers a participant solve defense, and who must defend each reviewed solve?
 - Which leaderboard positions are routinely reviewed, and how many reviewer shifts are funded?
 - Do we offer a non-prize, self-declared low-AI board alongside the enforced prize track?

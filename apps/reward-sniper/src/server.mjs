@@ -6,24 +6,37 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ParticipantTicketError, verifyParticipantTicket } from "@ctf26/participant-ticket";
+import { trustedClientAddress } from "@ctf26/request-budget";
 
 import {
   beginRevealPhase,
   commitAction,
   createMarket,
+  DEFAULT_ROUND_TICKS,
+  DEFAULT_STARTING_LIQUIDITY,
   inspectMarket,
   issueVoucher,
-  registerTeam,
+  MAX_ACTION_LIQUIDITY,
+  MIN_QUALIFYING_SCORED_ROUNDS,
+  registerParticipant,
   restoreMarket,
   revealAction,
   resolveTick,
   scoreboard,
   snapshot,
+  SWAP_LIQUIDITY_FEE,
+  TICKETS_PER_ROUND,
 } from "./market.mjs";
+import {
+  createRewardTicketReplayStore,
+  rewardTicketReplayConfiguration,
+} from "./ticket-replay.mjs";
 
 const MODULE_PATH = fileURLToPath(import.meta.url);
 const WEB_ROOT = fileURLToPath(new URL("../web/", import.meta.url));
-const STATE_VERSION = 1;
+const STATE_VERSION = 2;
+const REWARD_SCORING_SCHEMA_VERSION = "reward-sniper-scoring-v2";
+const PARTICIPANT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const SESSION_TTL_SECONDS = 12 * 60 * 60;
 const SEARCHER_TTL_SECONDS = 90 * 60;
 const SESSION_COOKIE = "reward_sniper_session";
@@ -31,6 +44,7 @@ const MAX_BODY_BYTES = 16 * 1024;
 const INTEGRITY_CASE_LIMIT = 1_000;
 const INTEGRITY_TIMELINE_LIMIT = 200;
 const INTEGRITY_STATUSES = new Set(["open", "reviewing", "cleared", "confirmed"]);
+const INTEGRITY_CHALLENGES = new Set(["imprint", "signet", "drift", "last-stop", "after-hours", "player-two", "the-broadcast", "evidence-room", "second-key"]);
 const STATIC_FILES = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/index.html", ["index.html", "text/html; charset=utf-8"]],
@@ -53,6 +67,8 @@ class HttpError extends Error {
 export function createRewardSniperServer(options = {}) {
   const stateFile = normalizeOptionalPath(options.stateFile);
   const saved = stateFile ? readSavedState(stateFile) : null;
+  const eventGeneration = activeEventGeneration(options);
+  const eventMode = normalizeEventMode(options.eventMode);
   const voucherSecret = requireSecret(
     options.voucherSecret ?? decodeSavedSecret(saved?.secrets?.voucher),
     "voucher secret",
@@ -91,18 +107,62 @@ export function createRewardSniperServer(options = {}) {
   };
   const eventArchives = Array.isArray(saved?.eventArchives) ? saved.eventArchives.slice(-20) : [];
   const consumedTickets = new Map(saved?.consumedTickets ?? []);
+  const ticketReplayStore = options.ticketReplayStore || {
+    mode: stateFile ? "file" : "memory",
+    eventGeneration,
+    async consume({ jti, expiresAt }) {
+      if (consumedTickets.has(jti)) return false;
+      consumedTickets.set(jti, expiresAt);
+      return true;
+    },
+    async health() { return true; },
+    async close() {},
+  };
+  if (
+    typeof ticketReplayStore.consume !== "function"
+    || typeof ticketReplayStore.health !== "function"
+    || typeof ticketReplayStore.close !== "function"
+    || !ticketReplayStore.eventGeneration
+  ) {
+    throw new Error("ticket replay store is invalid");
+  }
+  if (ticketReplayStore.eventGeneration !== eventGeneration) {
+    throw new Error("ticket replay store belongs to a different CTF event generation");
+  }
   const auditLog = Array.isArray(saved?.auditLog) ? saved.auditLog.slice(-5_000) : [];
   const integrityCases = Array.isArray(saved?.integrityCases) ? saved.integrityCases.slice(-INTEGRITY_CASE_LIMIT) : [];
   const integrityProfiles = saved?.integrityProfiles && typeof saved.integrityProfiles === "object"
     ? structuredClone(saved.integrityProfiles)
     : {};
+  const remoteIntegrityProfiles = saved?.remoteIntegrityProfiles && typeof saved.remoteIntegrityProfiles === "object"
+    ? structuredClone(saved.remoteIntegrityProfiles)
+    : {};
   for (const entry of auditLog) backfillIntegrityProfile(entry);
   const rateLimits = new Map();
+  const registeredParticipantIds = normalizeRegisteredParticipants(options.registeredParticipantIds);
+  if (registeredParticipantIds) {
+    for (const participantId of registeredParticipantIds) {
+      if (!market.participants[participantId]) registerParticipant(market, participantId);
+    }
+  }
   const autoPhases = options.autoPhases ?? true;
+  const eventClock = options.eventClock ?? Date.now;
+  if (typeof eventClock !== "function") throw new Error("event clock must be a function");
   const startOnFirstSession = options.startOnFirstSession ?? false;
   const configuredEventStartsAt = options.eventStartsAt ?? null;
+  const configuredEventEndsAt = options.eventEndsAt ?? null;
   if (configuredEventStartsAt !== null && (!Number.isSafeInteger(configuredEventStartsAt) || configuredEventStartsAt <= 0)) {
     throw new Error("event start must be a positive epoch-millisecond timestamp");
+  }
+  if (configuredEventEndsAt !== null && (!Number.isSafeInteger(configuredEventEndsAt) || configuredEventEndsAt <= 0)) {
+    throw new Error("event end must be a positive epoch-millisecond timestamp");
+  }
+  if (
+    configuredEventStartsAt !== null
+    && configuredEventEndsAt !== null
+    && configuredEventEndsAt <= configuredEventStartsAt
+  ) {
+    throw new Error("event end must be after event start");
   }
   if (startOnFirstSession && configuredEventStartsAt !== null) {
     throw new Error("choose either first-session start or a scheduled event start");
@@ -112,12 +172,63 @@ export function createRewardSniperServer(options = {}) {
   const revealDurationMs = options.revealDurationMs ?? 10_000;
   assertDuration(commitDurationMs, "commit duration");
   assertDuration(revealDurationMs, "reveal duration");
+  assertEventPolicy({
+    eventMode,
+    startOnFirstSession,
+    eventStartsAt: configuredEventStartsAt,
+    eventEndsAt: configuredEventEndsAt,
+    registeredParticipantIds,
+  });
+  const scoringConfig = rewardScoringConfiguration({
+    eventGeneration,
+    eventMode,
+    registeredParticipantIds,
+    startOnFirstSession,
+    eventStartsAt: configuredEventStartsAt,
+    eventEndsAt: configuredEventEndsAt,
+    commitDurationMs,
+    revealDurationMs,
+    startingLiquidity: options.startingLiquidity,
+    maxActionLiquidity: options.maxActionLiquidity,
+    roundTicks: options.roundTicks,
+    practiceRounds: options.practiceRounds,
+    scoredRounds: options.scoredRounds,
+  });
+  const scoringConfigHash = hashScoringConfiguration(scoringConfig);
+  assertSavedStateBinding(saved, {
+    eventGeneration,
+    eventMode,
+    eventEndsAt: configuredEventEndsAt,
+    scoringConfigHash,
+  });
+  let integrityIngestFreeze = normalizeIntegrityIngestFreeze(saved?.integrityIngestFreeze, {
+    eventId: market.eventId,
+    eventGeneration,
+    scoringConfigHash,
+  });
+  let integrityReviewFreeze = normalizeIntegrityReviewFreeze(saved?.integrityReviewFreeze, {
+    eventId: market.eventId,
+    eventGeneration,
+    scoringConfigHash,
+  });
+
+  if (eventMode === "official") {
+    const expectedParticipants = [...registeredParticipantIds].sort();
+    const actualParticipants = Object.keys(market.participants).sort();
+    if (
+      actualParticipants.length !== expectedParticipants.length
+      || actualParticipants.some((participantId, index) => participantId !== expectedParticipants[index])
+    ) {
+      throw new Error("saved Reward Sniper market does not exactly match the official participant roster");
+    }
+  }
 
   let phaseTimer;
   let eventStartTimer;
   let phaseEndsAt = Number.isSafeInteger(saved?.phaseEndsAt) ? saved.phaseEndsAt : null;
   let eventStartedAt = Number.isSafeInteger(saved?.eventStartedAt) ? saved.eventStartedAt : null;
-  const eventStartsAt = Number.isSafeInteger(saved?.eventStartsAt) ? saved.eventStartsAt : configuredEventStartsAt;
+  const eventStartsAt = configuredEventStartsAt;
+  const eventEndsAt = configuredEventEndsAt;
   let persistenceQueue = Promise.resolve();
   let persistenceError = null;
   let ready = false;
@@ -144,6 +255,10 @@ export function createRewardSniperServer(options = {}) {
 
     if ((request.method === "GET" || request.method === "HEAD") && STATIC_FILES.has(url.pathname)) {
       const [filename, contentType] = STATIC_FILES.get(url.pathname);
+      const claims = tryAuthenticateClaims(request, sessionSecret, market);
+      if (claims && request.method === "GET") {
+        updateIntegrityProfile(claims, `interface:${filename}`, request);
+      }
       const body = await fsPromises.readFile(path.join(WEB_ROOT, filename));
       response.writeHead(200, {
         "content-type": contentType,
@@ -154,7 +269,8 @@ export function createRewardSniperServer(options = {}) {
     }
 
     if (request.method === "GET" && url.pathname === "/api/health") {
-      const healthy = ready && !persistenceError;
+      const replayHealthy = await ticketReplayStore.health().catch(() => false);
+      const healthy = ready && !persistenceError && replayHealthy;
       sendJson(response, healthy ? 200 : 503, {
         ok: healthy,
         eventId: market.eventId,
@@ -163,8 +279,13 @@ export function createRewardSniperServer(options = {}) {
         phase: market.phase,
         phaseEndsAt,
         persistence: stateFile ? (persistenceError ? "degraded" : "enabled") : "memory-only",
+        ticketReplay: replayHealthy ? ticketReplayStore.mode : "unavailable",
+        eventGeneration,
+        eventMode,
+        scoringConfigHash,
         eventStage: market.event?.stage ?? "continuous",
         eventStartsAt,
+        eventEndsAt,
       });
       return;
     }
@@ -197,18 +318,28 @@ export function createRewardSniperServer(options = {}) {
 
     if (request.method === "POST" && url.pathname === "/api/session") {
       ensureWritable(stateFile, persistenceError);
-      enforceRateLimit(request, rateLimits, "session", 12, 60_000);
+      enforceRateLimits(request, rateLimits, [
+        { scope: "global:session", limit: 2_400 },
+        { scope: "ip:session", limit: 240 },
+      ], 60_000);
       const body = await readJson(request);
-      const identity = authenticateLaunch(body, {
+      const identity = await authenticateLaunch(body, {
         allowDevSessions,
         allowDirectTestAccess,
         directTestAccessKey,
-        consumedTickets,
+        ticketReplayStore,
         ticketSecret,
+        registeredParticipantIds,
       });
       let created = false;
-      if (!market.teams[identity.teamId]) {
-        registerTeam(market, identity.teamId);
+      if (!market.participants[identity.participantId]) {
+        if (eventHasEnded()) {
+          throw new HttpError(409, "event registration closed at the official end");
+        }
+        if (eventStartedAt && !startOnFirstSession) {
+          throw new HttpError(409, "event registration closed at synchronized kickoff");
+        }
+        registerParticipant(market, identity.participantId);
         created = true;
       }
       const accessToken = createAccessToken(identity, sessionSecret, {
@@ -217,15 +348,14 @@ export function createRewardSniperServer(options = {}) {
         ttlSeconds: SESSION_TTL_SECONDS,
       });
       if (autoPhases && startOnFirstSession && !eventStartsAt && !eventStartedAt) {
-        eventStartedAt = Date.now();
-        phaseEndsAt = eventStartedAt + durationForCurrentPhase();
-        scheduleCurrentPhase();
+        startEvent(eventClock());
       }
       recordAudit(identity, created ? "session-created" : "session-renewed", "browser");
+      const claims = { ...identity, eventId: market.eventId, scope: "browser", authTransport: "session" };
+      updateIntegrityProfile(claims, "interface:session", request);
       await persistState();
       setSessionCookie(response, accessToken, secureCookies);
       sendJson(response, created ? 201 : 200, {
-        teamId: identity.teamId,
         participantId: identity.participantId,
         launchMode: identity.launchMode,
         eventId: market.eventId,
@@ -236,7 +366,6 @@ export function createRewardSniperServer(options = {}) {
     if (request.method === "GET" && url.pathname === "/api/session") {
       const claims = authenticateClaims(request, sessionSecret, market);
       sendJson(response, 200, {
-        teamId: claims.teamId,
         participantId: claims.participantId,
         launchMode: claims.launchMode,
         eventId: market.eventId,
@@ -251,7 +380,11 @@ export function createRewardSniperServer(options = {}) {
       }
       const claims = authenticateCookieClaims(request, sessionSecret, market);
       if (claims.scope !== "browser") throw new HttpError(403, "a browser session is required");
-      enforceRateLimit(request, rateLimits, `searcher:${claims.participantId}`, 3, 60_000);
+      enforceParticipantBudgets(request, rateLimits, "searcher", claims.participantId, {
+        participant: 3,
+        ip: 30,
+        global: 600,
+      });
       const expiresAt = Math.floor(Date.now() / 1_000) + SEARCHER_TTL_SECONDS;
       const accessToken = createAccessToken(claims, sessionSecret, {
         eventId: market.eventId,
@@ -265,25 +398,30 @@ export function createRewardSniperServer(options = {}) {
         searcherToken: accessToken,
         expiresAt,
         eventId: market.eventId,
-        teamId: claims.teamId,
+        participantId: claims.participantId,
       });
       return;
     }
 
     if (request.method === "GET" && url.pathname === "/api/market") {
       const claims = authenticateClaims(request, sessionSecret, market);
-      const teamId = claims.teamId;
-      enforceRateLimit(request, rateLimits, `read:${teamId}`, 180, 60_000);
+      const participantId = claims.participantId;
+      enforceParticipantBudgets(request, rateLimits, "read", participantId, {
+        participant: 180,
+        ip: 1_200,
+        global: 10_000,
+      });
       updateIntegrityProfile(claims, "market-read", request);
       const behavioralCase = await maybeRecordBehavioralCase(claims, request);
       if (behavioralCase) await persistState();
-      const view = playerMarketView(runMarketAction(() => inspectMarket(market, teamId)));
+      const view = playerMarketView(runMarketAction(() => inspectMarket(market, participantId)));
       sendJson(response, 200, {
         ...view,
         phaseEndsAt,
         phaseDurationMs: market.phase === "commit" ? commitDurationMs : revealDurationMs,
         eventStartedAt,
         eventStartsAt,
+        eventEndsAt,
         _automationCompliance: automationCompliance(claims, "market-policy"),
       });
       return;
@@ -292,10 +430,14 @@ export function createRewardSniperServer(options = {}) {
     if (request.method === "POST" && url.pathname === "/api/ui-event") {
       const claims = authenticateCookieClaims(request, sessionSecret, market);
       if (claims.scope !== "browser") throw new HttpError(403, "a browser session is required");
-      enforceRateLimit(request, rateLimits, `ui:${claims.participantId}`, 120, 60_000);
+      enforceParticipantBudgets(request, rateLimits, "ui", claims.participantId, {
+        participant: 120,
+        ip: 1_200,
+        global: 10_000,
+      });
       const body = await readJson(request);
       const event = String(body.event ?? "");
-      if (!new Set(["page-ready", "bin-select", "order-click", "reveal-click"]).has(event)) {
+      if (!new Set(["page-ready", "automation-present", "bin-select", "order-click", "reveal-click"]).has(event)) {
         throw new HttpError(400, "unknown UI event");
       }
       updateIntegrityProfile(claims, `ui:${event}`, request);
@@ -307,7 +449,11 @@ export function createRewardSniperServer(options = {}) {
     if (request.method === "POST" && url.pathname === "/api/agent-disclosure") {
       ensureWritable(stateFile, persistenceError);
       const claims = authenticateClaims(request, sessionSecret, market);
-      enforceRateLimit(request, rateLimits, `disclosure:${claims.participantId}`, 6, 60_000);
+      enforceParticipantBudgets(request, rateLimits, "disclosure", claims.participantId, {
+        participant: 6,
+        ip: 60,
+        global: 600,
+      });
       const body = await readJson(request);
       const placement = validCanaryPlacement(body.marker, claims);
       if (!placement) throw new HttpError(400, "invalid disclosure marker");
@@ -333,7 +479,11 @@ export function createRewardSniperServer(options = {}) {
     if (request.method === "GET" && url.pathname === "/api/solver-context") {
       ensureWritable(stateFile, persistenceError);
       const claims = authenticateClaims(request, sessionSecret, market);
-      enforceRateLimit(request, rateLimits, `solver-context:${claims.participantId}`, 6, 60_000);
+      enforceParticipantBudgets(request, rateLimits, "solver-context", claims.participantId, {
+        participant: 6,
+        ip: 60,
+        global: 600,
+      });
       const placement = validCanaryPlacement(url.searchParams.get("marker"), claims);
       if (!placement) throw new HttpError(404, "not found");
       const integrityCase = await recordIntegrityCase(claims, request, {
@@ -352,18 +502,32 @@ export function createRewardSniperServer(options = {}) {
     }
 
     if (request.method === "GET" && url.pathname === "/api/scoreboard") {
-      enforceRateLimit(request, rateLimits, "scoreboard", 300, 60_000);
-      sendJson(response, 200, scoreboard(market));
+      enforceRateLimits(request, rateLimits, [
+        { scope: "global:scoreboard", limit: 600 },
+        { scope: "ip:scoreboard", limit: 300 },
+      ], 60_000);
+      sendJson(response, 200, scoreboard(market), {
+        "x-reward-event-id": market.eventId,
+        "x-reward-event-stage": market.event?.stage ?? "continuous",
+        "x-reward-event-generation": eventGeneration,
+        "x-reward-scoring-config": scoringConfigHash,
+        ...(Number.isSafeInteger(eventStartsAt)
+          ? { "x-reward-event-start-at": String(eventStartsAt) }
+          : {}),
+        ...(Number.isSafeInteger(eventEndsAt)
+          ? { "x-reward-event-end-at": String(eventEndsAt) }
+          : {}),
+      });
       return;
     }
 
     if (request.method === "POST" && url.pathname === "/api/voucher") {
       const claims = authenticateClaims(request, sessionSecret, market);
-      const teamId = claims.teamId;
+      const participantId = claims.participantId;
       ensureEventActive();
-      enforceRateLimit(request, rateLimits, `write:${teamId}`, 30, 60_000);
+      enforceWriteBudgets(request, rateLimits, participantId);
       const body = await readJson(request);
-      const voucher = runMarketAction(() => issueVoucher(market, teamId, {
+      const voucher = runMarketAction(() => issueVoucher(market, participantId, {
         binId: requireSafeInteger(body.binId, "bin id"),
         nonce: crypto.randomUUID(),
       }));
@@ -376,9 +540,9 @@ export function createRewardSniperServer(options = {}) {
     if (request.method === "POST" && url.pathname === "/api/order") {
       ensureWritable(stateFile, persistenceError);
       const claims = authenticateClaims(request, sessionSecret, market);
-      const teamId = claims.teamId;
+      const participantId = claims.participantId;
       ensureEventActive();
-      enforceRateLimit(request, rateLimits, `write:${teamId}`, 30, 60_000);
+      enforceWriteBudgets(request, rateLimits, participantId);
       const body = await readJson(request);
       const nonce = String(body.nonce ?? "");
       let action;
@@ -388,10 +552,10 @@ export function createRewardSniperServer(options = {}) {
         if (liquidity > market.maxActionLiquidity) {
           throw new HttpError(400, `liquidity exceeds the per-action limit of ${market.maxActionLiquidity}`);
         }
-        if (liquidity > market.teams[teamId].liquidityBalance) {
+        if (liquidity > market.participants[participantId].liquidityBalance) {
           throw new HttpError(400, "insufficient funded liquidity");
         }
-        const voucher = runMarketAction(() => issueVoucher(market, teamId, {
+        const voucher = runMarketAction(() => issueVoucher(market, participantId, {
           binId,
           nonce: crypto.randomUUID(),
         }));
@@ -401,24 +565,24 @@ export function createRewardSniperServer(options = {}) {
       } else {
         throw new HttpError(400, "order type must be ticket or swap");
       }
-      const commitment = runMarketAction(() => commitAction(market, teamId, action, nonce));
+      const commitment = runMarketAction(() => commitAction(market, participantId, action, nonce));
       updateIntegrityProfile(claims, `order:${action.type}`, request);
       recordAudit(claims, `order-committed:${action.type}`);
       await maybeRecordBehavioralCase(claims, request);
       await persistState();
-      sendJson(response, 201, { action, commitment, tick: market.tick });
+      sendJson(response, 201, { action: publicAction(action), commitment, tick: market.tick });
       return;
     }
 
     if (request.method === "POST" && url.pathname === "/api/commit") {
       ensureWritable(stateFile, persistenceError);
       const claims = authenticateClaims(request, sessionSecret, market);
-      const teamId = claims.teamId;
+      const participantId = claims.participantId;
       ensureEventActive();
-      enforceRateLimit(request, rateLimits, `write:${teamId}`, 30, 60_000);
+      enforceWriteBudgets(request, rateLimits, participantId);
       const body = await readJson(request);
       const action = normalizeAction(body.action);
-      const commitment = runMarketAction(() => commitAction(market, teamId, action, body.nonce));
+      const commitment = runMarketAction(() => commitAction(market, participantId, action, body.nonce));
       updateIntegrityProfile(claims, `commit:${action.type}`, request);
       recordAudit(claims, `commit-accepted:${action.type}`);
       await maybeRecordBehavioralCase(claims, request);
@@ -430,12 +594,12 @@ export function createRewardSniperServer(options = {}) {
     if (request.method === "POST" && url.pathname === "/api/reveal") {
       ensureWritable(stateFile, persistenceError);
       const claims = authenticateClaims(request, sessionSecret, market);
-      const teamId = claims.teamId;
+      const participantId = claims.participantId;
       ensureEventActive();
-      enforceRateLimit(request, rateLimits, `write:${teamId}`, 30, 60_000);
+      enforceWriteBudgets(request, rateLimits, participantId);
       const body = await readJson(request);
       const action = normalizeAction(body.action);
-      const result = runMarketAction(() => revealAction(market, teamId, action, body.nonce));
+      const result = runMarketAction(() => revealAction(market, participantId, action, body.nonce));
       updateIntegrityProfile(claims, `reveal:${action.type}`, request);
       recordAudit(claims, `reveal-accepted:${action.type}`);
       await maybeRecordBehavioralCase(claims, request);
@@ -446,28 +610,100 @@ export function createRewardSniperServer(options = {}) {
 
     if (request.method === "GET" && url.pathname === "/api/admin/integrity") {
       authenticateIntegrityAdmin(request, integrityAdminKey);
-      enforceRateLimit(request, rateLimits, "integrity-admin", 120, 60_000);
+      enforceRateLimits(request, rateLimits, [
+        { scope: "global:integrity-admin", limit: 240 },
+        { scope: "ip:integrity-admin", limit: 120 },
+      ], 60_000);
       sendJson(response, 200, integrityReport());
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/admin/integrity/freeze") {
+      ensureWritable(stateFile, persistenceError);
+      authenticateIntegrityAdmin(request, integrityAdminKey);
+      enforceRateLimits(request, rateLimits, [
+        { scope: "global:integrity-freeze", limit: 20 },
+        { scope: "ip:integrity-freeze", limit: 10 },
+      ], 60_000);
+      const body = await readJson(request);
+      assertIntegrityFreezeBinding(body, { eventId: market.eventId, eventGeneration, scoringConfigHash });
+      if (market.event?.stage !== "complete") {
+        throw new HttpError(409, "integrity ingest can only be frozen after the Reward Sniper event is complete");
+      }
+      const status = integrityIngestFreeze ? 200 : 201;
+      integrityIngestFreeze ??= Object.freeze({
+        eventId: market.eventId,
+        eventGeneration,
+        scoringConfigHash,
+        frozenAt: Date.now(),
+        organizer: String(request.headers["x-ctf-organizer"] || "organizer").slice(0, 160),
+      });
+      await persistState();
+      sendJson(response, status, { frozen: true, freeze: structuredClone(integrityIngestFreeze) });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/admin/integrity/seal") {
+      ensureWritable(stateFile, persistenceError);
+      authenticateIntegrityAdmin(request, integrityAdminKey);
+      enforceRateLimits(request, rateLimits, [
+        { scope: "global:integrity-seal", limit: 20 },
+        { scope: "ip:integrity-seal", limit: 10 },
+      ], 60_000);
+      const body = await readJson(request);
+      assertIntegrityFreezeBinding(body, { eventId: market.eventId, eventGeneration, scoringConfigHash });
+      if (!integrityIngestFreeze) {
+        throw new HttpError(409, "integrity ingest must be frozen before review is sealed");
+      }
+      const current = activeIntegrityDigest();
+      if (
+        String(body.digest || "").toLowerCase() !== current.digest
+        || Number(body.activeCaseCount) !== current.activeCaseCount
+      ) {
+        throw new HttpError(409, "integrity review changed before it could be sealed");
+      }
+      if (integrityReviewFreeze && (
+        integrityReviewFreeze.digest !== current.digest
+        || integrityReviewFreeze.activeCaseCount !== current.activeCaseCount
+      )) {
+        throw new HttpError(409, "integrity review was already sealed with different evidence");
+      }
+      const status = integrityReviewFreeze ? 200 : 201;
+      integrityReviewFreeze ??= Object.freeze({
+        eventId: market.eventId,
+        eventGeneration,
+        scoringConfigHash,
+        digest: current.digest,
+        activeCaseCount: current.activeCaseCount,
+        frozenAt: Date.now(),
+        organizer: String(request.headers["x-ctf-organizer"] || "organizer").slice(0, 160),
+      });
+      await persistState();
+      sendJson(response, status, { frozen: true, freeze: structuredClone(integrityReviewFreeze) });
       return;
     }
 
     if (request.method === "POST" && url.pathname === "/api/internal/integrity/disclosure") {
       authenticateIntegrityAdmin(request, integrityIngestKey);
-      enforceRateLimit(request, rateLimits, "integrity-ingest", 120, 60_000);
+      enforceRateLimits(request, rateLimits, [
+        { scope: "global:integrity-ingest", limit: 2_000 },
+        { scope: "ip:integrity-ingest", limit: 1_000 },
+      ], 60_000);
       const body = await readJson(request);
-      const allowed = new Set(["imprint", "signet", "drift", "after-hours", "player-two", "st-genesis-airdrop"]);
-      if (!allowed.has(body.challenge)) throw new HttpError(400, "invalid challenge disclosure");
-      const identity = body.identity || {};
-      if (typeof identity.participantId !== "string" || typeof identity.teamId !== "string") throw new HttpError(400, "invalid disclosure identity");
+      assertIntegrityIngestOpen();
+      if (!INTEGRITY_CHALLENGES.has(body.challenge) || body.challenge === "last-stop") throw new HttpError(400, "invalid challenge disclosure");
+      const identity = normalizeIntegrityIdentity(body.identity, "disclosure");
+      if (identity.eventId !== eventGeneration) throw new HttpError(409, "integrity disclosure belongs to another CTF event generation");
       const now = Date.now();
-      const existing = integrityCases.find((entry) => entry.challenge === body.challenge && entry.participantId === identity.participantId && entry.reasonCode === "agent-disclosure-followed" && entry.status !== "cleared");
+      const existing = integrityCases.find((entry) => isActiveIntegrityRecord(entry) && entry.challenge === body.challenge && entry.participantId === identity.participantId && entry.reasonCode === "agent-disclosure-followed" && entry.status !== "cleared");
       const evidence = { at: now, tick: null, phase: null, scope: "browser", request: body.requestMeta || {}, details: { reportedAgent: body.agent || "", reportedModel: body.model || "" } };
       const integrityCase = existing || {
         id: `rsic_${crypto.randomBytes(10).toString("base64url")}`,
         challenge: body.challenge,
-        eventId: identity.eventId || "ctf26",
+        eventId: identity.eventId,
+        eventGeneration,
+        rewardEventId: market.eventId,
         participantId: identity.participantId,
-        teamId: identity.teamId,
         email: identity.email || "",
         launchMode: "portal",
         status: "open",
@@ -491,13 +727,186 @@ export function createRewardSniperServer(options = {}) {
       return;
     }
 
+    if (request.method === "POST" && url.pathname === "/api/internal/integrity/event") {
+      authenticateIntegrityAdmin(request, integrityIngestKey);
+      enforceRateLimits(request, rateLimits, [
+        { scope: "global:integrity-event-ingest", limit: 8_000 },
+        { scope: "ip:integrity-event-ingest", limit: 4_000 },
+      ], 60_000);
+      const body = await readJson(request);
+      assertIntegrityIngestOpen();
+      if (!INTEGRITY_CHALLENGES.has(body.challenge)) throw new HttpError(400, "invalid challenge event");
+      const identity = normalizeIntegrityIdentity(body.identity, "event");
+      if (identity.eventId !== eventGeneration) throw new HttpError(409, "integrity event belongs to another CTF event generation");
+      const source = body.event || {};
+      const action = String(source.action || "").slice(0, 120);
+      if (!/^[a-z0-9][a-z0-9:_-]{1,119}$/i.test(action)) throw new HttpError(400, "invalid integrity action");
+      const category = new Set(["activity", "interface", "policy", "ui", "challenge-action", "scored-action", "completion"]).has(source.category) ? source.category : "activity";
+      const requestMeta = source.request && typeof source.request === "object" ? source.request : {};
+      const client = requestMeta.client && typeof requestMeta.client === "object" ? requestMeta.client : {};
+      const clientKind = new Set(["known-ai-client", "headless-client", "script-client", "browser", "unknown"]).has(client.kind) ? client.kind : "unknown";
+      const clientFamily = String(client.family || "unknown").replace(/[^a-z0-9_-]/gi, "").slice(0, 40) || "unknown";
+      const now = Date.now();
+      const key = `${eventGeneration}:${market.eventId}:${body.challenge}:${identity.participantId}`;
+      remoteIntegrityProfiles[key] ??= {
+        eventId: identity.eventId,
+        eventGeneration,
+        rewardEventId: market.eventId,
+        challenge: body.challenge,
+        participantId: identity.participantId,
+        email: String(identity.email || "").slice(0, 254),
+        firstSeenAt: now,
+        lastSeenAt: now,
+        counts: {},
+        clientCounts: {},
+        events: [],
+      };
+      const profile = remoteIntegrityProfiles[key];
+      if (!profile.email && identity.email) profile.email = String(identity.email).slice(0, 254);
+      profile.lastSeenAt = now;
+      profile.counts[action] = (profile.counts[action] || 0) + 1;
+      profile.clientCounts[clientKind] = (profile.clientCounts[clientKind] || 0) + 1;
+      profile.events.push({
+        at: now,
+        action,
+        category,
+        source: new Set(["browser-ui", "direct-http", "policy", "service"]).has(requestMeta.source) ? requestMeta.source : "direct-http",
+        client: { kind: clientKind, family: clientFamily },
+        request: normalizeRemoteRequestContext(requestMeta),
+        outcome: String(source.outcome || "observed").slice(0, 80),
+      });
+      profile.events = profile.events.slice(-120);
+
+      const actionEvent = ["challenge-action", "scored-action", "completion"].includes(category);
+      const knownAiActions = profile.events.filter((entry) => entry.client.kind === "known-ai-client" && ["challenge-action", "scored-action", "completion"].includes(entry.category));
+      const matchingPolicyRead = profile.events.some((entry) => entry.category === "policy" && entry.client.kind === "known-ai-client" && entry.client.family === clientFamily);
+      let caseId = null;
+      if (clientKind === "known-ai-client" && actionEvent) {
+        const reasonCode = "known-ai-client-workflow";
+        let integrityCase = integrityCases.find((entry) => isActiveIntegrityRecord(entry) && entry.challenge === body.challenge && entry.participantId === identity.participantId && entry.reasonCode === reasonCode && entry.status !== "cleared");
+        const signals = ["known-ai-client-identifier-on-challenge-action"];
+        if (matchingPolicyRead) signals.push("agent-policy-read-before-challenge-action");
+        if (knownAiActions.length >= 2) signals.push("repeated-known-ai-client-actions");
+        const evidence = {
+          at: now,
+          tick: null,
+          phase: null,
+          scope: "challenge-service",
+          request: {},
+          details: { signals, client: { kind: clientKind, family: clientFamily }, action, category },
+        };
+        const created = !integrityCase;
+        integrityCase ??= {
+          id: `rsic_${crypto.randomBytes(10).toString("base64url")}`,
+          challenge: body.challenge,
+          eventId: profile.eventId,
+          eventGeneration,
+          rewardEventId: market.eventId,
+          participantId: identity.participantId,
+          email: profile.email,
+          launchMode: "portal",
+          status: "open",
+          confidence: "medium",
+          reasonCode,
+          summary: "An authenticated challenge action identified itself as originating from a known AI client. This requires organizer review and is not an automatic ruling.",
+          createdAt: now,
+          updatedAt: now,
+          occurrences: 0,
+          evidence: [],
+          timeline: [],
+          reviewHistory: [],
+        };
+        integrityCase.updatedAt = now;
+        integrityCase.occurrences += 1;
+        integrityCase.evidence.push(evidence);
+        integrityCase.evidence = integrityCase.evidence.slice(-20);
+        integrityCase.timeline = profile.events.map(({ at, action: eventAction }) => ({ at, action: eventAction, tick: null, phase: null }));
+        if (created) integrityCases.push(integrityCase);
+        caseId = integrityCase.id;
+        if (created) await mirrorIntegrityAlert(integrityAlertWebhookUrl, integrityCase);
+      }
+      await persistState();
+      sendJson(response, 202, { recorded: true, caseId });
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/internal/integrity/suspicion") {
+      authenticateIntegrityAdmin(request, integrityIngestKey);
+      enforceRateLimits(request, rateLimits, [
+        { scope: "global:integrity-ingest", limit: 2_000 },
+        { scope: "ip:integrity-ingest", limit: 1_000 },
+      ], 60_000);
+      const body = await readJson(request);
+      assertIntegrityIngestOpen();
+      if (!INTEGRITY_CHALLENGES.has(body.challenge)) throw new HttpError(400, "invalid challenge suspicion");
+      const identity = normalizeIntegrityIdentity(body.identity, "suspicion");
+      if (identity.eventId !== eventGeneration) throw new HttpError(409, "integrity suspicion belongs to another CTF event generation");
+      const reasonCode = String(body.reasonCode || "").slice(0, 120);
+      if (!/^[a-z0-9][a-z0-9-]{2,119}$/.test(reasonCode)) throw new HttpError(400, "invalid suspicion reason");
+      const now = Date.now();
+      const existing = integrityCases.find((entry) => isActiveIntegrityRecord(entry) && entry.challenge === body.challenge && entry.participantId === identity.participantId && entry.reasonCode === reasonCode && entry.status !== "cleared");
+      const sourceEvidence = body.evidence && typeof body.evidence === "object" ? body.evidence : {};
+      const evidence = {
+        at: now,
+        tick: null,
+        phase: null,
+        scope: "challenge-service",
+        request: sourceEvidence.request && typeof sourceEvidence.request === "object" ? sourceEvidence.request : {},
+        details: sourceEvidence.details && typeof sourceEvidence.details === "object" ? sourceEvidence.details : sourceEvidence,
+      };
+      const sourceTimeline = Array.isArray(body.timeline) ? body.timeline.slice(-80) : [];
+      const timeline = sourceTimeline.map((entry) => ({
+        at: Number.isFinite(Number(entry?.at)) ? Number(entry.at) : now,
+        action: String(entry?.action || "activity").slice(0, 120),
+        tick: entry?.tick ?? null,
+        phase: entry?.phase ?? null,
+      }));
+      const integrityCase = existing || {
+        id: `rsic_${crypto.randomBytes(10).toString("base64url")}`,
+        challenge: body.challenge,
+        eventId: identity.eventId,
+        eventGeneration,
+        rewardEventId: market.eventId,
+        participantId: identity.participantId,
+        email: identity.email || "",
+        launchMode: "portal",
+        status: "open",
+        confidence: body.confidence === "high" ? "high" : "medium",
+        reasonCode,
+        summary: String(body.summary || "This participant workflow should receive an author-led review.").slice(0, 500),
+        createdAt: now,
+        updatedAt: now,
+        occurrences: 0,
+        evidence: [],
+        timeline: [],
+        reviewHistory: [],
+      };
+      integrityCase.updatedAt = now;
+      integrityCase.occurrences += 1;
+      integrityCase.evidence.push(evidence);
+      integrityCase.evidence = integrityCase.evidence.slice(-20);
+      integrityCase.timeline.push(...timeline);
+      integrityCase.timeline = integrityCase.timeline.slice(-120);
+      if (!existing) integrityCases.push(integrityCase);
+      await persistState();
+      if (!existing) await mirrorIntegrityAlert(integrityAlertWebhookUrl, integrityCase);
+      sendJson(response, 202, { recorded: true, caseId: integrityCase.id, action: "organizer-review" });
+      return;
+    }
+
     const caseMatch = url.pathname.match(/^\/api\/admin\/integrity\/([^/]+)$/);
     if (request.method === "PATCH" && caseMatch) {
       ensureWritable(stateFile, persistenceError);
       authenticateIntegrityAdmin(request, integrityAdminKey);
-      enforceRateLimit(request, rateLimits, "integrity-admin-write", 60, 60_000);
+      enforceRateLimits(request, rateLimits, [
+        { scope: "global:integrity-admin-write", limit: 120 },
+        { scope: "ip:integrity-admin-write", limit: 60 },
+      ], 60_000);
       const body = await readJson(request);
-      const integrityCase = integrityCases.find((candidate) => candidate.id === caseMatch[1]);
+      if (integrityReviewFreeze) {
+        throw new HttpError(409, "integrity review is sealed for finalization");
+      }
+      const integrityCase = integrityCases.find((candidate) => candidate.id === caseMatch[1] && isActiveIntegrityRecord(candidate));
       if (!integrityCase) throw new HttpError(404, "integrity case not found");
       const status = String(body.status ?? "");
       if (!INTEGRITY_STATUSES.has(status)) throw new HttpError(400, "invalid integrity case status");
@@ -516,13 +925,20 @@ export function createRewardSniperServer(options = {}) {
     if (request.method === "POST" && url.pathname === "/api/admin/event/reset") {
       ensureWritable(stateFile, persistenceError);
       authenticateIntegrityAdmin(request, integrityAdminKey);
-      enforceRateLimit(request, rateLimits, "integrity-admin-reset", 6, 60_000);
+      enforceRateLimits(request, rateLimits, [
+        { scope: "global:integrity-admin-reset", limit: 12 },
+        { scope: "ip:integrity-admin-reset", limit: 6 },
+      ], 60_000);
+      if (eventMode === "official") throw new HttpError(409, "official mode requires a newly pinned market configuration instead of an in-place reset");
       const body = await readJson(request);
       if (body.eventId !== market.eventId) throw new HttpError(409, "event changed; refresh before resetting");
       if (market.event?.stage !== "complete") throw new HttpError(409, "only a completed event can be reset");
 
       const previousEvent = {
         eventId: market.eventId,
+        eventGeneration,
+        eventMode,
+        scoringConfigHash,
         completedAt: Date.now(),
         scoreboard: scoreboard(market),
       };
@@ -530,6 +946,8 @@ export function createRewardSniperServer(options = {}) {
       if (eventArchives.length > 20) eventArchives.splice(0, eventArchives.length - 20);
 
       market = createMarket(`${options.seed ?? "web-round"}:${crypto.randomUUID()}`, marketOptions);
+      integrityIngestFreeze = null;
+      integrityReviewFreeze = null;
       eventStartedAt = null;
       phaseEndsAt = null;
       if (phaseTimer) clearTimeout(phaseTimer);
@@ -570,12 +988,11 @@ export function createRewardSniperServer(options = {}) {
         phaseEndsAt = null;
       } else if (autoPhases) {
         if (eventStartedAt) {
-          catchUpClock();
           scheduleCurrentPhase();
         } else if (eventStartsAt) {
           scheduleEventStart();
         } else if (!startOnFirstSession) {
-          startEvent(Date.now());
+          startEvent(eventClock());
         }
       }
       await persistState();
@@ -584,13 +1001,17 @@ export function createRewardSniperServer(options = {}) {
       return `http://${address.address.includes(":") ? `[${address.address}]` : address.address}:${address.port}`;
     },
     advancePhase() {
+      if (eventHasEnded()) throw new HttpError(409, "Reward Sniper scoring window has ended");
       if (phaseTimer) clearTimeout(phaseTimer);
       if (eventStartTimer) clearTimeout(eventStartTimer);
       phaseTimer = undefined;
       eventStartTimer = undefined;
       phaseEndsAt = null;
       const result = transitionPhase();
-      if (autoPhases && server.listening) scheduleCurrentPhase();
+      if (autoPhases && server.listening && market.event?.stage !== "complete") {
+        phaseEndsAt = boundedPhaseDeadline(eventClock() + durationForCurrentPhase());
+        scheduleCurrentPhase();
+      }
       void persistState();
       return result;
     },
@@ -599,11 +1020,15 @@ export function createRewardSniperServer(options = {}) {
       ready = false;
       if (phaseTimer) clearTimeout(phaseTimer);
       phaseTimer = undefined;
+      if (eventStartTimer) clearTimeout(eventStartTimer);
+      eventStartTimer = undefined;
       await persistState();
       await persistenceQueue;
       phaseEndsAt = null;
-      if (!server.listening) return;
-      await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+      if (server.listening) {
+        await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+      }
+      await ticketReplayStore.close();
     },
   };
 
@@ -613,23 +1038,37 @@ export function createRewardSniperServer(options = {}) {
   }
 
   function ensureEventActive() {
+    if (eventHasEnded()) {
+      throw new HttpError(409, "Reward Sniper scoring window has ended");
+    }
     if (autoPhases && market.event && !eventStartedAt) {
       throw new HttpError(409, "event has not started");
     }
   }
 
+  function eventHasEnded(at = eventClock()) {
+    return Number.isSafeInteger(eventEndsAt) && at >= eventEndsAt;
+  }
+
+  function boundedPhaseDeadline(deadline) {
+    return Number.isSafeInteger(eventEndsAt) ? Math.min(deadline, eventEndsAt) : deadline;
+  }
+
   function startEvent(startedAt) {
     if (eventStartedAt || market.event?.stage === "complete") return;
     eventStartedAt = startedAt;
-    phaseEndsAt = startedAt + durationForCurrentPhase();
-    catchUpClock();
-    scheduleCurrentPhase();
+    if (eventHasEnded()) {
+      phaseEndsAt = null;
+    } else {
+      phaseEndsAt = boundedPhaseDeadline(startedAt + durationForCurrentPhase());
+      scheduleCurrentPhase();
+    }
     void persistState();
   }
 
   function scheduleEventStart() {
     if (closing || eventStartedAt || !eventStartsAt) return;
-    const delay = eventStartsAt - Date.now();
+    const delay = eventStartsAt - eventClock();
     if (delay <= 0) {
       startEvent(eventStartsAt);
       return;
@@ -641,33 +1080,30 @@ export function createRewardSniperServer(options = {}) {
     eventStartTimer.unref();
   }
 
-  function catchUpClock() {
-    if (!phaseEndsAt) {
-      phaseEndsAt = Date.now() + durationForCurrentPhase();
-      return;
-    }
-    let transitions = 0;
-    while (phaseEndsAt <= Date.now() && transitions < 10_000) {
-      transitionPhase();
-      phaseEndsAt += durationForCurrentPhase();
-      transitions += 1;
-    }
-    if (transitions >= 10_000) throw new Error("saved market clock is too far behind to recover safely");
-  }
-
   function scheduleCurrentPhase() {
     if (closing || market.event?.stage === "complete") return;
-    if (!phaseEndsAt) phaseEndsAt = Date.now() + durationForCurrentPhase();
-    const delay = Math.max(1, phaseEndsAt - Date.now());
+    if (eventHasEnded()) {
+      phaseEndsAt = null;
+      return;
+    }
+    if (!Number.isSafeInteger(phaseEndsAt)) return;
+    phaseEndsAt = boundedPhaseDeadline(phaseEndsAt);
+    const scheduledDeadline = phaseEndsAt;
+    const delay = Math.max(1, scheduledDeadline - eventClock());
     phaseTimer = setTimeout(async () => {
       phaseTimer = undefined;
+      if (eventHasEnded()) {
+        phaseEndsAt = null;
+        await persistState();
+        return;
+      }
       transitionPhase();
       if (market.event?.stage === "complete") {
         phaseEndsAt = null;
         await persistState();
         return;
       }
-      phaseEndsAt = Date.now() + durationForCurrentPhase();
+      phaseEndsAt = boundedPhaseDeadline(scheduledDeadline + durationForCurrentPhase());
       try {
         await persistState();
       } catch (error) {
@@ -684,15 +1120,26 @@ export function createRewardSniperServer(options = {}) {
   }
 
   function profileKey(identity) {
-    return `${market.eventId}:${identity.participantId}`;
+    return `${eventGeneration}:${market.eventId}:${identity.participantId}`;
+  }
+
+  function isActiveIntegrityRecord(record) {
+    return record?.eventGeneration === eventGeneration && record?.rewardEventId === market.eventId;
+  }
+
+  function assertIntegrityIngestOpen() {
+    if (integrityIngestFreeze) {
+      throw new HttpError(409, "integrity ingest is frozen for finalization");
+    }
   }
 
   function integrityProfile(identity) {
     const key = profileKey(identity);
     integrityProfiles[key] ??= {
       eventId: market.eventId,
+      eventGeneration,
+      rewardEventId: market.eventId,
       participantId: identity.participantId,
-      teamId: identity.teamId,
       email: identity.email || "",
       launchMode: identity.launchMode,
       firstSeenAt: Date.now(),
@@ -727,7 +1174,7 @@ export function createRewardSniperServer(options = {}) {
   }
 
   function backfillIntegrityProfile(entry) {
-    if (!entry?.participantId || entry.eventId !== market.eventId) return;
+    if (!entry?.participantId || !isActiveIntegrityRecord(entry)) return;
     const profile = integrityProfile(entry);
     if (entry.action === "searcher-session-issued") profile.searcherSessions += 1;
     if (/^(order|commit|reveal)-/.test(entry.action)) {
@@ -791,43 +1238,30 @@ export function createRewardSniperServer(options = {}) {
 
   async function maybeRecordBehavioralCase(claims, request) {
     if (integrityCases.some((candidate) => (
-      candidate.eventId === market.eventId
+      isActiveIntegrityRecord(candidate)
       && candidate.participantId === claims.participantId
-      && candidate.reasonCode === "autonomous-workflow-pattern"
+      && candidate.reasonCode === "known-ai-client-workflow"
       && candidate.status !== "cleared"
     ))) return null;
     const profile = integrityProfile(claims);
     const signals = [];
-    if (profile.searcherSessions > 0) signals.push("explicit-searcher-session");
-    if (profile.searcherActions >= 2) signals.push("repeated-searcher-actions");
-    if (profile.browserTokenBearerRequests > 0) signals.push("browser-session-token-replayed-as-bearer");
-    if (profile.browserActions >= 2 && profile.browserTokenBearerRequests > 0) signals.push("repeated-direct-browser-token-actions");
-    if (profile.nonBrowserCookieRequests >= 2) signals.push("browser-cookie-used-by-non-browser-client");
-    if (profile.uncorrelatedBrowserActions >= 2) signals.push("browser-actions-without-correlated-ui-controls");
-    if (Object.values(profile.uiEvents).reduce((sum, value) => sum + value, 0) === 0) {
-      signals.push("no-correlated-ui-events");
-    }
-    if (profile.fastReadIntervals >= 5) signals.push("subsecond-market-polling");
-    if (claims.scope === "searcher" && profile.marketReads >= 20) signals.push("sustained-direct-api-control");
-    const hasActionEvidence = signals.includes("repeated-searcher-actions")
-      || signals.includes("browser-session-token-replayed-as-bearer")
-      || signals.includes("repeated-direct-browser-token-actions")
-      || signals.includes("browser-actions-without-correlated-ui-controls");
-    if (!hasActionEvidence) return null;
-    const directCookiePattern = signals.includes("browser-actions-without-correlated-ui-controls")
-      && (signals.includes("subsecond-market-polling") || signals.includes("browser-cookie-used-by-non-browser-client"));
-    if (signals.length < 3 && !directCookiePattern) return null;
+    const knownAiUserAgent = profile.userAgents.find((value) => value.startsWith("known-ai-client:"));
+    if (!knownAiUserAgent) return null;
+    signals.push("known-ai-client-identifier");
+    if (profile.searcherActions > 0 || profile.browserActions > 0) signals.push("known-ai-client-performed-scored-action");
+    if (profile.uncorrelatedBrowserActions > 0) signals.push("browser-actions-without-correlated-ui-controls");
+    if (!signals.includes("known-ai-client-performed-scored-action")) return null;
     return recordIntegrityCase(claims, request, {
       confidence: "medium",
-      reasonCode: "autonomous-workflow-pattern",
-      summary: "The session combined several automation-like workflow signals and should receive an author-led solve review.",
-      evidence: { signals, profile: publicIntegrityProfile(profile) },
+      reasonCode: "known-ai-client-workflow",
+      summary: "A scored action identified itself as originating from a known AI client. This requires organizer review and is not an automatic ruling.",
+      evidence: { signals, client: knownAiUserAgent, profile: publicIntegrityProfile(profile) },
     });
   }
 
   function canaryMarker(claims, placement) {
     return `rs_${crypto.createHmac("sha256", sessionSecret)
-      .update(`integrity:${market.eventId}:${claims.participantId}:${claims.teamId}:${placement}`)
+      .update(`integrity:${market.eventId}:${claims.participantId}:${placement}`)
       .digest("base64url")
       .slice(0, 28)}`;
   }
@@ -881,7 +1315,7 @@ export function createRewardSniperServer(options = {}) {
   async function recordIntegrityCase(claims, request, input) {
     const now = Date.now();
     let integrityCase = integrityCases.find((candidate) => (
-      candidate.eventId === market.eventId
+      isActiveIntegrityRecord(candidate)
       && candidate.participantId === claims.participantId
       && candidate.reasonCode === input.reasonCode
       && candidate.status !== "cleared"
@@ -901,8 +1335,9 @@ export function createRewardSniperServer(options = {}) {
         id: `rsic_${crypto.randomBytes(10).toString("base64url")}`,
         challenge: "reward-sniper",
         eventId: market.eventId,
+        eventGeneration,
+        rewardEventId: market.eventId,
         participantId: claims.participantId,
-        teamId: claims.teamId,
         email: claims.email || "",
         launchMode: claims.launchMode,
         status: "open",
@@ -938,22 +1373,29 @@ export function createRewardSniperServer(options = {}) {
 
   function participantTimeline(claims) {
     return auditLog
-      .filter((entry) => entry.eventId === market.eventId && entry.participantId === claims.participantId)
+      .filter((entry) => isActiveIntegrityRecord(entry) && entry.participantId === claims.participantId)
       .slice(-INTEGRITY_TIMELINE_LIMIT)
       .map((entry) => ({ ...entry }));
   }
 
   function integrityReport() {
-    const cases = integrityCases.slice().sort((a, b) => b.updatedAt - a.updatedAt);
+    const cases = integrityCases.filter(isActiveIntegrityRecord).sort((a, b) => b.updatedAt - a.updatedAt);
     return {
       generatedAt: Date.now(),
       event: {
         eventId: market.eventId,
+        eventGeneration,
+        eventMode,
+        scoringConfigHash,
         stage: market.event?.stage ?? "continuous",
         tick: market.tick,
         round: market.round,
         phase: market.phase,
         archivedEvents: eventArchives.length,
+        ingestFrozen: Boolean(integrityIngestFreeze),
+        ingestFreeze: integrityIngestFreeze ? structuredClone(integrityIngestFreeze) : null,
+        reviewFrozen: Boolean(integrityReviewFreeze),
+        reviewFreeze: integrityReviewFreeze ? structuredClone(integrityReviewFreeze) : null,
       },
       summary: {
         total: cases.length,
@@ -964,8 +1406,31 @@ export function createRewardSniperServer(options = {}) {
         cleared: cases.filter((entry) => entry.status === "cleared").length,
       },
       cases: structuredClone(cases),
-      profiles: Object.values(integrityProfiles).map(publicIntegrityProfile),
+      profiles: Object.values(integrityProfiles).filter(isActiveIntegrityRecord).map(publicIntegrityProfile),
+      remoteProfiles: Object.values(remoteIntegrityProfiles).filter(isActiveIntegrityRecord).map((profile) => structuredClone(profile)),
     };
+  }
+
+  function activeIntegrityDigest() {
+    const normalized = integrityCases
+      .filter(isActiveIntegrityRecord)
+      .map((entry) => ({
+        id: String(entry?.id || ""),
+        challenge: String(entry?.challenge || ""),
+        eventId: String(entry?.eventId || ""),
+        participantId: String(entry?.participantId || ""),
+        status: String(entry?.status || ""),
+        updatedAt: Number(entry?.updatedAt || 0),
+      }))
+      .sort((left, right) => (
+        left.id.localeCompare(right.id)
+        || left.challenge.localeCompare(right.challenge)
+        || left.participantId.localeCompare(right.participantId)
+      ));
+    return Object.freeze({
+      activeCaseCount: normalized.length,
+      digest: crypto.createHash("sha256").update(JSON.stringify(normalized)).digest("hex"),
+    });
   }
 
   function persistState() {
@@ -976,14 +1441,22 @@ export function createRewardSniperServer(options = {}) {
     if (!stateFile) return Promise.resolve();
     const body = JSON.stringify({
       version: STATE_VERSION,
+      eventGeneration,
+      eventMode,
+      scoringConfigHash,
+      scoringConfig,
       market: snapshot(market),
       phaseEndsAt,
       consumedTickets: [...consumedTickets],
       eventStartedAt,
       eventStartsAt,
+      eventEndsAt,
       auditLog,
       integrityCases,
       integrityProfiles,
+      remoteIntegrityProfiles,
+      integrityIngestFreeze,
+      integrityReviewFreeze,
       eventArchives,
       secrets: {
         voucher: Buffer.from(voucherSecret).toString("base64url"),
@@ -1008,8 +1481,9 @@ export function createRewardSniperServer(options = {}) {
     auditLog.push({
       at: Date.now(),
       eventId: market.eventId,
+      eventGeneration,
+      rewardEventId: market.eventId,
       participantId: identity.participantId,
-      teamId: identity.teamId,
       launchMode: identity.launchMode,
       scope,
       action,
@@ -1028,26 +1502,72 @@ function tryAuthenticateClaims(request, secret, market) {
   }
 }
 
-function requestFingerprint(request, secret) {
-  const forwarded = String(request.headers["x-forwarded-for"] ?? "").split(",")[0].trim();
-  const address = forwarded || String(request.headers["cf-connecting-ip"] ?? "") || request.socket.remoteAddress || "";
+function normalizeRemoteRequestContext(requestMeta) {
+  const allowed = (value, values, fallback = "missing") => values.has(value) ? value : fallback;
   return {
-    userAgent: String(request.headers["user-agent"] ?? "").slice(0, 300),
-    ipHash: address
+    fetchSite: allowed(requestMeta.fetchSite, new Set(["same-origin", "same-site", "cross-site", "none"])),
+    fetchMode: allowed(requestMeta.fetchMode, new Set(["navigate", "cors", "same-origin", "no-cors", "websocket"])),
+    fetchDest: String(requestMeta.fetchDest || "").slice(0, 24),
+    fetchUser: requestMeta.fetchUser === "?1" ? "?1" : "missing",
+    accept: allowed(requestMeta.accept, new Set(["document", "style", "script", "json", "image", "other", "missing"])),
+    referer: allowed(requestMeta.referer, new Set(["same-origin", "cross-origin", "present", "invalid", "missing"])),
+    origin: allowed(requestMeta.origin, new Set(["same-origin", "cross-origin", "present", "invalid", "missing"])),
+    clientHints: requestMeta.clientHints === true,
+  };
+}
+
+function normalizeIntegrityIdentity(value, label) {
+  const identity = value && typeof value === "object" ? value : {};
+  const allowedFields = new Set(["participantId", "participant_id", "eventId", "email", "launchMode", "scope"]);
+  if (Object.keys(identity).some((field) => !allowedFields.has(field))) {
+    throw new HttpError(400, `invalid ${label} participant identity fields`);
+  }
+  const participantId = String(identity.participantId || identity.participant_id || "");
+  if (!PARTICIPANT_ID_PATTERN.test(participantId)) {
+    throw new HttpError(400, `invalid ${label} participant identity`);
+  }
+  return {
+    participantId,
+    eventId: String(identity.eventId || ""),
+    email: String(identity.email || ""),
+  };
+}
+
+function requestFingerprint(request, secret) {
+  const address = trustedClientAddress(request);
+  return {
+    userAgent: normalizedClientLabel(request.headers["user-agent"]),
+    ipHash: address !== "unknown"
       ? crypto.createHmac("sha256", secret).update(`integrity-ip:${address}`).digest("hex").slice(0, 20)
       : "",
   };
 }
 
+function normalizedClientLabel(userAgent) {
+  const value = String(userAgent || "");
+  const families = [
+    ["openai", /\b(?:openai|chatgpt|codex)\b/i], ["anthropic", /\b(?:anthropic|claude)\b/i],
+    ["google-ai", /\b(?:gemini|google.*(?:agent|ai))\b/i], ["browser-use", /\bbrowser[-_ ]?use\b/i],
+    ["computer-use", /\bcomputer[-_ ]?use\b/i], ["perplexity", /\bperplexity\b/i],
+    ["aider", /\baider\b/i], ["cursor-agent", /\bcursor[-_ ]?agent\b/i], ["windsurf-agent", /\bwindsurf[-_ ]?agent\b/i],
+  ];
+  for (const [family, pattern] of families) if (pattern.test(value)) return `known-ai-client:${family}`;
+  if (/\b(?:headlesschrome|playwright|puppeteer|selenium|phantomjs)\b/i.test(value)) return "headless-client";
+  if (/(?:Firefox|Chrome|Chromium|Safari|Edg)\//i.test(value)) return "browser";
+  if (/\b(?:curl|wget|python-requests|node-fetch|undici|playwright|puppeteer|selenium)\b/i.test(value)) return "script-client";
+  return "unknown";
+}
+
 function looksLikeBrowser(userAgent) {
-  return /(?:Firefox|Chrome|Chromium|Safari|Edg)\//i.test(String(userAgent || ""));
+  return userAgent === "browser" || /(?:Firefox|Chrome|Chromium|Safari|Edg)\//i.test(String(userAgent || ""));
 }
 
 function publicIntegrityProfile(profile) {
   return {
     eventId: profile.eventId,
+    eventGeneration: profile.eventGeneration,
+    rewardEventId: profile.rewardEventId,
     participantId: profile.participantId,
-    teamId: profile.teamId,
     email: profile.email || "",
     launchMode: profile.launchMode,
     firstSeenAt: profile.firstSeenAt,
@@ -1109,16 +1629,26 @@ function normalizeOptionalHttpsUrl(value, label) {
   return url.toString();
 }
 
-function authenticateLaunch(body, { allowDevSessions, allowDirectTestAccess, directTestAccessKey, consumedTickets, ticketSecret }) {
+async function authenticateLaunch(body, {
+  allowDevSessions,
+  allowDirectTestAccess,
+  directTestAccessKey,
+  registeredParticipantIds,
+  ticketReplayStore,
+  ticketSecret,
+}) {
   if (allowDirectTestAccess && body?.directTest === true) {
     if (!directTestAccessKey || !secretMatches(body.testKey, directTestAccessKey)) {
       throw new HttpError(401, "a valid rehearsal access key is required");
     }
-    const teamId = String(body.teamId ?? "").trim();
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{1,47}$/.test(teamId)) {
-      throw new HttpError(400, "direct test access requires a valid teamId");
+    const participantId = String(body.participantId ?? "").trim();
+    if (!PARTICIPANT_ID_PATTERN.test(participantId)) {
+      throw new HttpError(400, "direct test access requires a valid participantId");
     }
-    return { teamId, participantId: `rehearsal-${teamId}`, launchMode: "direct-test" };
+    if (registeredParticipantIds && !registeredParticipantIds.has(participantId)) {
+      throw new HttpError(403, "participant is not registered for this event");
+    }
+    return { participantId, launchMode: "direct-test" };
   }
   if (ticketSecret) {
     if (typeof body.ticket !== "string" || body.ticket.length > 4_096) {
@@ -1128,31 +1658,43 @@ function authenticateLaunch(body, { allowDevSessions, allowDirectTestAccess, dir
     try {
       claims = verifyParticipantTicket(body.ticket, ticketSecret, {
         audience: "reward-sniper",
-        eventId: "ctf26",
+        eventId: ticketReplayStore.eventGeneration,
       });
     } catch (error) {
       if (error instanceof ParticipantTicketError) throw new HttpError(401, error.message);
       throw error;
     }
-    if (typeof claims.team_id !== "string" || !/^[a-zA-Z0-9_-]{3,40}$/.test(claims.team_id)) {
-      throw new HttpError(400, "portal team id is not valid for this challenge");
+    const participantId = String(claims.participant_id || claims.participantId || "");
+    if (!PARTICIPANT_ID_PATTERN.test(participantId)) {
+      throw new HttpError(400, "portal participant id is not valid for this challenge");
     }
-    if (consumedTickets.has(claims.jti)) throw new HttpError(409, "launch ticket has already been used");
-    consumedTickets.set(claims.jti, claims.exp);
+    if (registeredParticipantIds && !registeredParticipantIds.has(participantId)) {
+      throw new HttpError(403, "participant is not registered for this event");
+    }
+    const consumed = await ticketReplayStore.consume({
+      eventId: claims.event_id,
+      audience: claims.aud,
+      participantId,
+      jti: claims.jti,
+      expiresAt: claims.exp,
+    });
+    if (!consumed) throw new HttpError(409, "launch ticket has already been used");
     return {
-      teamId: claims.team_id,
-      participantId: claims.participant_id,
+      participantId,
       email: claims.email || "",
       launchMode: "portal",
     };
   }
 
   if (!allowDevSessions) throw new HttpError(503, "portal ticket verification is not configured");
-  const teamId = body.teamId ?? `team-${crypto.randomUUID().slice(0, 8)}`;
-  if (typeof teamId !== "string" || !/^[a-zA-Z0-9_-]{3,40}$/.test(teamId)) {
-    throw new HttpError(400, "team id must be 3-40 letters, numbers, underscores, or dashes");
+  const participantId = body.participantId ?? `participant-${crypto.randomUUID().slice(0, 8)}`;
+  if (typeof participantId !== "string" || !PARTICIPANT_ID_PATTERN.test(participantId)) {
+    throw new HttpError(400, "participant id must be 1-128 letters, numbers, underscores, or dashes and start with a letter or number");
   }
-  return { teamId, participantId: `local-${teamId}`, launchMode: "local" };
+  if (registeredParticipantIds && !registeredParticipantIds.has(participantId)) {
+    throw new HttpError(403, "participant is not registered for this event");
+  }
+  return { participantId, launchMode: "local" };
 }
 
 function secretMatches(candidate, expected) {
@@ -1165,7 +1707,6 @@ function secretMatches(candidate, expected) {
 function createAccessToken(identity, secret, options = {}) {
   const now = Math.floor(Date.now() / 1_000);
   const payload = Buffer.from(JSON.stringify({
-    teamId: identity.teamId,
     participantId: identity.participantId,
     email: identity.email || "",
     launchMode: identity.launchMode,
@@ -1177,10 +1718,6 @@ function createAccessToken(identity, secret, options = {}) {
   })).toString("base64url");
   const signature = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
   return `${payload}.${signature}`;
-}
-
-function authenticate(request, secret, market) {
-  return authenticateClaims(request, secret, market).teamId;
 }
 
 function authenticateClaims(request, secret, market) {
@@ -1198,21 +1735,21 @@ function authenticateCookieClaims(request, secret, market) {
 
 function verifyAccessToken(token, secret, market) {
   const parts = token.split(".");
-  if (parts.length !== 2) throw new HttpError(401, "valid team access token required");
+  if (parts.length !== 2) throw new HttpError(401, "valid participant access token required");
   const [payload, actual] = parts;
   const expected = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
-  if (!safeEqualText(actual, expected)) throw new HttpError(401, "valid team access token required");
+  if (!safeEqualText(actual, expected)) throw new HttpError(401, "valid participant access token required");
   let claims;
   try {
     claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
   } catch {
-    throw new HttpError(401, "valid team access token required");
+    throw new HttpError(401, "valid participant access token required");
   }
   if (!Number.isSafeInteger(claims.exp) || claims.exp <= Math.floor(Date.now() / 1_000)) {
-    throw new HttpError(401, "team session has expired; relaunch from the event portal");
+    throw new HttpError(401, "participant session has expired; relaunch from the event portal");
   }
-  if (typeof claims.teamId !== "string" || !market.teams[claims.teamId]) {
-    throw new HttpError(401, "valid team access token required");
+  if (typeof claims.participantId !== "string" || !market.participants[claims.participantId]) {
+    throw new HttpError(401, "valid participant access token required");
   }
   if (claims.eventId !== market.eventId || !["browser", "searcher"].includes(claims.scope)) {
     throw new HttpError(401, "session belongs to a different market event; relaunch from the event portal");
@@ -1244,12 +1781,13 @@ function normalizeAction(action) {
     if (!voucher || typeof voucher !== "object" || Array.isArray(voucher)) {
       throw new HttpError(400, "ticket action requires a voucher");
     }
+    const participantId = String(voucher.participantId ?? "");
     return {
       type: "ticket",
       binId: requireSafeInteger(action.binId, "bin id"),
       liquidity: requirePositiveSafeInteger(action.liquidity, "liquidity"),
       voucher: {
-        teamId: String(voucher.teamId ?? ""),
+        participantId,
         tick: requireSafeInteger(voucher.tick, "voucher tick"),
         binId: requireSafeInteger(voucher.binId, "voucher bin id"),
         nonce: String(voucher.nonce ?? ""),
@@ -1263,10 +1801,15 @@ function normalizeAction(action) {
   throw new HttpError(400, "unsupported action type");
 }
 
+function publicAction(action) {
+  return structuredClone(action);
+}
+
 function playerMarketView(view) {
   return {
     ...view,
     bins: view.bins.map(({ staleTicks: _staleTicks, ...bin }) => bin),
+    recentActivity: structuredClone(view.recentActivity),
   };
 }
 
@@ -1296,25 +1839,113 @@ async function readJson(request) {
   }
 }
 
-function enforceRateLimit(request, buckets, scope, limit, windowMs) {
-  const forwarded = String(request.headers["x-forwarded-for"] ?? "").split(",")[0].trim();
-  const address = forwarded || request.socket.remoteAddress || "unknown";
-  const key = scope.startsWith("write:") ? scope : `${scope}:${address}`;
+function enforceRateLimits(request, buckets, rules, windowMs) {
+  const address = trustedClientAddress(request);
   const now = Date.now();
-  let bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    bucket = { count: 0, resetAt: now + windowMs };
-    buckets.set(key, bucket);
-  }
-  bucket.count += 1;
-  if (bucket.count > limit) {
+  const candidates = rules.map(({ scope, limit }) => {
+    const key = scope.startsWith("global:") || scope.startsWith("participant:")
+      ? scope
+      : `${scope}:${address}`;
+    let bucket = buckets.get(key);
+    if (!bucket || bucket.resetAt <= now) bucket = { count: 0, resetAt: now + windowMs };
+    return { key, bucket, limit };
+  });
+  const blocked = candidates.filter(({ bucket, limit }) => bucket.count + 1 > limit);
+  if (blocked.length > 0) {
+    const resetAt = Math.max(...blocked.map(({ bucket }) => bucket.resetAt));
     throw new HttpError(429, "too many requests; wait for the current rate window", {
-      retryAfter: Math.max(1, Math.ceil((bucket.resetAt - now) / 1_000)),
+      retryAfter: Math.max(1, Math.ceil((resetAt - now) / 1_000)),
     });
+  }
+  for (const candidate of candidates) {
+    candidate.bucket.count += 1;
+    buckets.set(candidate.key, candidate.bucket);
   }
   if (buckets.size > 5_000) {
     for (const [candidate, value] of buckets) if (value.resetAt <= now) buckets.delete(candidate);
   }
+}
+
+function enforceParticipantBudgets(request, buckets, operation, participantId, limits) {
+  enforceRateLimits(request, buckets, [
+    { scope: `global:${operation}`, limit: limits.global },
+    { scope: `ip:${operation}`, limit: limits.ip },
+    { scope: `participant:${operation}:${participantId}`, limit: limits.participant },
+  ], 60_000);
+}
+
+function enforceWriteBudgets(request, buckets, participantId) {
+  enforceParticipantBudgets(request, buckets, "write", participantId, {
+    participant: 30,
+    ip: 600,
+    global: 6_000,
+  });
+}
+
+function assertIntegrityFreezeBinding(value, expected) {
+  if (
+    String(value?.eventId || "") !== expected.eventId
+    || String(value?.eventGeneration || "") !== expected.eventGeneration
+    || String(value?.scoringConfigHash || "").toLowerCase() !== expected.scoringConfigHash
+  ) {
+    throw new HttpError(409, "integrity freeze belongs to another event configuration");
+  }
+}
+
+function normalizeIntegrityIngestFreeze(value, expected) {
+  if (value === undefined || value === null) return null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("saved integrity ingest freeze is malformed");
+  }
+  try {
+    assertIntegrityFreezeBinding(value, expected);
+  } catch {
+    throw new Error("saved integrity ingest freeze belongs to another event configuration");
+  }
+  const frozenAt = Number(value.frozenAt);
+  if (!Number.isSafeInteger(frozenAt) || frozenAt <= 0) {
+    throw new Error("saved integrity ingest freeze is malformed");
+  }
+  return Object.freeze({
+    eventId: expected.eventId,
+    eventGeneration: expected.eventGeneration,
+    scoringConfigHash: expected.scoringConfigHash,
+    frozenAt,
+    organizer: String(value.organizer || "organizer").slice(0, 160),
+  });
+}
+
+function normalizeIntegrityReviewFreeze(value, expected) {
+  if (value === undefined || value === null) return null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("saved integrity review freeze is malformed");
+  }
+  try {
+    assertIntegrityFreezeBinding(value, expected);
+  } catch {
+    throw new Error("saved integrity review freeze belongs to another event configuration");
+  }
+  const frozenAt = Number(value.frozenAt);
+  const activeCaseCount = Number(value.activeCaseCount);
+  const digest = String(value.digest || "").toLowerCase();
+  if (
+    !Number.isSafeInteger(frozenAt)
+    || frozenAt <= 0
+    || !Number.isSafeInteger(activeCaseCount)
+    || activeCaseCount < 0
+    || !/^[a-f0-9]{64}$/.test(digest)
+  ) {
+    throw new Error("saved integrity review freeze is malformed");
+  }
+  return Object.freeze({
+    eventId: expected.eventId,
+    eventGeneration: expected.eventGeneration,
+    scoringConfigHash: expected.scoringConfigHash,
+    digest,
+    activeCaseCount,
+    frozenAt,
+    organizer: String(value.organizer || "organizer").slice(0, 160),
+  });
 }
 
 function ensureWritable(stateFile, persistenceError) {
@@ -1334,9 +1965,9 @@ function setSecurityHeaders(response) {
   response.setHeader("x-ctf-agent-policy", "/agents.txt");
 }
 
-function sendJson(response, status, value) {
+function sendJson(response, status, value, headers = {}) {
   if (response.writableEnded) return;
-  response.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+  response.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers });
   response.end(JSON.stringify(value));
 }
 
@@ -1358,10 +1989,91 @@ function readSavedState(filename) {
   } catch (error) {
     throw new Error(`could not read saved Reward Sniper state: ${error.message}`);
   }
-  if (value?.version !== STATE_VERSION || !value.market || !Array.isArray(value.consumedTickets)) {
+  if (![1, STATE_VERSION].includes(value?.version) || !value.market || !Array.isArray(value.consumedTickets)) {
     throw new Error("saved Reward Sniper state has an unsupported format");
   }
   return value;
+}
+
+function activeEventGeneration(options) {
+  const configured = String(options.eventGeneration || "").trim();
+  const replayGeneration = String(options.ticketReplayStore?.eventGeneration || "").trim();
+  if (configured && replayGeneration && configured !== replayGeneration) {
+    throw new Error("configured CTF event generation does not match the ticket replay store");
+  }
+  const value = replayGeneration || configured || "ctf26";
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(value)) {
+    throw new Error("CTF event generation must be 1-64 letters, numbers, underscores, or dashes");
+  }
+  return value;
+}
+
+function normalizeEventMode(value) {
+  const mode = String(value || "staging").trim().toLowerCase();
+  if (!new Set(["staging", "official"]).has(mode)) {
+    throw new Error("Reward Sniper event mode must be staging or official");
+  }
+  return mode;
+}
+
+function assertEventPolicy({ eventMode, startOnFirstSession, eventStartsAt, eventEndsAt, registeredParticipantIds }) {
+  if (eventMode !== "official") return;
+  if (startOnFirstSession || !Number.isSafeInteger(eventStartsAt) || !Number.isSafeInteger(eventEndsAt)) {
+    throw new Error("official Reward Sniper mode requires scheduled EVENT_START_AT and EVENT_END_AT");
+  }
+  if (!(registeredParticipantIds instanceof Set) || registeredParticipantIds.size === 0) {
+    throw new Error("official Reward Sniper mode requires the exact checked-in participant roster");
+  }
+}
+
+function rewardScoringConfiguration(options) {
+  return Object.freeze({
+    schemaVersion: REWARD_SCORING_SCHEMA_VERSION,
+    eventGeneration: options.eventGeneration,
+    eventMode: options.eventMode,
+    registeredParticipantIds: Object.freeze(options.registeredParticipantIds ? [...options.registeredParticipantIds].sort() : []),
+    startPolicy: options.startOnFirstSession ? "first-session" : options.eventStartsAt ? "scheduled" : "immediate",
+    eventStartsAt: options.eventStartsAt,
+    eventEndsAt: options.eventEndsAt,
+    commitDurationMs: options.commitDurationMs,
+    revealDurationMs: options.revealDurationMs,
+    startingLiquidity: options.startingLiquidity ?? DEFAULT_STARTING_LIQUIDITY,
+    maxActionLiquidity: options.maxActionLiquidity ?? MAX_ACTION_LIQUIDITY,
+    roundTicks: options.roundTicks ?? DEFAULT_ROUND_TICKS,
+    practiceRounds: options.practiceRounds ?? 0,
+    scoredRounds: options.scoredRounds ?? 0,
+    ticketsPerRound: TICKETS_PER_ROUND,
+    minimumQualifyingScoredRounds: MIN_QUALIFYING_SCORED_ROUNDS,
+    swapLiquidityFee: SWAP_LIQUIDITY_FEE,
+    scoreDecimalPlaces: 12,
+  });
+}
+
+function hashScoringConfiguration(configuration) {
+  return crypto.createHash("sha256").update(JSON.stringify(configuration)).digest("hex");
+}
+
+function assertSavedStateBinding(saved, { eventGeneration, eventMode, eventEndsAt, scoringConfigHash }) {
+  if (!saved) return;
+  if (saved.version === 1) {
+    if (eventMode === "official") {
+      throw new Error("legacy Reward Sniper state is not bound to the official event generation");
+    }
+    return;
+  }
+  if (saved.eventGeneration !== eventGeneration) {
+    throw new Error("saved Reward Sniper state belongs to a different CTF event generation");
+  }
+  if (saved.eventMode !== eventMode) {
+    throw new Error("saved Reward Sniper state belongs to a different event mode");
+  }
+  const savedEventEndsAt = Number.isSafeInteger(saved.eventEndsAt) ? saved.eventEndsAt : null;
+  if (savedEventEndsAt !== eventEndsAt) {
+    throw new Error("saved Reward Sniper state belongs to a different event end");
+  }
+  if (saved.scoringConfigHash !== scoringConfigHash) {
+    throw new Error("saved Reward Sniper state belongs to a different scoring configuration");
+  }
 }
 
 function normalizeOptionalPath(value) {
@@ -1416,8 +2128,8 @@ function parseIntegerEnv(name, fallback) {
   return value;
 }
 
-function parseEventStartEnv(name) {
-  const raw = String(process.env[name] || "").trim();
+function parseEventTimeEnv(name, env = process.env) {
+  const raw = String(env[name] || "").trim();
   if (!raw) return null;
   const value = /^\d+$/.test(raw) ? Number(raw) : Date.parse(raw);
   if (!Number.isSafeInteger(value) || value <= 0) {
@@ -1429,27 +2141,32 @@ function parseEventStartEnv(name) {
 if (process.argv[1] && path.resolve(process.argv[1]) === MODULE_PATH) {
   const production = process.env.NODE_ENV === "production";
   const ticketSecret = process.env.PARTICIPANT_TICKET_SECRET || null;
-  if (production) validateProductionEnvironment();
+  if (production) validateProductionEnvironment(process.env);
+  const ticketReplayStore = await createRewardTicketReplayStore(process.env);
   const app = createRewardSniperServer({
     commitDurationMs: parseIntegerEnv("COMMIT_MS", 20_000),
     revealDurationMs: parseIntegerEnv("REVEAL_MS", 10_000),
     roundTicks: parseIntegerEnv("ROUND_TICKS", 12),
     practiceRounds: parseIntegerEnv("PRACTICE_ROUNDS", 0),
     scoredRounds: parseIntegerEnv("SCORED_ROUNDS", 0),
+    eventMode: process.env.REWARD_EVENT_MODE,
     startOnFirstSession: process.env.START_ON_FIRST_SESSION === "true",
-    eventStartsAt: parseEventStartEnv("EVENT_START_AT"),
+    eventStartsAt: parseEventTimeEnv("EVENT_START_AT"),
+    eventEndsAt: parseEventTimeEnv("EVENT_END_AT"),
     stateFile: process.env.STATE_FILE,
     voucherSecret: process.env.VOUCHER_SECRET,
     sessionSecret: process.env.SESSION_SECRET,
     ticketSecret,
+    ticketReplayStore,
     allowDevSessions: !production,
     secureCookies: production,
-    allowDirectTestAccess: process.env.ALLOW_DIRECT_TEST_ACCESS === "true",
+    allowDirectTestAccess: !production && process.env.ALLOW_DIRECT_TEST_ACCESS === "true",
     directTestAccessKey: process.env.DIRECT_TEST_ACCESS_KEY || null,
     integrityAdminKey: process.env.INTEGRITY_ADMIN_KEY || null,
     integrityIngestKey: process.env.INTEGRITY_INGEST_KEY || null,
     integrityAlertWebhookUrl: process.env.INTEGRITY_ALERT_WEBHOOK_URL || null,
     seed: process.env.MARKET_SEED || "web-round",
+    registeredParticipantIds: registeredParticipantsEnv(process.env),
   });
   const url = await app.listen(parseIntegerEnv("PORT", 3010), process.env.HOST ?? "127.0.0.1");
   console.log(`reward sniper market service listening on ${url}`);
@@ -1462,18 +2179,91 @@ if (process.argv[1] && path.resolve(process.argv[1]) === MODULE_PATH) {
   }
 }
 
-function validateProductionEnvironment() {
+export function validateProductionEnvironment(env = process.env) {
+  rewardTicketReplayConfiguration({ ...env, NODE_ENV: "production" });
+  const eventMode = String(env.REWARD_EVENT_MODE || "").trim().toLowerCase();
+  if (!new Set(["staging", "official"]).has(eventMode)) {
+    throw new Error("REWARD_EVENT_MODE must be explicitly set to staging or official in production");
+  }
   for (const name of ["PARTICIPANT_TICKET_SECRET", "SESSION_SECRET", "VOUCHER_SECRET", "INTEGRITY_ADMIN_KEY"]) {
-    const value = process.env[name];
+    const value = env[name];
     if (!value) throw new Error(`${name} is required when NODE_ENV=production`);
     if (value.startsWith("replace-with-")) throw new Error(`${name} still contains the example placeholder`);
   }
-  if (!process.env.MARKET_SEED) throw new Error("MARKET_SEED is required when NODE_ENV=production");
-  if (process.env.MARKET_SEED.startsWith("replace-with-")) {
+  if (!env.MARKET_SEED) throw new Error("MARKET_SEED is required when NODE_ENV=production");
+  if (env.MARKET_SEED.startsWith("replace-with-")) {
     throw new Error("MARKET_SEED still contains the example placeholder");
   }
-  if (!process.env.STATE_FILE) throw new Error("STATE_FILE is required when NODE_ENV=production");
-  if (process.env.ALLOW_DIRECT_TEST_ACCESS === "true" && Buffer.byteLength(process.env.DIRECT_TEST_ACCESS_KEY || "") < 32) {
-    throw new Error("DIRECT_TEST_ACCESS_KEY must contain at least 32 bytes when direct test access is enabled");
+  if (!env.STATE_FILE) throw new Error("STATE_FILE is required when NODE_ENV=production");
+  if (env.ALLOW_DIRECT_TEST_ACCESS === "true") {
+    throw new Error("ALLOW_DIRECT_TEST_ACCESS is not permitted when NODE_ENV=production");
   }
+
+  const encodedScoredRounds = String(env.SCORED_ROUNDS || "").trim();
+  const scoredRounds = Number(encodedScoredRounds);
+  if (
+    !encodedScoredRounds
+    || !Number.isSafeInteger(scoredRounds)
+    || scoredRounds < MIN_QUALIFYING_SCORED_ROUNDS
+  ) {
+    throw new Error(`SCORED_ROUNDS must be explicitly set to at least ${MIN_QUALIFYING_SCORED_ROUNDS} in production`);
+  }
+
+  const startOnFirstSession = String(env.START_ON_FIRST_SESSION || "").trim();
+  if (!new Set(["true", "false"]).has(startOnFirstSession)) {
+    throw new Error("START_ON_FIRST_SESSION must be explicitly set to true or false in production");
+  }
+  const scheduledStart = String(env.EVENT_START_AT || "").trim();
+  const scheduledEnd = String(env.EVENT_END_AT || "").trim();
+  if (startOnFirstSession === "true" && scheduledStart) {
+    throw new Error("EVENT_START_AT must be empty when START_ON_FIRST_SESSION=true");
+  }
+  if (startOnFirstSession === "false" && !scheduledStart) {
+    throw new Error("EVENT_START_AT is required when START_ON_FIRST_SESSION=false");
+  }
+  if (startOnFirstSession === "false") {
+    const roster = registeredParticipantsEnv(env);
+    if (!roster?.length) {
+      throw new Error("REGISTERED_PARTICIPANT_IDS_JSON must preload the checked-in participant roster for a scheduled event");
+    }
+  }
+  if (eventMode === "official") {
+    if (startOnFirstSession !== "false" || !scheduledStart || !scheduledEnd) {
+      throw new Error("official REWARD_EVENT_MODE requires START_ON_FIRST_SESSION=false, EVENT_START_AT, and EVENT_END_AT");
+    }
+    const roster = registeredParticipantsEnv(env);
+    if (!roster?.length) {
+      throw new Error("official REWARD_EVENT_MODE requires the exact REGISTERED_PARTICIPANT_IDS_JSON roster");
+    }
+  }
+  const eventStartsAt = scheduledStart ? parseEventTimeEnv("EVENT_START_AT", env) : null;
+  const eventEndsAt = scheduledEnd ? parseEventTimeEnv("EVENT_END_AT", env) : null;
+  if (eventStartsAt !== null && eventEndsAt !== null && eventEndsAt <= eventStartsAt) {
+    throw new Error("EVENT_END_AT must be after EVENT_START_AT");
+  }
+}
+
+function normalizeRegisteredParticipants(values) {
+  if (values == null) return null;
+  if (!Array.isArray(values) || values.length === 0) throw new Error("registered participant IDs must be a non-empty array");
+  const normalized = values.map((value) => String(value));
+  if (new Set(normalized).size !== normalized.length || normalized.some((participantId) => !PARTICIPANT_ID_PATTERN.test(participantId))) {
+    throw new Error("registered participant IDs contain an invalid or duplicate participant ID");
+  }
+  return new Set(normalized);
+}
+
+function parseRegisteredParticipantsEnv(value) {
+  const encoded = String(value || "").trim();
+  if (!encoded) return null;
+  try {
+    return [...normalizeRegisteredParticipants(JSON.parse(encoded))];
+  } catch (error) {
+    if (/registered participant IDs/.test(error.message)) throw error;
+    throw new Error("REGISTERED_PARTICIPANT_IDS_JSON must be a JSON array of participant IDs");
+  }
+}
+
+function registeredParticipantsEnv(env) {
+  return parseRegisteredParticipantsEnv(env.REGISTERED_PARTICIPANT_IDS_JSON);
 }

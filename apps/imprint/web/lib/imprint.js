@@ -20,11 +20,9 @@ export const PROGRAM_ID = new PublicKey(
 if (!PROGRAM_ID.equals(IDL_PROGRAM_ID)) {
   throw new Error("NEXT_PUBLIC_PROGRAM_ID must match the bundled IMPRINT IDL");
 }
-export const DEFAULT_VAULT_ID =
-  process.env.NEXT_PUBLIC_VAULT_ID || "target-vault-001";
-
 export function rpcUrl() {
-  return process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8899";
+  if (typeof window !== "undefined") return `${window.location.origin}/api/rpc`;
+  return "http://127.0.0.1:8899/api/rpc";
 }
 
 export function connection() {
@@ -39,14 +37,6 @@ export function program(wallet) {
   return new anchor.Program(idl, provider);
 }
 
-export function vaultIdBytes(value = DEFAULT_VAULT_ID) {
-  const encoded = new TextEncoder().encode(value);
-  if (encoded.length !== 16) {
-    throw new Error("vault id must be exactly 16 bytes");
-  }
-  return encoded;
-}
-
 export function passkeySeed(passkeyPubkey) {
   return sha256(passkeyPubkey);
 }
@@ -56,27 +46,6 @@ export function passkeyPda(passkeyPubkey) {
     [new TextEncoder().encode("passkey"), passkeySeed(passkeyPubkey)],
     PROGRAM_ID
   )[0];
-}
-
-export function vaultPda(authority, vaultId = DEFAULT_VAULT_ID) {
-  return PublicKey.findProgramAddressSync(
-    [
-      new TextEncoder().encode("vault"),
-      new PublicKey(authority).toBuffer(),
-      vaultIdBytes(vaultId),
-    ],
-    PROGRAM_ID
-  )[0];
-}
-
-export function targetVault() {
-  const target = String(process.env.NEXT_PUBLIC_TARGET_VAULT || "").trim();
-  if (!target) {
-    throw new Error(
-      "NEXT_PUBLIC_TARGET_VAULT is required for the player console"
-    );
-  }
-  return new PublicKey(target);
 }
 
 export async function getAssertion({ credentialId, challenge }) {

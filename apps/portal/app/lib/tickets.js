@@ -1,8 +1,12 @@
 import crypto from "crypto";
 import { issueParticipantTicket } from "@ctf26/participant-ticket";
+import { assertChallengeLaunchAllowed, leaderboardConfig } from "./leaderboard-config.mjs";
+import { participantIdForEmail } from "./registration.mjs";
 
 const SESSION_COOKIE = "ctf26_user";
 const STATE_COOKIE = "ctf26_oauth_state";
+const RULES_COOKIE = "ctf26_rules";
+export const RULES_VERSION = "2026-07-21";
 const TICKET_SECRET_ENV = Object.freeze({
   "reward-sniper": "CHALLENGE_TICKET_SECRET_REWARD_SNIPER",
   imprint: "CHALLENGE_TICKET_SECRET_IMPRINT",
@@ -11,11 +15,13 @@ const TICKET_SECRET_ENV = Object.freeze({
   "last-stop": "CHALLENGE_TICKET_SECRET_LAST_STOP",
   "after-hours": "CHALLENGE_TICKET_SECRET_AFTER_HOURS",
   "player-two": "CHALLENGE_TICKET_SECRET_PLAYER_TWO",
-  "st-genesis-airdrop": "CHALLENGE_TICKET_SECRET_ST_GENESIS_AIRDROP",
+  "the-broadcast": "CHALLENGE_TICKET_SECRET_THE_BROADCAST",
+  "evidence-room": "CHALLENGE_TICKET_SECRET_EVIDENCE_ROOM",
+  "second-key": "CHALLENGE_TICKET_SECRET_SECOND_KEY",
 });
 
-function secret(name) {
-  const value = process.env[name];
+function secret(name, env = process.env) {
+  const value = env[name];
   if (!value) {
     throw new Error(`${name} is not configured`);
   }
@@ -23,6 +29,16 @@ function secret(name) {
     throw new Error(`${name} must contain at least 32 bytes`);
   }
   return value;
+}
+
+function activeEventGeneration(env = process.env) {
+  return leaderboardConfig(env).eventGeneration;
+}
+
+export function challengeTicketSecret(audience, env = process.env) {
+  const secretEnv = TICKET_SECRET_ENV[audience];
+  if (!secretEnv) throw new Error(`unknown challenge audience: ${audience}`);
+  return secret(secretEnv, env);
 }
 
 export function base64urlJson(value) {
@@ -65,22 +81,14 @@ export function verifySignedToken(token, key) {
   return body;
 }
 
-export function participantIdForEmail(email) {
-  return crypto
-    .createHmac("sha256", secret("PARTICIPANT_ID_SECRET"))
-    .update(String(email || "").toLowerCase())
-    .digest("hex")
-    .slice(0, 16);
-}
-
 export function createUserSession(user) {
   return makeSignedToken(
     {
       participant_id: user.participant_id,
-      team_id: user.team_id || user.participant_id,
-      event_id: "ctf26",
+      event_id: activeEventGeneration(),
       email: user.email,
       name: user.name || user.email,
+      leaderboard_name: user.leaderboard_name || user.participant_id,
       picture: user.picture || "",
       exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60,
     },
@@ -89,23 +97,39 @@ export function createUserSession(user) {
 }
 
 export function verifyUserSession(token) {
-  return verifySignedToken(token, secret("CENTRAL_SESSION_SECRET"));
+  const claims = verifySignedToken(token, secret("CENTRAL_SESSION_SECRET"));
+  return claims?.event_id === activeEventGeneration() ? claims : null;
 }
 
-export function createChallengeTicket(user, audience) {
-  const secretEnv = TICKET_SECRET_ENV[audience];
-  if (!secretEnv) {
-    throw new Error(`unknown challenge audience: ${audience}`);
-  }
+export function createRulesAcknowledgment(user) {
+  return makeSignedToken({
+    participant_id: user.participant_id,
+    event_id: activeEventGeneration(),
+    rules_version: RULES_VERSION,
+    exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60,
+  }, secret("CENTRAL_SESSION_SECRET"));
+}
+
+export function verifyRulesAcknowledgment(token, user) {
+  const claims = verifySignedToken(token, secret("CENTRAL_SESSION_SECRET"));
+  return Boolean(
+    claims
+    && claims.participant_id === user?.participant_id
+    && claims.event_id === activeEventGeneration()
+    && claims.rules_version === RULES_VERSION
+  );
+}
+
+export function createChallengeTicket(user, audience, options = {}) {
+  assertChallengeLaunchAllowed(user?.participant_id, options.env || process.env, options.receivedAt || new Date(), options.config || null);
   return issueParticipantTicket(
     {
       audience,
-      eventId: "ctf26",
+      eventId: activeEventGeneration(),
       participantId: user.participant_id,
-      teamId: user.team_id || user.participant_id,
       email: user.email,
     },
-    secret(secretEnv),
+    challengeTicketSecret(audience),
   );
 }
 
@@ -113,4 +137,4 @@ export function createOauthState() {
   return crypto.randomBytes(24).toString("base64url");
 }
 
-export { SESSION_COOKIE, STATE_COOKIE };
+export { RULES_COOKIE, SESSION_COOKIE, STATE_COOKIE, participantIdForEmail };

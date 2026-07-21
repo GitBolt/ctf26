@@ -1,6 +1,6 @@
 {
   "challenge": "DRIFT",
   "artifact": "dist/drift_vault.so",
-  "sha256": "9d22f4172796c78b294ea8478c529e12545f4787ff601e3c10d65b96f57bd0bd",
-  "bytes": 74232
+  "sha256": "b508a98d849a33f760a22889241f7356c034d956cf79be376b2260344a60b0f5",
+  "bytes": 74320
 }

@@ -35,7 +35,7 @@ export async function reconcilePayment({ signature, order, rpc, now = Math.floor
   }
 
   const accountKeys = resolvedAccountKeys(transaction);
-  if (!accountKeys.includes(order.reference)) fail("missing_reference", "transaction does not contain this order's reference");
+  const hasReference = accountKeys.includes(order.reference);
 
   const candidates = parsedInstructions(transaction).filter((instruction) => {
     const programId = address(instruction.programId);
@@ -47,12 +47,14 @@ export async function reconcilePayment({ signature, order, rpc, now = Math.floor
   for (const instruction of candidates) {
     const info = instruction.parsed?.info || {};
     const tokenAmount = info.tokenAmount || {};
-    if (String(tokenAmount.amount || "") !== String(order.amountBaseUnits)) {
-      mismatch ||= ["wrong_amount", "token transfer amount does not match the order"];
-      continue;
-    }
-    if (tokenAmount.decimals !== order.decimals) {
-      mismatch ||= ["wrong_decimals", "token transfer decimals do not match the order"];
+    if (
+      String(tokenAmount.amount || "") !== String(order.amountBaseUnits) ||
+      tokenAmount.decimals !== order.decimals
+    ) {
+      mismatch ||= [
+        "wrong_payment_shape",
+        "token transfer does not match the invoice amount and decimal precision",
+      ];
       continue;
     }
     if (!info.destination || !info.mint) continue;
@@ -72,7 +74,12 @@ export async function reconcilePayment({ signature, order, rpc, now = Math.floor
       continue;
     }
     if (!hasOfficialNightBrand(metadata)) {
-      mismatch ||= ["wrong_brand", "received token is not branded as NIGHT"];
+      mismatch ||= ["wrong_brand", "received token does not look like NIGHT"];
+      continue;
+    }
+
+    if (!hasReference) {
+      mismatch ||= ["missing_reference", "transaction does not contain this order's Solana Pay reference"];
       continue;
     }
 

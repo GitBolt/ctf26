@@ -40,7 +40,9 @@ Make the counter dispense the pass anyway.
 
 Before checkout, the participant supplies a disposable devnet wallet and receives `7.000000` real NIGHT from the challenge treasury. NIGHT has a fixed on-chain supply, six decimals, no mint authority, no freeze authority, and immutable Metaplex Token Metadata naming it `After Hours NIGHT` with symbol `NIGHT`. The participant can independently inspect the mint, metadata PDA, allocation transfer, and token account.
 
-Buying creates a compact Discord-native invoice containing the amount, official NIGHT mint, store owner, participant-specific reference pubkey, and expiry. There is no Solana Pay QR, wallet deep link, or second checkout page. The participant composes the transaction with a wallet or the supplied helper and submits only its finalized signature to Discord. The invoice does not describe the reconciler or enumerate its checks.
+Buying creates a compact Discord-native invoice containing the amount, official NIGHT mint, store owner, participant-specific reference pubkey, and expiry. There is no Solana Pay QR, wallet deep link, second checkout page, or downloadable helper. The participant composes the transaction with a wallet or client of their choice and submits only its finalized signature to Discord. The invoice does not describe the reconciler or enumerate its checks.
+
+A payment made with the official NIGHT mint is a valid ordinary checkout result, but it is not a security finding and does not complete the CTF. The service consumes that order and transaction signature as an expected payment, then requires a new order for another attempt. Only a reconciled payment whose received mint differs from the official NIGHT mint produces challenge completion and a Midnight Pass receipt.
 
 The invoice looks like an ordinary checkout record:
 
@@ -94,7 +96,7 @@ That omission is the entire vulnerability. The service must still reject fake to
 8. Mint at least ten tokens.
 9. Create the counterfeit mint's associated token account for the store owner.
 10. Transfer exactly `10_000_000` base units with `transferChecked`.
-11. Include the order reference pubkey in the transaction account list. The player helper does this with a zero-lamport System Program transfer.
+11. Include the order reference pubkey in the transaction account list.
 12. Submit the transaction to the configured Solana cluster.
 13. Send its signature with `/afterhours submit` and receive the participant-bound Midnight Pass receipt.
 
@@ -111,23 +113,11 @@ The machine trusted a copied brand without checking which mint issued it.
 Midnight Pass: <participant-bound receipt>
 ```
 
-## Player kit
-
-The portal handoff includes the setup guide and serves one optional download containing only:
-
-```text
-README.md
-checkout.mjs
-package.json
-```
-
-It contains no credentials, launch ticket, Discord identity, solution, verifier, private mint, or flag. The helper provides RPC/keypair loading and transaction submission plumbing, but no ready-made counterfeit-mint or arbitrary-mint payment function. The portal exposes only one AFTER HOURS action; the kit is deliberately presented inside that challenge handoff instead of as a second starting point.
-
 ## Completion and evidence
 
-The payment transaction is the required real Solana exploit artifact. An accepted fulfillment stores:
+The counterfeit payment transaction is the required real Solana exploit artifact. An accepted challenge fulfillment stores:
 
-- event, participant, team, Discord user, and order IDs;
+- event generation, participant, Discord user, and order IDs;
 - payment signature and slot;
 - expected and received mint;
 - received Metaplex metadata address, name, and symbol;
@@ -135,7 +125,7 @@ The payment transaction is the required real Solana exploit artifact. An accepte
 - order, transaction, and fulfillment timestamps;
 - verifier version.
 
-The bot returns a server-side HMAC receipt derived from participant, team, order, and transaction. No static flag exists in Discord, the player kit, or Solana accounts.
+The bot returns a server-side HMAC receipt derived from participant, order, and transaction signature. No static flag exists in Discord or Solana accounts.
 
 ## Discord architecture
 
@@ -171,7 +161,7 @@ Invite AFTER HOURS to a server you manage, open a channel there, and run:
 
 ## State and concurrency
 
-Redis is authoritative for consumed ticket JTIs, passages, Discord bindings, one-time wallet-bound NIGHT allotments, active/fulfilled orders, consumed transaction signatures, hints, and audit events.
+Redis is authoritative for consumed ticket JTIs, passages, Discord bindings, one-time wallet-bound NIGHT allotments, active, expected-payment, and fulfilled orders, consumed transaction signatures, hints, and audit events.
 
 Fulfillment is atomic. Two simultaneous submissions cannot consume one transaction or fulfill one order twice. Production uses a Redis Lua transition or transactional compare-and-set, not only an in-process mutex.
 
@@ -191,7 +181,8 @@ Using finalized `jsonParsed` Solana RPC responses, the verifier:
 10. derives the received mint's canonical Metaplex metadata PDA and verifies the account is owned by the Token Metadata program;
 11. requires the visible name and symbol to match official NIGHT branding;
 12. records, but intentionally does not compare, the transfer mint;
-13. atomically consumes the signature and fulfills the order.
+13. atomically consumes the signature and records the expected payment without scoring when the received mint is the official mint;
+14. atomically fulfills the challenge and issues the receipt only when the received mint differs from the official mint.
 
 The parser supports legacy and v0 transactions. It never trusts human-readable program logs.
 
@@ -243,12 +234,22 @@ AFTER_HOURS_RPC_URL
 AFTER_HOURS_STORE_OWNER
 AFTER_HOURS_NIGHT_MINT
 AFTER_HOURS_NIGHT_TREASURY_KEYPAIR
+AFTER_HOURS_EXPECTED_PARTICIPANTS
+AFTER_HOURS_MIN_TREASURY_LAMPORTS
 DISCORD_APPLICATION_ID
 DISCORD_APPLICATION_PUBLIC_KEY
 DISCORD_INSTALL_URL
 ```
 
 `DISCORD_BOT_TOKEN` is needed only by `scripts/register-command.mjs`. Do not retain it in the running service after registration.
+
+`AFTER_HOURS_ORDER_TTL_SECONDS`, when set, must be between 120 and 1800 seconds. Production startup also verifies that the configured official mint has the exact expected on-chain name and symbol and immutable Metaplex metadata.
+
+Launches and Discord commands have participant-scoped rate limits. Payment reconciliation uses a bounded global operation pool with one active chain operation per participant. NIGHT distribution has a separate Redis-backed global limit of one because every transfer writes the same treasury token account. Configure these bounds with `AFTER_HOURS_LAUNCH_RATE_MAX`, `AFTER_HOURS_COMMAND_RATE_MAX`, `AFTER_HOURS_MAX_ACTIVE_OPERATIONS`, and `AFTER_HOURS_MAX_ACTIVE_DISTRIBUTIONS=1`.
+
+Production readiness also verifies event capacity rather than only checking that the treasury is non-empty. Set `AFTER_HOURS_EXPECTED_PARTICIPANTS` to the final individual registration capacity and `AFTER_HOURS_MIN_TREASURY_LAMPORTS` to the organizer's transaction-fee reserve. The generation-scoped store counts each participant's completed NIGHT allotment once, and `/health` requires enough official NIGHT for every remaining configured allotment plus the SOL reserve. The response publishes only capacity booleans and aggregate counts, never treasury addresses or balances.
+
+The served metadata uses `AFTER_HOURS_PUBLIC_ORIGIN` for its image and external link. The immutable deployed NIGHT metadata account already points to the historical `OFFICIAL_NIGHT_URI`, so that URI must remain available as a compatibility alias even when the public deployment receives a shorter domain.
 
 ## Deployment
 
@@ -267,7 +268,7 @@ After HTTPS is active, configure Discord's Interactions Endpoint URL, enable Gui
 
 ## Test matrix
 
-Automated tests cover Discord request signatures and replay age; passage expiry, one-use behavior, and identity binding; wallet-bound and retry-safe official NIGHT allotments; fixed-mint constraints; immutable metadata hosting; real distributor behavior; order reuse and concurrent fulfillment; ticket replay; correct NIGHT payment; copied-brand counterfeit acceptance; rejection of random six-decimal tokens, missing metadata, wrong branding, amount, decimals, recipient, or reference; failed and absent transactions; fake token programs and logs; and parsed inner instructions. Portal catalog, ticket-audience, player-package, packaging-manifest, and production-build checks cover the surrounding event integration.
+Automated tests cover Discord request signatures and replay age; passage expiry, one-use behavior, and identity binding; wallet-bound and retry-safe official NIGHT allotments; fixed-mint constraints; immutable metadata hosting; real distributor behavior; order reuse and concurrent fulfillment; ticket replay; non-scoring settlement of a correct NIGHT payment; copied-brand counterfeit acceptance and completion; rejection of random six-decimal tokens, missing metadata, wrong branding, amount, decimals, recipient, or reference; failed and absent transactions; fake token programs and logs; and parsed inner instructions. Portal catalog, ticket-audience, packaging-manifest, and production-build checks cover the surrounding event integration.
 
 Clean-room playtests cover a beginner, an experienced human, a rules-compliant coding-assistant user, an autonomous Discord/terminal agent, and a policy-ignoring agent. Measure discovery time, failed payments, hint use, transaction correctness, policy refusal, and solve-defense quality.
 

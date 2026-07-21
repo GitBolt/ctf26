@@ -48,13 +48,14 @@ fn buy_card(program_id: &Pubkey, accounts: &[AccountInfo], route: &[u8]) -> Prog
     no_extra(&mut accounts)?;
 
     require_passenger(passenger)?;
-    let team_seed = require_transit(program_id, transit, passenger.key)?;
+    let participant_seed = require_transit(program_id, transit, passenger.key)?;
     if !card.is_writable || !system_program::check_id(system.key) {
         return Err(ProgramError::InvalidAccountData);
     }
     validate_word(route)?;
 
-    let (expected, bump) = Pubkey::find_program_address(&[b"card", &team_seed, route], program_id);
+    let (expected, bump) =
+        Pubkey::find_program_address(&[b"card", &participant_seed, route], program_id);
     if card.key != &expected || card.owner == program_id {
         return Err(ProgramError::InvalidSeeds);
     }
@@ -69,7 +70,7 @@ fn buy_card(program_id: &Pubkey, accounts: &[AccountInfo], route: &[u8]) -> Prog
             program_id,
         ),
         &[passenger.clone(), card.clone(), system.clone()],
-        &[&[b"card", &team_seed, route, &[bump]]],
+        &[&[b"card", &participant_seed, route, &[bump]]],
     )?;
 
     let mut data = card.try_borrow_mut_data()?;
@@ -96,14 +97,14 @@ fn enter_line(
     if !transit.is_writable {
         return Err(ProgramError::InvalidAccountData);
     }
-    let team_seed = require_transit(program_id, transit, passenger.key)?;
+    let participant_seed = require_transit(program_id, transit, passenger.key)?;
     validate_word(line)?;
     validate_word(station)?;
 
     // The gate derives the same address differently from the kiosk. Solana hashes
     // PDA seeds in sequence without encoding their boundaries.
     let (expected, _) =
-        Pubkey::find_program_address(&[b"card", &team_seed, line, station], program_id);
+        Pubkey::find_program_address(&[b"card", &participant_seed, line, station], program_id);
     if card.key != &expected || card.owner != program_id || card.data_len() != CARD_LEN {
         return Err(ProgramError::InvalidSeeds);
     }

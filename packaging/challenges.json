@@ -119,15 +119,9 @@
       "delivery": "hosted-onchain",
       "portalUrlEnv": "AFTER_HOURS_URL",
       "launchAudience": "after-hours",
-      "playerPaths": [
-        "apps/after-hours/player-kit"
-      ],
-      "generatedPlayerPaths": [
-        "apps/portal/public/packages/after-hours-player.zip"
-      ],
-      "strictPlayerRoots": [
-        "apps/after-hours/player-kit"
-      ],
+      "playerPaths": [],
+      "generatedPlayerPaths": [],
+      "strictPlayerRoots": [],
       "organizerOnlyPaths": [
         "apps/after-hours/Dockerfile",
         "apps/after-hours/README.md",
@@ -153,23 +147,62 @@
       ]
     },
     {
-      "id": "st-genesis-airdrop",
-      "appPath": "apps/st-genesis-airdrop",
+      "id": "the-broadcast",
+      "appPath": "apps/the-broadcast",
       "delivery": "hosted",
-      "portalUrlEnv": "ST_GENESIS_AIRDROP_URL",
-      "launchAudience": "st-genesis-airdrop",
+      "portalUrlEnv": "THE_BROADCAST_URL",
+      "launchAudience": "the-broadcast",
       "playerPaths": [
-        "apps/st-genesis-airdrop/web"
+        "apps/the-broadcast/web"
       ],
       "generatedPlayerPaths": [],
       "strictPlayerRoots": [
-        "apps/st-genesis-airdrop/web"
+        "apps/the-broadcast/web"
       ],
       "organizerOnlyPaths": [
-        "apps/st-genesis-airdrop/INTERNAL_WRITEUP.md",
-        "apps/st-genesis-airdrop/README.md",
-        "apps/st-genesis-airdrop/src",
-        "apps/st-genesis-airdrop/test"
+        "apps/the-broadcast/INTERNAL_WRITEUP.md",
+        "apps/the-broadcast/README.md",
+        "apps/the-broadcast/src",
+        "apps/the-broadcast/test"
+      ]
+    },
+    {
+      "id": "evidence-room",
+      "appPath": "apps/evidence-room",
+      "delivery": "hosted-onchain",
+      "portalUrlEnv": "EVIDENCE_ROOM_URL",
+      "launchAudience": "evidence-room",
+      "playerPaths": [
+        "apps/evidence-room/player-kit"
+      ],
+      "generatedPlayerPaths": [],
+      "strictPlayerRoots": [
+        "apps/evidence-room/player-kit"
+      ],
+      "organizerOnlyPaths": [
+        "apps/evidence-room/Dockerfile",
+        "apps/evidence-room/README.md",
+        "apps/evidence-room/src",
+        "apps/evidence-room/test",
+        "apps/evidence-room/web"
+      ]
+    },
+    {
+      "id": "second-key",
+      "appPath": "apps/second-key",
+      "delivery": "hosted-onchain",
+      "portalUrlEnv": "SECOND_KEY_URL",
+      "launchAudience": "second-key",
+      "playerPaths": [],
+      "generatedPlayerPaths": [],
+      "strictPlayerRoots": [],
+      "organizerOnlyPaths": [
+        "apps/second-key/Dockerfile",
+        "apps/second-key/README.md",
+        "apps/second-key/native",
+        "apps/second-key/src",
+        "apps/second-key/test",
+        "apps/second-key/web"
       ]
     }
   ]

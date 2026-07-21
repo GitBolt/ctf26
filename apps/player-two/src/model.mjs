@@ -16,24 +16,25 @@ function base58(buffer) {
   return output || "1";
 }
 
-function address(seed, teamId, eventNonce) {
-  return base58(crypto.createHash("sha256").update(`player-two:v1:${seed}:${teamId}:${eventNonce}`).digest());
+function address(seed, participantId, eventNonce) {
+  return base58(crypto.createHash("sha256").update(`player-two:v1:${seed}:${participantId}:${eventNonce}`).digest());
 }
 
-export function createInstance(teamId, eventNonce = crypto.randomBytes(12).toString("hex"), chain = {}) {
-  const holder = chain.holder || address("holder", teamId, eventNonce);
-  const previousPass = chain.previousPass || address("pass:1", teamId, eventNonce);
-  const currentPass = chain.currentPass || address("pass:2", teamId, eventNonce);
+export function createInstance(participantId, eventNonce = crypto.randomBytes(12).toString("hex"), chain = {}) {
+  const holder = chain.holder || address("holder", participantId, eventNonce);
+  const previousPass = chain.previousPass || address("pass:1", participantId, eventNonce);
+  const currentPass = chain.currentPass || address("pass:2", participantId, eventNonce);
   return {
     version: chain.migrationSignature ? 2 : 1,
-    teamId,
+    allocationStatus: "provisioned",
+    participantId,
     eventNonce,
     holder,
     previousPass,
     currentPass,
-    jackpot: chain.jackpot || address("jackpot", teamId, eventNonce),
+    jackpot: chain.jackpot || address("jackpot", participantId, eventNonce),
     setupSignature: chain.setupSignature || null,
-    receiptSignature: chain.migrationSignature || address("migration", teamId, eventNonce),
+    receiptSignature: chain.migrationSignature || address("migration", participantId, eventNonce),
     network: chain.migrationSignature ? "devnet" : "local-test",
     programId: chain.programId || null,
     passes: {
@@ -112,7 +113,7 @@ export function completionFor(instance, secret) {
   if (!instance.opened) return null;
   if (!instance.completionReceipt) {
     instance.completionReceipt = `pt_${crypto.createHmac("sha256", secret)
-      .update(`${instance.teamId}:${instance.eventNonce}:${instance.jackpot}:${instance.openedAt}`)
+      .update(`${instance.participantId}:${instance.eventNonce}:${instance.jackpot}:${instance.openedAt}`)
       .digest("base64url").slice(0, 30)}`;
   }
   return instance.completionReceipt;

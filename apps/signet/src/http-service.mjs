@@ -1,21 +1,41 @@
+import crypto from "node:crypto";
+
 import { checkOnchainSubmission, checkPreviewSubmission, checkRpcHealth, readTargetState, RpcError } from "./checker.mjs";
-import { enforceSubmissionRateLimit, redisCommand } from "./redis.mjs";
+import {
+  acquireSubmissionLease,
+  completionForParticipant,
+  enforceGlobalRateLimit,
+  enforceParticipantSessionRateLimit,
+  enforceSessionAttemptRateLimit,
+  enforceSubmissionRateLimit,
+  enforceTargetRateLimit,
+  recordCompletion,
+  redisCommand,
+  releaseSubmissionLease,
+} from "./redis.mjs";
 import {
   AuthenticationError,
   exchangeLaunchTicket,
   identityFromRequest,
   sessionCookie,
 } from "./session.mjs";
-import { loadTargetForTeam, publicTarget } from "./targets.mjs";
-import { forwardDisclosure, policyFor, publicPolicyFor, verifyMarker } from "@ctf26/agent-integrity";
+import { loadTargetForParticipant, loadTargetInventory, publicTarget } from "./targets.mjs";
+import { forwardDisclosure, forwardIntegrityEvent, policyFor, publicPolicyFor, verifyMarker } from "@ctf26/agent-integrity";
+import { eventGeneration, reportSolveEventBestEffort } from "@ctf26/leaderboard";
+import { trustedClientAddress } from "@ctf26/request-budget";
 
 const MAX_BODY_BYTES = 10_000;
+const PARTICIPANT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+const healthProbeCache = new WeakMap();
 
 export function jsonResponse(response, statusCode, body, headers = {}) {
   response.statusCode = statusCode;
   response.setHeader("content-type", "application/json; charset=utf-8");
   response.setHeader("cache-control", "no-store");
   response.setHeader("x-content-type-options", "nosniff");
+  response.setHeader("x-frame-options", "DENY");
+  response.setHeader("referrer-policy", "no-referrer");
+  response.setHeader("content-security-policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
   for (const [name, value] of Object.entries(headers)) response.setHeader(name, value);
   response.end(JSON.stringify(body));
 }
@@ -57,10 +77,11 @@ async function requestBody(request) {
   }
 }
 
-function publicError(statusCode, publicCode, message) {
+function publicError(statusCode, publicCode, message, retryAfter = null) {
   const error = new Error(message);
   error.statusCode = statusCode;
   error.publicCode = publicCode;
+  if (retryAfter) error.retryAfter = retryAfter;
   return error;
 }
 
@@ -68,19 +89,62 @@ function requireMethod(request, method) {
   if (request.method !== method) throw publicError(405, "method_not_allowed", `Use ${method} for this endpoint.`);
 }
 
+function requireExactFields(body, fields, label) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) throw publicError(400, "invalid_request", `${label} must be an object.`);
+  const actual = Object.keys(body).sort();
+  const expected = [...fields].sort();
+  if (actual.length !== expected.length || actual.some((field, index) => field !== expected[index])) {
+    throw publicError(400, "invalid_request", `${label} contains unexpected fields.`);
+  }
+}
+
+function bearerAuthorized(request, secret) {
+  const value = String(request.headers?.authorization || "");
+  if (!value.startsWith("Bearer ") || typeof secret !== "string") return false;
+  const supplied = Buffer.from(value.slice(7));
+  const expected = Buffer.from(secret);
+  return supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
+}
+
+function sessionAttemptSource(request) {
+  return crypto.createHash("sha256").update(trustedClientAddress(request)).digest("base64url").slice(0, 18);
+}
+
+function requireAllowedLimit(result, message) {
+  if (!result?.allowed) throw publicError(429, "rate_limited", message, result?.retryAfter || 60);
+}
+
 export async function handleSession(request, response, options = {}) {
   return withErrors(response, async () => {
     requireMethod(request, "POST");
-    const body = await requestBody(request);
     const env = options.env || process.env;
+    const body = await requestBody(request);
+    requireExactFields(body, ["ticket"], "Session request");
     if (typeof body.ticket !== "string" || body.ticket.length > 4_096) {
       throw publicError(400, "invalid_ticket", "A valid launch ticket is required.");
     }
+    const globalRateLimit = options.globalRateLimit || enforceGlobalRateLimit;
+    const sourceAttemptLimit = await (options.sessionAttemptRateLimit || enforceSessionAttemptRateLimit)(
+      sessionAttemptSource(request),
+      { env },
+    );
+    requireAllowedLimit(sourceAttemptLimit, "Too many launch attempts from this network. Try again shortly.");
+    const globalAttemptLimit = await globalRateLimit("session-attempt", { env });
+    requireAllowedLimit(globalAttemptLimit, "Too many launch attempts. Try again shortly.");
     let exchanged;
     try {
       exchanged = await exchangeLaunchTicket(body.ticket, {
         env,
         consumeJti: options.consumeJti,
+        admitClaims: async (claims) => {
+          const participantLimit = await (options.participantSessionRateLimit || enforceParticipantSessionRateLimit)(
+            claims.participant_id,
+            { env },
+          );
+          requireAllowedLimit(participantLimit, "Too many session requests for this participant. Try again shortly.");
+          const sessionLimit = await globalRateLimit("session", { env });
+          requireAllowedLimit(sessionLimit, "Too many session requests. Try again shortly.");
+        },
       });
     } catch (error) {
       if (error?.name === "ParticipantTicketError") {
@@ -89,10 +153,19 @@ export async function handleSession(request, response, options = {}) {
       throw error;
     }
     const { identity, session } = exchanged;
-    jsonResponse(response, 200, { ok: true, teamId: identity.teamId }, {
+    await recordEvent(identity, "interface:session", "interface", request, options);
+    jsonResponse(response, 200, { ok: true, participantId: identity.participantId }, {
       "set-cookie": sessionCookie(session, { secure: (options.env || process.env).NODE_ENV === "production" }),
     });
   });
+}
+
+export async function recordInterfaceAsset(request, pathname, options = {}) {
+  try {
+    const identity = identityFromRequest(request, { env: options.env || process.env });
+    const file = pathname === "/" ? "index.html" : pathname.replace(/^\//, "");
+    await recordEvent(identity, `interface:${file}`, "interface", request, options);
+  } catch {}
 }
 
 export async function handleTarget(request, response, options = {}) {
@@ -100,18 +173,32 @@ export async function handleTarget(request, response, options = {}) {
     requireMethod(request, "GET");
     const env = options.env || process.env;
     const identity = identityFromRequest(request, { env });
-    const target = await loadTargetForTeam(identity.teamId, { env, fetchImpl: options.fetchImpl || fetch });
-    let state;
-    try {
-      state = await readTargetState(target, { env, fetchImpl: options.fetchImpl || fetch });
-    } catch (error) {
-      if (!(error instanceof RpcError)) throw error;
-      state = { status: "unavailable", reserveRaw: null, escrowRaw: null, slot: null };
+    const [participantLimit, globalLimit] = await Promise.all([
+      (options.targetRateLimit || enforceTargetRateLimit)(identity.participantId, { env }),
+      (options.globalRateLimit || enforceGlobalRateLimit)("target", { env }),
+    ]);
+    if (!participantLimit.allowed || !globalLimit.allowed) {
+      throw publicError(429, "rate_limited", "Too many target refreshes. Try again shortly.", Math.max(participantLimit.retryAfter || 60, globalLimit.retryAfter || 60));
     }
-    jsonResponse(response, 200, {
-      identity: { participantId: identity.participantId, teamId: identity.teamId },
-      target: publicTarget(target, state, env),
-    });
+    const lease = await (options.acquireLease || acquireSubmissionLease)(identity.participantId, { env });
+    if (!lease) throw publicError(429, "checker_busy", "A checker operation is already running or capacity is full.", 2);
+    try {
+      await recordEvent(identity, "target-read", "challenge-action", request, options);
+      const target = await loadTargetForParticipant(identity.participantId, { env, fetchImpl: options.fetchImpl || fetch });
+      let state;
+      try {
+        state = await readTargetState(target, { env, fetchImpl: options.fetchImpl || fetch });
+      } catch (error) {
+        if (!(error instanceof RpcError)) throw error;
+        state = { status: "unavailable", reserveRaw: null, escrowRaw: null, slot: null };
+      }
+      jsonResponse(response, 200, {
+        identity: { participantId: identity.participantId },
+        target: publicTarget(target, state, env),
+      });
+    } finally {
+      await (options.releaseLease || releaseSubmissionLease)(lease, { env });
+    }
   });
 }
 
@@ -120,22 +207,78 @@ export async function handleSubmit(request, response, options = {}) {
     requireMethod(request, "POST");
     const env = options.env || process.env;
     const identity = identityFromRequest(request, { env });
-    if (env.NODE_ENV === "production") {
-      const limit = await (options.rateLimit || enforceSubmissionRateLimit)(identity.teamId, { env });
-      if (!limit.allowed) throw publicError(429, "rate_limited", "Too many checker submissions. Try again in one minute.");
+    const [participantLimit, globalLimit] = await Promise.all([
+      (options.rateLimit || enforceSubmissionRateLimit)(identity.participantId, { env }),
+      (options.globalRateLimit || enforceGlobalRateLimit)("submit", { env }),
+    ]);
+    if (!participantLimit.allowed || !globalLimit.allowed) {
+      throw publicError(
+        429,
+        "rate_limited",
+        "Too many checker submissions. Try again shortly.",
+        Math.max(participantLimit.retryAfter || 60, globalLimit.retryAfter || 60),
+      );
     }
     const body = await requestBody(request);
+    requireExactFields(body, ["signature"], "Submission");
     if (typeof body.signature !== "string" || body.signature.length > 128) {
       throw publicError(400, "invalid_signature", "Enter a Solana transaction signature.");
     }
-    const target = await loadTargetForTeam(identity.teamId, { env, fetchImpl: options.fetchImpl || fetch });
-    const result = target.cluster === "localnet-preview"
-      ? checkPreviewSubmission({ teamId: identity.teamId, target, signature: body.signature }, env)
-      : await checkOnchainSubmission(
-          { teamId: identity.teamId, target, signature: body.signature },
-          { env, fetchImpl: options.fetchImpl || fetch },
-        );
-    jsonResponse(response, 200, { result });
+    const lease = await (options.acquireLease || acquireSubmissionLease)(identity.participantId, { env });
+    if (!lease) {
+      throw publicError(429, "checker_busy", "A checker operation is already running or capacity is full.", 2);
+    }
+    try {
+      await recordEvent(identity, "submission-started", "scored-action", request, options);
+      const target = await loadTargetForParticipant(identity.participantId, { env, fetchImpl: options.fetchImpl || fetch });
+      const result = target.cluster === "localnet-preview"
+        ? checkPreviewSubmission({ participantId: identity.participantId, target, signature: body.signature }, env)
+        : await checkOnchainSubmission(
+            { participantId: identity.participantId, target, signature: body.signature },
+            { env, fetchImpl: options.fetchImpl || fetch },
+          );
+      if (result.ok) {
+        const completion = await (options.recordCompletion || recordCompletion)(identity.participantId, {
+          participantId: identity.participantId,
+          completedAt: result.occurredAt || new Date().toISOString(),
+          sourceId: result.signature,
+        }, { env, fetchImpl: options.fetchImpl || fetch });
+        await (options.reportSolve || reportSolveEventBestEffort)({
+          url: env.LEADERBOARD_INGEST_URL,
+          secret: env.CHALLENGE_TICKET_SECRET,
+          challenge: "signet",
+          eventId: eventGeneration(env),
+          participantId: identity.participantId,
+          sourceId: result.signature,
+          occurredAt: completion.completedAt,
+          timeoutMs: 1_500,
+        });
+      }
+      jsonResponse(response, 200, { result });
+    } finally {
+      await (options.releaseLease || releaseSubmissionLease)(lease, { env });
+    }
+  });
+}
+
+export async function handleCompletion(request, response, options = {}) {
+  return withErrors(response, async () => {
+    requireMethod(request, "GET");
+    const env = options.env || process.env;
+    if (!bearerAuthorized(request, env.CHALLENGE_TICKET_SECRET)) {
+      throw publicError(401, "not_authorized", "Not authorized.");
+    }
+    const url = new URL(request.url, "http://signet.local");
+    const participantId = String(url.searchParams.get("participantId") || "");
+    if (!PARTICIPANT_ID_PATTERN.test(participantId)) throw publicError(400, "invalid_participant", "Invalid participant ID.");
+    const completion = await (options.completionForParticipant || completionForParticipant)(participantId, {
+      env,
+      fetchImpl: options.fetchImpl || fetch,
+    });
+    const generation = eventGeneration(env);
+    jsonResponse(response, 200, completion
+      ? { completed: true, completedAt: completion.completedAt, eventGeneration: generation }
+      : { completed: false, eventGeneration: generation });
   });
 }
 
@@ -143,8 +286,9 @@ export async function handleHealth(request, response, options = {}) {
   return withErrors(response, async () => {
     requireMethod(request, "GET");
     const env = options.env || process.env;
+    const generation = eventGeneration(env);
     if (env.NODE_ENV !== "production") {
-      jsonResponse(response, 200, { ok: true, service: "signet", mode: "preview" });
+      jsonResponse(response, 200, { ok: true, service: "signet", mode: "preview", eventGeneration: generation });
       return;
     }
     for (const name of ["FLAG_SECRET", "CHALLENGE_TICKET_SECRET", "CHALLENGE_SESSION_SECRET"]) {
@@ -153,13 +297,34 @@ export async function handleHealth(request, response, options = {}) {
       }
     }
     const fetchImpl = options.fetchImpl || fetch;
-    const [redisHealth] = await Promise.all([
+    const cacheMs = Number(env.SIGNET_HEALTH_CACHE_MS || 15_000);
+    if (!Number.isSafeInteger(cacheMs) || cacheMs < 1 || cacheMs > 60_000) throw new Error("SIGNET_HEALTH_CACHE_MS is invalid");
+    const [redisHealth, , targetInventory] = await cachedHealthProbe(env, cacheMs, () => Promise.all([
       redisCommand(["PING"], { env, fetchImpl }),
       checkRpcHealth({ env, fetchImpl }),
-    ]);
+      loadTargetInventory({ env, fetchImpl }),
+    ]));
     if (redisHealth !== "PONG") throw new Error("replay store health check failed");
-    jsonResponse(response, 200, { ok: true, service: "signet", mode: "live" });
+    jsonResponse(response, 200, {
+      ok: true,
+      service: "signet",
+      mode: "live",
+      eventGeneration: generation,
+      targetInventory: {
+        count: targetInventory.count,
+        participantIdsSha256: targetInventory.participantIdsSha256,
+      },
+    });
   });
+}
+
+async function cachedHealthProbe(env, cacheMs, probe) {
+  const now = Date.now();
+  const existing = healthProbeCache.get(env);
+  if (existing && existing.expiresAt > now) return existing.promise;
+  const promise = Promise.resolve().then(probe);
+  healthProbeCache.set(env, { expiresAt: now + cacheMs, promise });
+  return promise;
 }
 
 export async function handleAgentPolicy(request, response, options = {}) {
@@ -168,6 +333,7 @@ export async function handleAgentPolicy(request, response, options = {}) {
     const env = options.env || process.env;
     let identity;
     try { identity = identityFromRequest(request, { env }); } catch { identity = null; }
+    if (identity) await recordEvent(identity, "policy-read", "policy", request, options, "policy");
     const text = identity
       ? policyFor({ ...identity, challenge: "signet" }, { label: "SIGNET", markerSecret: env.CHALLENGE_SESSION_SECRET }).text
       : publicPolicyFor({ label: "SIGNET" });
@@ -177,6 +343,23 @@ export async function handleAgentPolicy(request, response, options = {}) {
     response.setHeader("x-ctf-agent-policy", "/agents.txt");
     response.end(text);
   });
+}
+
+export async function handleUiEvent(request, response, options = {}) {
+  return withErrors(response, async () => {
+    requireMethod(request, "POST");
+    const identity = identityFromRequest(request, { env: options.env || process.env });
+    const body = await requestBody(request);
+    if (!new Set(["app-boot", "automation-present", "page-ready", "submit-click", "copy-target", "copy-flag"]).has(body.event)) throw publicError(400, "unknown_ui_event", "Unknown interface event.");
+    await recordEvent(identity, `ui:${body.event}`, "ui", request, options, "browser-ui");
+    jsonResponse(response, 202, { recorded: true });
+  });
+}
+
+async function recordEvent(identity, action, category, request, options, source = "direct-http") {
+  const env = options.env || process.env;
+  await forwardIntegrityEvent({ identity, challenge: "signet", label: "SIGNET", action, category, source, request }, env, options.fetchImpl || fetch)
+    .catch((error) => console.warn("SIGNET integrity event deferred", error.message));
 }
 
 export async function handleAgentDisclosure(request, response, options = {}) {
@@ -199,7 +382,14 @@ async function withErrors(response, operation) {
     const publicCode = error.publicCode || (statusCode === 500 ? "internal_error" : "request_failed");
     const message = statusCode === 500 ? "The challenge service could not complete that request." : error.message;
     if (statusCode === 500) console.error("SIGNET service error", error);
-    if (!response.headersSent) jsonResponse(response, statusCode, { error: { code: publicCode, message } });
+    if (!response.headersSent) {
+      jsonResponse(
+        response,
+        statusCode,
+        { error: { code: publicCode, message } },
+        error.retryAfter ? { "retry-after": String(error.retryAfter) } : {},
+      );
+    }
     else response.end();
   }
 }

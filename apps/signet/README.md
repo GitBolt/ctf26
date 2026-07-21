@@ -1,8 +1,8 @@
 # SIGNET
 
 SIGNET is a stale-deployment/source-archaeology Solana CTF challenge with an executable CPI authority
-failure. The public brief gives a team its live vault, opaque build fingerprint, current project
-source repository, starter client, and one objective: move the assigned reserve into the registered team escrow.
+failure. The public brief gives a participant its live vault, opaque build fingerprint, current project
+source repository, starter client, and one objective: move the assigned reserve into the registered participant escrow.
 It does not tell players that the deployment predates the latest source or that a patch matters.
 
 The organizer-only implementation contains three programs:
@@ -15,7 +15,7 @@ The organizer-only implementation contains three programs:
 
 The public repository at `https://github.com/GitBolt/signet` contains current fixed source and a
 realistic commit history. Archaeology identifies the authority-model change; only a live,
-team-bound reserve-to-escrow transition solves the challenge.
+participant-bound reserve-to-escrow transition solves the challenge.
 
 ## Player service
 
@@ -24,11 +24,11 @@ The production service is deployable as a Vercel project rooted at this director
 - signed, audience-bound CTF launch-ticket exchange;
 - atomic one-time ticket consumption through Redis over Railway TCP or Vercel-compatible REST;
 - an HTTP-only, signed first-party challenge session;
-- team-specific target manifests with live finalized token balances;
+- participant-specific target manifests with live finalized token balances;
 - a direct link to the public GitHub source repository;
 - a generated starter-client archive;
 - a finalized Solana transaction checker;
-- deterministic HMAC flags bound to team, instance, transaction, and final escrow balance;
+- deterministic HMAC flags bound to participant, instance, transaction, and final escrow balance;
 - production submission rate limiting.
 
 The checker does not trust a claimed amount or a text answer. It verifies all of the following from
@@ -36,7 +36,7 @@ the finalized transaction metadata:
 
 1. the assigned vault program was actually invoked;
 2. the assigned reserve and escrow were writable transaction accounts;
-3. the registered team wallet signed;
+3. the registered participant wallet signed;
 4. reserve and escrow token accounts use the assigned mint and expected authorities;
 5. reserve loss equals escrow gain in the submitted transaction;
 6. that delta meets the randomized target threshold;
@@ -91,21 +91,33 @@ When both are present, `REDIS_URL` takes precedence. The portal must issue parti
 audience `signet`. `PUBLIC_SOLANA_RPC_URL` is optional and is used only for Explorer links when
 `SOLANA_EXPLORER_CLUSTER=custom`.
 
-Production normally stores one target per team in Redis under
-`ctf26:signet:target:<team_id>`. `SIGNET_TARGETS_JSON` is an optional small-event/rehearsal fallback;
-when present, it is an object keyed by the ticket's `team_id`:
+Checker work is protected by participant and global rate limits, a Redis-backed one-operation lease,
+and a bounded global slot pool. `Retry-After` is returned for capacity and rate rejections. The public
+health endpoint caches Redis and RPC probe results briefly so monitoring or hostile polling cannot
+amplify into dependency traffic.
+
+Launch attempts first enter a source-IP bucket and a high-ceiling global attempt bucket. Only a
+cryptographically valid portal ticket consumes participant and valid-session admission capacity, and
+the JTI is consumed only after admission succeeds. Invalid-ticket floods therefore cannot spend the
+capacity reserved for real participants. The browser still retries temporary `429` launch pressure a
+bounded six times before returning control to the participant.
+
+Production normally stores one target per participant in Redis under
+`ctf26:signet:<event_generation>:target:<participant_id>`. `SIGNET_TARGETS_JSON` is an optional
+small-event/rehearsal fallback;
+when present, it is an object keyed by the ticket's `participant_id`:
 
 ```json
 {
-  "team-17": {
+  "participant-17": {
     "instanceId": "signet-a19ef84b7b82",
     "programId": "<base58 program id>",
     "vaultAccount": "<base58 vault PDA>",
     "vaultAuthority": "<base58 authority PDA>",
     "reserveAccount": "<base58 SPL token account>",
-    "escrowAccount": "<base58 team-owned SPL token account>",
+    "escrowAccount": "<base58 participant-owned SPL token account>",
     "mint": "<base58 challenge mint>",
-    "teamWallet": "<base58 registered wallet>",
+    "participantWallet": "<base58 registered wallet>",
     "buildFingerprint": "a47a867fea8ec39e",
     "thresholdRaw": "750000",
     "initialReserveRaw": "1000000",
@@ -117,7 +129,14 @@ when present, it is an object keyed by the ticket's `team_id`:
 }
 ```
 
-The service refuses malformed addresses, invalid balance bounds, missing team assignments, weak
+`npm run publish-targets` validates the complete input before one atomic Redis publish. It writes a
+generation-bound inventory marker only after every target write in that operation. Production health fails
+closed without this marker and returns only `targetInventory.count` and
+`targetInventory.participantIdsSha256`. The digest is SHA-256 over the JSON encoding of the sorted participant
+ID array. The portal must compare both fields with its checked-in individual field; no participant IDs are
+included in the health response or inventory marker.
+
+The service refuses malformed addresses, invalid balance bounds, missing participant assignments, weak
 secrets, replay-store failures, and absent production authentication.
 
 ## Chain deployment and target provisioning
@@ -135,33 +154,33 @@ Before the first deployment, create dedicated program keypairs in `target/deploy
 the SIGNET operator as its upgrade authority. The fixed and attacker programs are required for local
 regression testing, not for the live player target.
 
-Provision each team after the vulnerable program is deployed:
+Provision each participant after the vulnerable program is deployed:
 
-Collect a freshly generated, disposable Solana public key from every team during registration. The
-team retains the private key; organizers fund that public key with the fixed challenge SOL budget and
+Collect a freshly generated, disposable Solana public key from every participant during registration. The
+participant retains the private key; organizers fund that public key with the fixed challenge SOL budget and
 bind it into the target below. Reject personal wallets and duplicate wallet registrations. Run a
-roster preflight before opening SIGNET so every portal `team_id` has exactly one funded wallet and one
+roster preflight before opening SIGNET so every portal `participant_id` has exactly one funded wallet and one
 published target.
 
 ```bash
-TEAM_ID=team-17 \
-TEAM_WALLET=<registered-wallet> \
+PARTICIPANT_ID=participant-17 \
+PARTICIPANT_WALLET=<registered-wallet> \
 SOLANA_RPC_URL=<private-rpc> \
 SOLANA_CLUSTER=devnet \
 OPERATOR_KEYPAIR=.keys/signet-operator.json \
 VAULT_PROGRAM_ID=<deployed-vulnerable-program> \
 INSTANCE_SECRET=<independent-32-byte-secret> \
-npm run --silent provision > team-17-target.json
+npm run --silent provision > participant-17-target.json
 ```
 
-Provisioning deterministically randomizes the team seed, starting reserve, and required recovery,
-creates a team-owned escrow, initializes the vault/reserve PDAs, seeds the complete challenge supply,
+Provisioning deterministically randomizes the participant seed, starting reserve, and required recovery,
+creates a participant-owned escrow, initializes the vault/reserve PDAs, seeds the complete challenge supply,
 and revokes mint authority. Publish one or more emitted target objects into the same Redis instance used
 by the service:
 
 ```bash
 REDIS_URL=<railway-redis-url> \
-npm run publish-targets -- team-17-target.json
+npm run publish-targets -- participant-17-target.json
 ```
 
 For the REST transport, replace `REDIS_URL` with `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
@@ -169,10 +188,10 @@ For the REST transport, replace `REDIS_URL` with `KV_REST_API_URL` and `KV_REST_
 For a small rehearsal, target objects can instead be merged into `SIGNET_TARGETS_JSON`. Do not use one
 large environment variable for the full event roster.
 
-For stronger isolation, deploy a separate vulnerable program ID per team and provision each manifest
-against that ID. A shared immutable program with per-team PDAs is cheaper, but it requires RPC policy
-and event rules to prevent teams from griefing another assignment. The checker itself never accepts a
-cross-team transaction.
+For stronger isolation, deploy a separate vulnerable program ID per participant and provision each manifest
+against that ID. A shared immutable program with per-participant PDAs is cheaper, but it requires RPC policy
+and event rules to prevent participants from griefing another assignment. The checker itself never accepts a
+cross-participant transaction.
 
 ## Launch gates
 
@@ -181,7 +200,7 @@ Before opening the event:
 - run `npm test` and `npm run test:onchain` against the exact release commit;
 - confirm the live program hash/fingerprint and target manifest agree;
 - verify mint authority is revoked for every challenge mint;
-- confirm reserve owner is the assigned vault-authority PDA and escrow owner is the team wallet;
+- confirm reserve owner is the assigned vault-authority PDA and escrow owner is the participant wallet;
 - exercise one sacrificial end-to-end instance, including ticket replay rejection and flag issuance;
 - verify the latest fixed program rejects the same attacker strategy;
 - inspect the generated starter tarball and public browser assets for secrets/private keys;
@@ -211,18 +230,18 @@ ORIGIN=https://<signet-project>.vercel.app
 # Must be 200 with {"ok":true,"service":"signet","mode":"live"}.
 curl --fail-with-body "$ORIGIN/api/health"
 
-# Static shell is public, but team state must be session-gated.
+# Static shell is public, but participant state must be session-gated.
 curl --fail-with-body "$ORIGIN/" >/dev/null
 test "$(curl -sS -o /tmp/signet-target.json -w '%{http_code}' "$ORIGIN/api/target")" = "401"
 
 # Launch through the event portal with a fresh audience=signet ticket.
 # The browser must remove ?ticket=..., receive an HttpOnly signet_session cookie,
-# load only that team's manifest, open the source repository, and download the starter archive.
+# load only that participant's manifest, open the source repository, and download the starter archive.
 ```
 
 For the sacrificial end-to-end instance, execute the real reserve recovery, submit its finalized
 signature in the UI, confirm the flag on the scoreboard, resubmit to verify deterministic behavior,
-and verify that the same signature is rejected under another team's session. Reusing the original
+and verify that the same signature is rejected under another participant's session. Reusing the original
 launch URL must fail because its JTI was consumed atomically.
 
 ## Railway deployment

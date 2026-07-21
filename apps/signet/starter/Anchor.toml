@@ -10,4 +10,4 @@ player_strategy = "Fg6PaFpoGXkYsidMpWxqSWYqGiZDFpcckZ5TF5YF9eG3"
 
 [provider]
 cluster = "devnet"
-wallet = "./team-wallet-keypair.json"
+wallet = "./participant-wallet-keypair.json"

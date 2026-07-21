@@ -2,7 +2,7 @@
 
 DRIFT is a bytecode-only Solana SBF reverse-engineering challenge. Players receive a stripped native
 program and a generic submission client. The authoritative checker loads the exact published ELF into
-LiteSVM, seeds a deterministic per-team target, replays a bounded raw instruction/sysvar trace,
+LiteSVM, seeds a deterministic per-participant target, replays a bounded raw instruction/sysvar trace,
 and awards a flag only when the attacker realizes net profit by draining the original reserve.
 
 ## Final architecture
@@ -10,15 +10,17 @@ and awards a flag only when the attacker realizes net profit by draining the ori
 - `native/program/` — native non-Anchor vulnerable program;
 - `player-kit/dist/drift_vault.so` — the only program artifact published to players;
 - `native/harness/` — exact-byte LiteSVM replay, target seeding, invariant checker, and HMAC flag path;
-- `src/service.mjs` — authenticated per-team target/replay/submit service;
+- `src/service.mjs` — authenticated per-participant target/replay/submit service;
 - `player-kit/client.mjs` — generic portal-ticket client;
 - `src/runtime.mjs` — non-authoritative accounting oracle for fast tests;
 - `HINTS.md` — organizer-only progressive hint ladder.
 
-The service never accepts a client-selected team ID, reported balance, arbitrary account write,
+The service never accepts a client-selected participant ID, reported balance, arbitrary account write,
 replacement program, or arbitrary SVM mutation. Public traces support only raw invocation of the
-published program and canonical replacement of an allowlisted sysvar. The portal ticket determines the team. Each replay
+published program and canonical replacement of an allowlisted sysvar. The portal ticket determines the participant. Each replay
 starts from a fresh canonical instance and loads the exact ELF whose SHA-256 is returned to players.
+The executable variant is stable for each participant. A separate participant-bound trailer keeps each
+downloaded artifact attributable without changing its behavior.
 
 ## Win invariant
 
@@ -29,7 +31,7 @@ checker can require all three quantities to agree:
 net withdrawals == attacker spendable-balance profit == drain of original reserve
 ```
 
-All three must meet the per-team threshold. Cycling deposits and withdrawals cannot solve.
+All three must meet the per-participant threshold. Cycling deposits and withdrawals cannot solve.
 
 ## Build and test
 
@@ -52,8 +54,8 @@ executes the native integration suite against the exact SBF bytes.
 ## Local organizer commands
 
 ```bash
-npm run target -- team-local
-npm run demo -- team-local
+npm run target -- participant-local
+npm run demo -- participant-local
 npm run replay < submission.json
 FLAG_SECRET='at-least-32-random-bytes' npm run check < submission.json
 ```
@@ -78,8 +80,8 @@ npm run serve
 Endpoints:
 
 - `GET /health` — unauthenticated liveness only;
-- `POST /api/session` — exchange a short-lived portal ticket for an HttpOnly team session;
-- `GET /api/target` — deterministic team target metadata;
+- `POST /api/session` — exchange a short-lived portal ticket for an HttpOnly participant session;
+- `GET /api/target` — deterministic participant target metadata;
 - `GET /artifact/drift_vault.so` — exact player ELF;
 - `GET /artifact/player-guide.md` — the public replay protocol included in the player kit;
 - `POST /api/replay` — bounded unscored exact replay, rate-limited;
@@ -88,10 +90,16 @@ Endpoints:
 Terminate TLS at the deployment proxy. Do not expose the checker binary, native source, JavaScript
 oracle, reference trace, flag secret, or service environment.
 
-Configure `REDIS_URL` for production. Launch-ticket consumption, session state, replay concurrency,
-and rate buckets then use shared atomic Redis state and remain correct across restarts or multiple
-replicas. The service deliberately refuses to start in production without Redis. In-memory state is
-limited to local development and tests.
+Configure `REDIS_URL` for production. Launch-ticket consumption, session state, completion records,
+and rate buckets then use shared atomic Redis state and remain correct across restarts. Checker leases
+also use Redis and enforce both a global ceiling and one active expensive operation per participant across
+replicas. The service deliberately refuses to start in production without Redis.
+In-memory state is limited to local development and tests.
+
+Session launch attempts first enter a source-IP bucket and a high-ceiling global attempt bucket. Only a
+cryptographically valid portal ticket consumes participant and valid-session admission capacity, and its
+JTI is consumed only after admission succeeds. Malformed-ticket floods therefore cannot exhaust the launch
+capacity reserved for participants, while every accepted launch ticket remains one-time use.
 
 ## Mandatory launch checks
 
@@ -100,7 +108,7 @@ limited to local development and tests.
 3. `strings player-kit/dist/drift_vault.so` contains none of the forbidden challenge vocabulary,
    including named time/Clock syscall imports.
 4. An unauthenticated request cannot download the artifact or invoke replay.
-5. A ticket for another challenge or team cannot select a DRIFT target.
+5. A ticket for another challenge or participant cannot select a DRIFT target.
 6. A deposit/withdraw round trip and recycled gross volume do not solve.
 7. Semantic instruction helpers, arbitrary fields, account mutation operations, non-canonical
    encodings, oversized bodies, and excessive traces are rejected.
@@ -109,7 +117,7 @@ limited to local development and tests.
 
 ## Deployment boundary
 
-The codebase now contains the real SBF artifact pipeline, exact replay checker, authenticated team
+The codebase now contains the real SBF artifact pipeline, exact replay checker, authenticated participant
 service, rate/concurrency limits, and player-only packaging boundary. Event hosting still requires an
 ordinary Linux process/container with persistent logs and TLS, plus the later repository-wide portal
 URL wiring. Those are deployment operations rather than missing challenge mechanics.

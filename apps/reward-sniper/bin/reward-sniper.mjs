@@ -7,7 +7,7 @@ import {
   createMarket,
   inspectMarket,
   issueVoucher,
-  registerTeam,
+  registerParticipant,
   revealAction,
   resolveTick,
   scoreboard,
@@ -16,33 +16,33 @@ import {
 
 const command = process.argv[2] || "demo";
 const market = createMarket("cli-round");
-registerTeam(market, "team-a");
-registerTeam(market, "team-b");
+registerParticipant(market, "participant-a");
+registerParticipant(market, "participant-b");
 
 if (command === "inspect") {
-  console.log(JSON.stringify(inspectMarket(market, "team-a"), null, 2));
+  console.log(JSON.stringify(inspectMarket(market, "participant-a"), null, 2));
 } else if (command === "best") {
-  console.log(JSON.stringify(simulateBestTicket(market, "team-a"), null, 2));
+  console.log(JSON.stringify(simulateBestTicket(market, "participant-a"), null, 2));
 } else if (command === "ticket") {
-  const best = simulateBestTicket(market, "team-a");
-  const voucher = issueVoucher(market, "team-a", { binId: best.binId, nonce: "cli-ticket" });
-  console.log(JSON.stringify(claimWithSniperTicket(market, "team-a", best.binId, 900, voucher), null, 2));
+  const best = simulateBestTicket(market, "participant-a");
+  const voucher = issueVoucher(market, "participant-a", { binId: best.binId, nonce: "cli-ticket" });
+  console.log(JSON.stringify(claimWithSniperTicket(market, "participant-a", best.binId, 900, voucher), null, 2));
 } else if (command === "commit-reveal") {
-  const best = simulateBestTicket(market, "team-a");
-  const voucher = issueVoucher(market, "team-a", { binId: best.binId, nonce: "cli-commit" });
+  const best = simulateBestTicket(market, "participant-a");
+  const voucher = issueVoucher(market, "participant-a", { binId: best.binId, nonce: "cli-commit" });
   const action = { type: "ticket", binId: best.binId, liquidity: 900, voucher };
   const nonce = "commit-secret";
-  console.log("commit", commitAction(market, "team-a", action, nonce));
+  console.log("commit", commitAction(market, "participant-a", action, nonce));
   console.log("phase", beginRevealPhase(market));
-  console.log("reveal", revealAction(market, "team-a", action, nonce));
+  console.log("reveal", revealAction(market, "participant-a", action, nonce));
   console.log("batch", resolveTick(market));
   console.log("scoreboard", scoreboard(market));
 } else {
   console.log("reward sniper local round");
   for (let i = 0; i < 3; i += 1) {
-    const best = simulateBestTicket(market, "team-a");
-    const voucher = issueVoucher(market, "team-a", { binId: best.binId, nonce: `demo-ticket-${i}` });
-    const result = claimWithSniperTicket(market, "team-a", best.binId, 700 + i * 100, voucher);
+    const best = simulateBestTicket(market, "participant-a");
+    const voucher = issueVoucher(market, "participant-a", { binId: best.binId, nonce: `demo-ticket-${i}` });
+    const result = claimWithSniperTicket(market, "participant-a", best.binId, 700 + i * 100, voucher);
     console.log(`tick ${market.tick} bin ${best.binId}`, result);
     advanceTick(market, 3);
   }

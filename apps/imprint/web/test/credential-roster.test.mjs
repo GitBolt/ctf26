@@ -3,7 +3,7 @@ import test from "node:test";
 import { p256 } from "@noble/curves/p256";
 
 import {
-  credentialForTeam,
+  credentialForParticipant,
   parseCredentialRoster,
 } from "../lib/credential-roster.mjs";
 
@@ -21,12 +21,12 @@ function coseP256PublicKey(compressedPublicKey) {
   ]);
 }
 
-function entry(teamId, secretByte) {
+function entry(participantId, secretByte) {
   const secretKey = Buffer.alloc(32);
   secretKey[31] = secretByte;
   const publicKey = Buffer.from(p256.getPublicKey(secretKey, true));
   return {
-    teamId,
+    participantId,
     credentialId: `credential-${secretByte}`,
     credentialPublicKeyCoseBase64:
       coseP256PublicKey(publicKey).toString("base64url"),
@@ -36,7 +36,7 @@ function entry(teamId, secretByte) {
 }
 
 test("derives the on-chain P-256 key exclusively from an organizer roster COSE key", () => {
-  const roster = parseCredentialRoster(JSON.stringify([entry("team-a", 1)]));
+  const roster = parseCredentialRoster(JSON.stringify([entry("participant-a", 1)]));
   assert.equal(roster.length, 1);
   assert.equal(roster[0].passkeyPubkey.length, 33);
   assert.match(
@@ -45,14 +45,14 @@ test("derives the on-chain P-256 key exclusively from an organizer roster COSE k
   );
 });
 
-test("requires one unique, valid physical-key record for every team", () => {
-  const first = entry("team-a", 1);
+test("requires one unique, valid physical-key record for every participant", () => {
+  const first = entry("participant-a", 1);
   assert.throws(
     () =>
       parseCredentialRoster(
         JSON.stringify([first, { ...first, credentialId: "credential-2" }])
       ),
-    /teamId is invalid or duplicated/
+    /participantId is invalid or duplicated/
   );
   assert.throws(
     () =>
@@ -63,13 +63,13 @@ test("requires one unique, valid physical-key record for every team", () => {
       ),
     /must be base64url/
   );
-  const found = credentialForTeam("team-a", {
+  const found = credentialForParticipant("participant-a", {
     IMPRINT_CREDENTIAL_ROSTER_JSON: JSON.stringify([first]),
   });
   assert.equal(found.credentialId, first.credentialId);
   assert.throws(
     () =>
-      credentialForTeam("team-b", {
+      credentialForParticipant("participant-b", {
         IMPRINT_CREDENTIAL_ROSTER_JSON: JSON.stringify([first]),
       }),
     /no event-issued security key/

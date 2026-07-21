@@ -1,7 +1,7 @@
 # DRIFT organizer hint ladder
 
-Do not publish this file in the player kit. Release one hint at a time and record when each team uses
-it. The first two hints preserve the core realization; the final two are recovery paths for teams that
+Do not publish this file in the player kit. Release one hint at a time and record when each participant uses
+it. The first two hints preserve the core realization; the final two are recovery paths for participants that
 understand the bug but are blocked on mechanics.
 
 1. **Behavior:** Your balance changes even when no value enters the target. What external input could

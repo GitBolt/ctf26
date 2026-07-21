@@ -19,6 +19,7 @@ event strategy, research, operations, and organizer feedback.
 
 ## Operations
 
+- [`ops/final-audit.md`](ops/final-audit.md): final system audit, fixes, scoring, and launch gates.
 - [`ops/staging.md`](ops/staging.md): internal deployments, verification, and historical build review.
 - [`ops/playtest.md`](ops/playtest.md): clean-room launch criteria and required evidence.
 - [`ops/integrity.md`](ops/integrity.md): prevention, detection, adjudication, and event-day operations.
@@ -26,7 +27,7 @@ event strategy, research, operations, and organizer feedback.
 
 ## Challenge specs
 
-The official slate has six individual specifications:
+The official slate has ten individual specifications:
 
 - [`challenges/reward-sniper.md`](challenges/reward-sniper.md): dynamic DeFi.
 - [`challenges/imprint.md`](challenges/imprint.md): passkey-gated authorization.
@@ -34,11 +35,13 @@ The official slate has six individual specifications:
 - [`challenges/drift.md`](challenges/drift.md): reverse engineering and runtime.
 - [`challenges/last-stop.md`](challenges/last-stop.md): terminal PDA journey.
 - [`challenges/after-hours.md`](challenges/after-hours.md): Discord checkout.
+- [`challenges/player-two.md`](challenges/player-two.md): credential-lifecycle arcade.
+- [`challenges/the-broadcast.md`](challenges/the-broadcast.md): THE BROADCAST, wallet-signature cryptography.
+- [`challenges/evidence-room.md`](challenges/evidence-room.md): EVIDENCE ROOM live account-lifecycle challenge.
+- [`challenges/second-key.md`](challenges/second-key.md): Token-2022 collateral custody.
 
-Retained or proposed work remains documented individually so its implementation contract is not lost:
+Proposed work remains documented individually so its implementation contract is not lost:
 
-- [`challenges/player-two.md`](challenges/player-two.md): retained browser-arcade prototype.
-- [`challenges/st-genesis-airdrop.md`](challenges/st-genesis-airdrop.md): companion challenge.
 - [`challenges/dress-rehearsal.md`](challenges/dress-rehearsal.md): design draft.
 - [`challenges/war-room.md`](challenges/war-room.md): design draft.
 

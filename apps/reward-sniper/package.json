@@ -9,7 +9,10 @@
     "serve": "node src/server.mjs"
   },
   "dependencies": {
-    "@ctf26/participant-ticket": "file:../../packages/participant-ticket"
+    "@ctf26/leaderboard": "file:../../packages/leaderboard",
+    "@ctf26/participant-ticket": "file:../../packages/participant-ticket",
+    "@ctf26/request-budget": "file:../../packages/request-budget",
+    "redis": "^5.12.1"
   },
   "engines": {
     "node": ">=20"

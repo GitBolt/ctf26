@@ -10,7 +10,7 @@ export function createOrder(identity, config, now = Math.floor(Date.now() / 1000
   const reference = bs58.encode(crypto.randomBytes(32));
   const id = `AH-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
   return Object.freeze({
-    id, participantId: identity.participantId, teamId: identity.teamId,
+    id, participantId: identity.participantId,
     discordUserId: identity.discordUserId, status: "open", createdAt: now, expiresAt: now + ttl,
     amountBaseUnits: PRICE_BASE_UNITS, decimals: PRICE_DECIMALS,
     storeOwner: config.storeOwner, nightMint: config.nightMint, reference,
@@ -20,6 +20,6 @@ export function createOrder(identity, config, now = Math.floor(Date.now() / 1000
 export function receiptFor(identity, order, evidence, secret) {
   if (Buffer.byteLength(String(secret || "")) < 32) throw new Error("receipt secret must contain at least 32 bytes");
   return crypto.createHmac("sha256", secret)
-    .update(`after-hours:${identity.participantId}:${identity.teamId}:${order.id}:${evidence.signature}`)
+    .update(`after-hours:${identity.participantId}:${order.id}:${evidence.signature}`)
     .digest("base64url").slice(0, 26);
 }

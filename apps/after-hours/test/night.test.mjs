@@ -53,3 +53,24 @@ test("official NIGHT distributor rejects non-wallet input", async () => {
   });
   await assert.rejects(() => distributor.issue("not-a-wallet"), { code: "invalid_wallet" });
 });
+
+test("official NIGHT inventory reads the token treasury and fee payer without exposing addresses", async () => {
+  const distributor = await createNightDistributor({ rpcUrl: "unused", mint: "mint", treasurySecret: SECRET }, {
+    rpc: {},
+    address: (value) => value,
+    createSigner: async () => ({ address: "treasury" }),
+    deriveAta: async (_mint, owner) => `${owner}-ata`,
+    fetchToken: async (_rpc, tokenAccount) => {
+      assert.equal(tokenAccount, "treasury-ata");
+      return { data: { amount: 350_000_000n } };
+    },
+    getBalance: async (_rpc, owner) => {
+      assert.equal(owner, "treasury");
+      return 200_000_000;
+    },
+  });
+  assert.deepEqual(await distributor.inventory(), {
+    nightBaseUnits: 350_000_000n,
+    payerLamports: 200_000_000n,
+  });
+});

@@ -20,6 +20,13 @@ const POSITION_LEN: usize = 104;
 const VAULT_MAGIC: [u8; 8] = [0x71, 0x26, 0x93, 0x4d, 0xc8, 0x15, 0xae, 0x30];
 const POSITION_MAGIC: [u8; 8] = [0xb4, 0x5f, 0x08, 0xe1, 0x62, 0x9a, 0x37, 0xcd];
 
+#[cfg(not(any(feature = "variant-1", feature = "variant-2")))]
+const TAGS: [u8; 3] = [0, 1, 2];
+#[cfg(feature = "variant-1")]
+const TAGS: [u8; 3] = [2, 0, 1];
+#[cfg(feature = "variant-2")]
+const TAGS: [u8; 3] = [1, 2, 0];
+
 pub fn process_instruction(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -30,9 +37,9 @@ pub fn process_instruction(
         .ok_or(ProgramError::InvalidInstructionData)?;
 
     match tag {
-        0 => deposit(program_id, accounts, read_amount(payload)?),
-        1 if payload.is_empty() => accrue(program_id, accounts),
-        2 => withdraw(program_id, accounts, read_amount(payload)?),
+        value if value == TAGS[0] => deposit(program_id, accounts, read_amount(payload)?),
+        value if value == TAGS[1] && payload.is_empty() => accrue(program_id, accounts),
+        value if value == TAGS[2] => withdraw(program_id, accounts, read_amount(payload)?),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }

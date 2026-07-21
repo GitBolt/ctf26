@@ -1,15 +1,16 @@
 # Challenge Spec — IMPRINT (passkey-gated Solana exploit)
 
-Status: **COMPLETE / LOCKED — Challenge 2 of 6 (platform-passkey auth)** · Updated: 2026-07-11 · Codename: IMPRINT
+Status: **COMPLETE / LOCKED — Challenge 2 of 10 (platform-passkey auth)** · Updated: 2026-07-21 · Codename: IMPRINT
 
 Do not redesign or reopen this challenge. Its remaining checklist is event operations only: final
-roster enrollment, target capacity funding, and clean-room human QA.
+roster enrollment, isolated per-participant target provisioning, and clean-room human QA.
 
 **One line:** a real, deep Solana security bug in a **passkey-controlled smart vault** — where the
 winning exploit action **requires a live user-verifying passkey prompt (Face ID / Touch ID / Windows Hello)** that an
-autonomous agent cannot produce. Depth and anti-AI live in the *same real primitive*. Built on `00` §2.
+autonomous agent cannot produce. Depth and anti-AI live in the *same real primitive*. Built on
+[`anti-ai.md` §2](../strategy/anti-ai.md#2-the-key-model-two-layers).
 
-> **Identity in the 4-challenge slate:** the **platform-passkey / cryptographic** challenge. The core
+> **Identity in the ten-challenge slate:** the **platform-passkey / cryptographic** challenge. The core
 > security task is auditing and exploiting a passkey-controlled Solana vault. The anti-agent property is
 > in-band: the winning exploit requires a real passkey assertion and wallet approval. No dynamic-market
 > (that's Reward Sniper), no archaeology (that's SIGNET). Real-CTF lineage: real bug-bounty/audit
@@ -40,11 +41,12 @@ withdrawal, may withdraw.*
 
 **Canonical planted bug: owner-binding miss.** The program verifies that a WebAuthn assertion is valid
 for *some* enrolled passkey, but fails to check that the passkey public key in the verified assertion
-matches the target vault's registered passkey. A team can authenticate with its own real passkey, then
+matches the target vault's registered passkey. A participant can authenticate with their own real passkey, then
 use that valid assertion to authorize a vault it should not control.
 
 This is a genuine secp256r1/WebAuthn authority-binding bug — the exact class real auditors would look
-for in new passkey smart-wallet programs. **White-box is fine** (`00` §2): the anti-AI is not hiding
+for in new passkey smart-wallet programs. **White-box is fine**
+([`anti-ai.md` §2](../strategy/anti-ai.md#2-the-key-model-two-layers)): the anti-AI is not hiding
 the bug; it is requiring the exploit action to include a real hardware-backed assertion.
 
 ```rust
@@ -61,12 +63,12 @@ withdraw(vault, amount, destination)?;                          // ...so ANY reg
 
 - **Vault program source + IDL** (understanding the verification is fair; forging the hardware touch is
   not) — or a black-box variant with only the WebAuthn/precompile interface, for a harder cohort.
-- A **pre-enrolled platform passkey** per team. Organizer staff enroll it while the participant is
+- A **pre-enrolled platform passkey** per participant. Organizer staff enroll it while the participant is
   present; players can only claim that credential through a live WebAuthn assertion, never create a new
   registration through the player service.
 - A generic assertion workbench that signs a player-supplied 32-byte challenge. It deliberately does
   not derive the withdrawal challenge, assemble the secp256r1 instruction, or submit the exploit.
-- A **funded devnet Solana wallet** per team + a registered escrow the scoreboard watches. Phantom,
+- A **funded devnet Solana wallet** per participant and a registered escrow the scoreboard watches. Phantom,
   Solflare, Backpack, or any wallet with transaction signing support should be compatible.
 - Optional venue-local challenge parameter for the high-value drain, delivered in-room or through the
   web app. This is a support layer, not the core security mechanism.
@@ -76,13 +78,13 @@ withdraw(vault, amount, destination)?;                          // ...so ANY reg
 
 ## 4. Solve (floor → ceiling)
 
-- **Floor:** claim the assigned platform passkey, inspect the canonical target, and do a legitimate
+- **Floor:** claim the assigned platform passkey, inspect the assigned target, and do a legitimate
   passkey-signed action. Learn the secp256r1/WebAuthn model.
 - **Mid:** probe the verification — does it bind the challenge? the owner? Is `s` checked? Form the
   hypothesis (AI may help reason here — fine).
 - **Ceiling:** exploit the binding flaw — authenticate with **your own passkey (a live biometric prompt)** and,
   because the binding is broken, drain a vault/treasury you shouldn't be able to → submit through a
-  Solana wallet approval. Fewer teams reach this; **first-blood + partial credit** rewards depth.
+  Solana wallet approval. This authoritative drain is the scored capture.
 
 ---
 
@@ -111,9 +113,13 @@ withdraw(vault, amount, destination)?;                          // ...so ANY reg
 
 ## 6. Scoring
 
-- **First-blood + partial credit**, not a pure race: partial for a correct written exploit path in a
-  sandbox, full for the live drain via passkey. This is a harder single-exploit challenge, so it
-  contributes leaderboard *spread* (few solve it) rather than a contested pool.
+- The validated live drain is one binary capture under the event-wide rarity curve in
+  [`event.md` §3](../strategy/event.md#3-dynamic--relative-scoring-decision). Every solver receives
+  IMPRINT's same current value, including later solvers. There is no first-blood bonus and no
+  author-assigned difficulty.
+- Earlier drafts proposed written-path partial credit. That remains useful solve-defense evidence and
+  teaching feedback, but it is not a scored state because it cannot be verified as consistently as the
+  live drain.
 - Optional HMAC flag from the checker on the validated on-chain drain, for portal compatibility.
 
 ---
@@ -124,7 +130,7 @@ withdraw(vault, amount, destination)?;                          // ...so ANY reg
   `Secp256r1SigVerify…` ix) + the planted binding bug + a **correct-patch reference** for grading.
 - **Organizer-only platform-passkey enrollment + player claim/assert web app.** The enrollment screen is
   disabled during the round; the player claim path accepts only the pre-enrolled credential for the
-  portal-authenticated team.
+  portal-authenticated participant.
 - Optional **venue-local parameter** for the per-round challenge value if playtesting shows we need a
   second room-bound action.
 - Escrows + indexer + scoreboard; Solana wallet connect + approve for submit.
@@ -134,9 +140,13 @@ withdraw(vault, amount, destination)?;                          // ...so ANY reg
 
 The claim route derives the on-chain P-256 key only from the organizer roster's credential COSE key;
 it never accepts a player-supplied registration key. Withdrawals enforce the stored RP-ID hash, UP and
-UV flags, exact challenge field, low-S form, and the enrolled wallet's Solana signature. The checker
-accepts only the exact organizer-seeded target address and net reserve loss, never a player-controlled
-`target` flag.
+UV flags, exact challenge field, low-S form, and the enrolled wallet's Solana signature. The
+authenticated participant selects one unique server-side target; the checker accepts only that exact
+organizer-seeded address and net reserve loss, never another participant's vault or a player-controlled
+`target` flag. Production health also requires the target-map participant IDs to match the credential roster.
+This assignment prevents ordinary solve-capacity races, not deliberate griefing through the planted
+owner-binding bug. An event that treats cross-participant denial of service as in scope must isolate program
+instances per participant or maintain an operator reset or reseed procedure.
 
 ---
 
@@ -149,18 +159,18 @@ accepts only the exact organizer-seeded target address and net reserve loss, nev
 
 ## 9. Finalization note
 
-The fresh devnet instance, rostered platform-passkey gate, canonical target, server checker, and
-production deployment are complete. A non-state-changing breadcrumb transaction is attached to the
-canonical vault history:
+The devnet program, rostered platform-passkey gate, server checker, and rehearsal target are complete.
+Production still requires one unique funded target per rostered participant. A non-state-changing breadcrumb
+transaction is attached to the rehearsal vault history:
 
 ```text
 2eTzrCb8XmhpazExTPvvqTp6zzxHVd6vSbBpRDnM1LMYvpBD8AYSgCiTqcgP8pKNAbzeKznk7p8ev5t8ctu5C7sc
 ```
 
 Its memo is intentionally indirect: “The vault listens to what comes immediately before it.” It is a
-discovery aid for explorers, not a required solve step. Remaining work is limited to final slate review
-and portal integration; do not redesign IMPRINT during that pass unless a playtest finds a concrete
-failure.
+rehearsal discovery aid, not a required solve step or a provisioning requirement for isolated event
+targets. Remaining work is limited to target provisioning, final slate review, and portal integration;
+do not redesign IMPRINT during that pass unless a playtest finds a concrete failure.
 
 ### Alternate bug variants for later cohorts
 

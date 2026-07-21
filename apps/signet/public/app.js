@@ -12,7 +12,7 @@ const elements = Object.fromEntries([
   "submit-transaction",
   "success-result",
   "target-manifest",
-  "team-label",
+  "participant-label",
   "transaction-signature",
 ].map((id) => [id, document.getElementById(id)]));
 
@@ -26,7 +26,7 @@ async function boot() {
   const ticket = new URL(location.href).searchParams.get("ticket");
   if (ticket) {
     try {
-      await api("/api/session", { method: "POST", body: { ticket } });
+      await api("/api/session", { method: "POST", body: { ticket }, retryBusy: true });
       const clean = new URL(location.href);
       clean.searchParams.delete("ticket");
       history.replaceState({}, "", clean.pathname + clean.search + clean.hash);
@@ -37,9 +37,11 @@ async function boot() {
   }
 
   try {
-    const data = await api("/api/target");
+    const data = await api("/api/target", { retryBusy: true });
     state.identity = data.identity;
     state.target = data.target;
+    await event("app-boot");
+    if (navigator.webdriver) await event("automation-present");
     renderAssignment();
     setStatus(data.target.state.status === "ready" ? "ready" : "error", data.target.state.status === "ready" ? "Ready" : "Unavailable");
   } catch (error) {
@@ -49,11 +51,11 @@ async function boot() {
 
 function renderAssignment() {
   const target = state.target;
-  elements["team-label"].textContent = state.identity.teamId;
+  elements["participant-label"].textContent = state.identity.participantId;
   elements["preview-note"].hidden = !target.preview;
   const rows = [
     ["Program", target.programId],
-    ["Vault", target.vaultAccount],
+    ["Control account", target.vaultAccount],
     ["Authority", target.vaultAuthority],
     ["Reserve", target.reserveAccount],
     ["Escrow", target.escrowAccount],
@@ -82,8 +84,9 @@ function assignmentRow(label, value) {
   return row;
 }
 
-async function submitTransaction(event) {
-  event.preventDefault();
+async function submitTransaction(formEvent) {
+  formEvent.preventDefault();
+  void event("submit-click");
   clearError();
   elements["success-result"].hidden = true;
   const signature = elements["transaction-signature"].value.trim();
@@ -105,7 +108,7 @@ async function submitTransaction(event) {
     showError(error.message);
   } finally {
     button.disabled = false;
-    button.querySelector("span").textContent = "Verify transaction";
+    button.querySelector("span").textContent = "Submit";
   }
 }
 
@@ -133,10 +136,12 @@ function setStatus(name, label) {
 }
 
 async function copyFlag() {
+  void event("copy-flag");
   await copyText(elements["flag-output"].value, elements["copy-flag"]);
 }
 
 async function copyText(value, button) {
+  if (button !== elements["copy-flag"]) void event("copy-target");
   const label = button.textContent;
   try {
     await navigator.clipboard.writeText(value);
@@ -146,6 +151,8 @@ async function copyText(value, button) {
   }
   setTimeout(() => { button.textContent = label; }, 1_300);
 }
+
+async function event(name) { try { await api("/api/ui-event", { method: "POST", body: { event: name } }); } catch {} }
 
 async function api(url, options = {}) {
   const init = {
@@ -157,15 +164,24 @@ async function api(url, options = {}) {
     init.headers["content-type"] = "application/json";
     init.body = JSON.stringify(options.body);
   }
-  let response;
-  try {
-    response = await fetch(url, init);
-  } catch {
-    throw new Error("Challenge service unreachable.");
+  const maxAttempts = options.retryBusy ? 6 : 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    let response;
+    try {
+      response = await fetch(url, init);
+    } catch {
+      throw new Error("Challenge service unreachable.");
+    }
+    let data;
+    try { data = await response.json(); }
+    catch { throw new Error("Unreadable checker response."); }
+    if (response.ok) return data;
+    if (response.status !== 429 || attempt === maxAttempts) {
+      throw new Error(data.error?.message || "Verification failed.");
+    }
+    const seconds = Math.min(3, Math.max(1, Number(response.headers.get("retry-after")) || 1));
+    setStatus("pending", "Preparing");
+    await new Promise((resolve) => setTimeout(resolve, seconds * 1_000));
   }
-  let data;
-  try { data = await response.json(); }
-  catch { throw new Error("Unreadable checker response."); }
-  if (!response.ok) throw new Error(data.error?.message || "Verification failed.");
-  return data;
+  throw new Error("Checker remained busy. Refresh to try again.");
 }

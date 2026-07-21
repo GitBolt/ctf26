@@ -111,7 +111,7 @@ Lesson: published hashes over small spaces are not secrets.
 
 ### API/Crypto Validation Bugs
 
-The `$ST Genesis Airdrop` web challenge failed because:
+The Broadcast predecessor failed because:
 
 - PoW was automatable
 - message was static

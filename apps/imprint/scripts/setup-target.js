@@ -37,10 +37,51 @@ function positiveInteger(value, name) {
   return parsed;
 }
 
+function optionalParticipantId(value) {
+  const participantId = String(value || "").trim();
+  if (!participantId) return null;
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(participantId)) {
+    throw new Error("PARTICIPANT_ID must be a valid event participant ID");
+  }
+  return participantId;
+}
+
+function printTargetConfiguration(
+  participantId,
+  vault,
+  initialLamports,
+  minimumDrainLamports
+) {
+  if (participantId) {
+    console.log("IMPRINT_TARGET_MODE=per-participant");
+    console.log("merge this entry into IMPRINT_PARTICIPANT_TARGETS_JSON:");
+    console.log(
+      JSON.stringify(
+        {
+          [participantId]: {
+            vault: vault.toString(),
+            initialLamports: String(initialLamports),
+            minimumDrainLamports: String(minimumDrainLamports),
+          },
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
+  console.log("non-production single-target rehearsal variables:");
+  console.log("IMPRINT_TARGET_MODE=single-target-rehearsal");
+  console.log(`IMPRINT_TARGET_VAULT=${vault.toString()}`);
+  console.log(`IMPRINT_INITIAL_TARGET_LAMPORTS=${initialLamports}`);
+  console.log(`IMPRINT_MINIMUM_DRAIN_LAMPORTS=${minimumDrainLamports}`);
+}
+
 async function main() {
   anchor.setProvider(anchor.AnchorProvider.env());
   const provider = anchor.getProvider();
   const program = anchor.workspace.imprint;
+  const participantId = optionalParticipantId(process.env.PARTICIPANT_ID);
   const vaultId = vaultIdBytes(process.env.VAULT_ID);
   const perSolveLamports = solToLamports(
     process.env.MINIMUM_DRAIN_SOL || "0.5",
@@ -106,12 +147,7 @@ async function main() {
         : 0n;
     const currentCapacity = withdrawable / perSolveLamports;
     console.log("target vault already exists");
-    console.log(`NEXT_PUBLIC_TARGET_VAULT=${vault.toString()}`);
-    console.log(`IMPRINT_TARGET_VAULT=${vault.toString()}`);
-    console.log(`IMPRINT_INITIAL_TARGET_LAMPORTS=${currentLamports}`);
-    console.log(
-      `IMPRINT_MINIMUM_DRAIN_LAMPORTS=${perSolveLamports.toString()}`
-    );
+    printTargetConfiguration(participantId, vault, currentLamports, perSolveLamports);
     console.log(`CURRENT_SOLVE_CAPACITY=${currentCapacity.toString()}`);
     if (currentCapacity < BigInt(solveCapacity)) {
       throw new Error(
@@ -142,11 +178,7 @@ async function main() {
   console.log(`vault: ${vault.toString()}`);
   console.log(`victim passkey: ${VICTIM_PASSKEY.toString("hex")}`);
   console.log("");
-  console.log("put these in web/.env.local for a pre-seeded target:");
-  console.log(`NEXT_PUBLIC_TARGET_VAULT=${vault.toString()}`);
-  console.log(`IMPRINT_TARGET_VAULT=${vault.toString()}`);
-  console.log(`IMPRINT_INITIAL_TARGET_LAMPORTS=${targetLamports}`);
-  console.log(`IMPRINT_MINIMUM_DRAIN_LAMPORTS=${perSolveLamports.toString()}`);
+  printTargetConfiguration(participantId, vault, targetLamports, perSolveLamports);
   console.log(`CURRENT_SOLVE_CAPACITY=${solveCapacity}`);
 }
 

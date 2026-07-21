@@ -20,7 +20,7 @@ cp .env.example .env
 
 Before the event, generate a disposable wallet and register only its public key with the organizer.
 Never register or use a personal wallet. Fill the target values from the console, including the
-assigned `TEAM_WALLET`. Place your disposable wallet keypair at `team-wallet-keypair.json` (already
+assigned `PARTICIPANT_WALLET`. Place your disposable wallet keypair at `participant-wallet-keypair.json` (already
 ignored), or point
 `ANCHOR_WALLET` at its actual location. Export the `.env` values before using Anchor so deployment and
 the client use the same wallet and RPC:
@@ -37,7 +37,7 @@ Then inspect the assignment:
 npm run inspect
 ```
 
-The preflight stops immediately unless your local signer, assigned `TEAM_WALLET`, and team escrow
+The preflight stops immediately unless your local signer, assigned `PARTICIPANT_WALLET`, and participant escrow
 owner agree. If it reports a mismatch, contact an organizer; a launch ticket cannot repair a target
 provisioned for the wrong wallet.
 

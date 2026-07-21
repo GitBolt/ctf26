@@ -64,7 +64,7 @@ function responseFor({
   };
 }
 
-test("attributes a qualifying drain to the exact team passkey withdrawal", () => {
+test("attributes a qualifying drain to the exact participant passkey withdrawal", () => {
   const drain = qualifyingImprintDrain({
     transaction: responseFor(),
     programId,
@@ -76,7 +76,7 @@ test("attributes a qualifying drain to the exact team passkey withdrawal", () =>
   assert.equal(drain, 400_000_000n);
 });
 
-test("rejects address padding, another passkey, and insufficient transaction-local drain", () => {
+test("rejects address padding, another target or passkey, and an insufficient drain", () => {
   const input = {
     programId,
     targetVault: target,
@@ -88,9 +88,19 @@ test("rejects address padding, another passkey, and insufficient transaction-loc
     () =>
       qualifyingImprintDrain({
         ...input,
+        transaction: responseFor({
+          instructionTarget: Keypair.generate().publicKey,
+        }),
+      }),
+    /did not withdraw from this participant's assigned target/
+  );
+  assert.throws(
+    () =>
+      qualifyingImprintDrain({
+        ...input,
         transaction: responseFor({ data: Buffer.alloc(8, 7) }),
       }),
-    /did not withdraw from the canonical target/
+    /did not withdraw from this participant's assigned target/
   );
   assert.throws(
     () =>
@@ -100,7 +110,7 @@ test("rejects address padding, another passkey, and insufficient transaction-loc
           instructionPasskey: Keypair.generate().publicKey,
         }),
       }),
-    /did not withdraw from the canonical target/
+    /did not withdraw from this participant's assigned target/
   );
   assert.throws(
     () =>
@@ -108,7 +118,7 @@ test("rejects address padding, another passkey, and insufficient transaction-loc
         ...input,
         transaction: responseFor({ before: 500_000_000, after: 200_000_000 }),
       }),
-    /did not drain the canonical target far enough/
+    /did not drain the assigned target far enough/
   );
 });
 

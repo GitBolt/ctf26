@@ -13,6 +13,7 @@ test("player interface contains the required accessible surfaces", () => {
     "main",
     "target-manifest",
     "source-repository",
+    "starter-download",
     "submission-form",
     "transaction-signature",
     "success-result",
@@ -23,6 +24,8 @@ test("player interface contains the required accessible surfaces", () => {
   assert.match(html, /Skip to checker/);
   assert.match(html, /href="https:\/\/github\.com\/GitBolt\/signet"/);
   assert.match(html, /id="source-repository"[^>]+target="_blank"[^>]+rel="noreferrer"/);
+  assert.match(html, /id="starter-download"[^>]+href="\/signet-starter\.tar\.gz"[^>]+download/);
+  assert.match(html, /Move the assigned reserve into the registered participant escrow/);
 });
 
 test("public challenge brief does not signpost the earned source-archaeology realization", () => {
@@ -30,6 +33,15 @@ test("public challenge brief does not signpost the earned source-archaeology rea
   for (const forbidden of ["stale deployment", "silent patch", "unpinned CPI", "vulnerable commit", "read the PR history"]) {
     assert.equal(shell.toLowerCase().includes(forbidden), false, `public shell leaked: ${forbidden}`);
   }
+});
+
+test("initial launch and target reads retry bounded checker pressure", () => {
+  const script = fs.readFileSync(path.join(ROOT, "public/app.js"), "utf8");
+  assert.match(script, /retryBusy: true/);
+  assert.match(script, /response\.status !== 429/);
+  assert.match(script, /Math\.min\(3, Math\.max\(1/);
+  assert.match(script, /const maxAttempts = options\.retryBusy \? 6 : 1/);
+  assert.match(script, /attempt <= maxAttempts/);
 });
 
 test("starter archive is deterministic, non-empty, and contains no private key material", () => {

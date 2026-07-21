@@ -8,7 +8,6 @@ const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 export function createTestLaunch(env = process.env, options = {}) {
   const audience = identifier(env.TICKET_AUDIENCE, "TICKET_AUDIENCE");
   const participantId = identifier(env.PARTICIPANT_ID, "PARTICIPANT_ID");
-  const teamId = identifier(env.TEAM_ID || participantId, "TEAM_ID");
   const secret = env.TICKET_SECRET || env.PARTICIPANT_TICKET_SECRET || env.CHALLENGE_TICKET_SECRET;
   if (!secret) throw new Error("TICKET_SECRET (or the service ticket-secret variable) is required");
 
@@ -23,7 +22,7 @@ export function createTestLaunch(env = process.env, options = {}) {
 
   const ttlSeconds = integer(env.TICKET_TTL_SECONDS || "600", "TICKET_TTL_SECONDS");
   const ticket = issueParticipantTicket(
-    { audience, eventId: "ctf26", participantId, teamId },
+    { audience, eventId: "ctf26", participantId },
     secret,
     { ttlSeconds, now: options.now },
   );

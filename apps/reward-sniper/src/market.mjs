@@ -5,9 +5,12 @@ export const MAX_ACTION_LIQUIDITY = 1_000;
 export const DEFAULT_ROUND_TICKS = 12;
 export const TICKETS_PER_ROUND = 3;
 export const MIN_QUALIFYING_SCORED_ROUNDS = 2;
+export const SWAP_LIQUIDITY_FEE = 50;
 
 const INITIAL_TICK = 12;
 const EVENT_LOG_LIMIT = 1_000;
+const SCORE_DECIMAL_PLACES = 12;
+const PARTICIPANT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
 // Voucher authority is deliberately kept outside the serializable market object. The browser and
 // snapshots may observe market state, but they must never receive the key that authorizes actions.
@@ -23,6 +26,10 @@ function hmac(secret, value) {
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function scorePrecision(value) {
+  return Number(value.toFixed(SCORE_DECIMAL_PLACES));
 }
 
 export function createMarket(seed = "round-001", options = {}) {
@@ -57,7 +64,7 @@ export function createMarket(seed = "round-001", options = {}) {
     startingLiquidity,
     maxActionLiquidity,
     bins: createBins(seed, 1, INITIAL_TICK),
-    teams: {},
+    participants: {},
     usedVouchers: {},
     lastBatch: null,
     lastPulse: null,
@@ -73,13 +80,13 @@ export function createMarket(seed = "round-001", options = {}) {
   return market;
 }
 
-export function registerTeam(market, teamId) {
-  if (typeof teamId !== "string" || !/^[a-zA-Z0-9_-]{3,40}$/.test(teamId)) {
-    throw new Error("invalid team id");
+export function registerParticipant(market, participantId) {
+  if (typeof participantId !== "string" || !PARTICIPANT_ID_PATTERN.test(participantId)) {
+    throw new Error("invalid participant id");
   }
-  if (market.teams[teamId]) throw new Error("team already registered");
-  market.teams[teamId] = {
-    id: teamId,
+  if (market.participants[participantId]) throw new Error("participant already registered");
+  market.participants[participantId] = {
+    id: participantId,
     escrow: 0,
     roundEscrow: 0,
     liquidityBalance: market.startingLiquidity,
@@ -91,12 +98,12 @@ export function registerTeam(market, teamId) {
     lastResolution: null,
     roundScores: [],
   };
-  return market.teams[teamId];
+  return market.participants[participantId];
 }
 
-export function inspectMarket(market, teamId) {
-  const team = market.teams[teamId];
-  if (!team) throw new Error("unknown team");
+export function inspectMarket(market, participantId) {
+  const participant = market.participants[participantId];
+  if (!participant) throw new Error("unknown participant");
 
   return {
     eventId: market.eventId,
@@ -108,19 +115,22 @@ export function inspectMarket(market, teamId) {
     rewardVault: rewardVaultEstimate(market),
     bins: market.bins.map((bin) => ({
       id: bin.id,
-      liquidity: bin.liquidity,
+      liquidity: bin.liquidity * 1_000,
+      price: binPrice(bin.id),
+      volume24h: volume24h(market, bin),
+      fees24h: fees24h(market, bin),
       staleTicks: Math.max(0, market.tick - bin.lastTouchedTick),
       heat: bin.heat,
       isActive: bin.id === market.activeBin,
     })),
-    team: {
-      escrow: team.escrow,
-      roundEscrow: team.roundEscrow,
-      liquidityBalance: team.liquidityBalance,
-      tickets: team.tickets,
-      hasCommitted: Boolean(team.commits[market.tick]),
-      hasRevealed: Boolean(team.reveals[market.tick]),
-      lastResolution: team.lastResolution ? clone(team.lastResolution) : null,
+    participant: {
+      escrow: participant.escrow,
+      roundEscrow: participant.roundEscrow,
+      liquidityBalance: participant.liquidityBalance,
+      tickets: participant.tickets,
+      hasCommitted: Boolean(participant.commits[market.tick]),
+      hasRevealed: Boolean(participant.reveals[market.tick]),
+      lastResolution: participant.lastResolution ? clone(participant.lastResolution) : null,
       telemetry: telemetryCard(market),
     },
     recentActivity: publicActivity(market),
@@ -131,35 +141,35 @@ export function inspectMarket(market, teamId) {
   };
 }
 
-export function commitAction(market, teamId, action, nonce) {
-  const team = market.teams[teamId];
-  if (!team) throw new Error("unknown team");
+export function commitAction(market, participantId, action, nonce) {
+  const participant = market.participants[participantId];
+  if (!participant) throw new Error("unknown participant");
   assertPhase(market, "commit");
   assertCommitNonce(nonce);
-  assertCanResolve(market, team);
-  if (team.commits[market.tick]) throw new Error("already committed this tick");
+  assertCanResolve(market, participant);
+  if (participant.commits[market.tick]) throw new Error("already committed this tick");
   const commitment = hash(`${stableStringify(action)}:${nonce}`);
-  team.commits[market.tick] = commitment;
-  appendEvent(market, { tick: market.tick, teamId, type: "commit", commitment });
+  participant.commits[market.tick] = commitment;
+  appendEvent(market, { tick: market.tick, participantId, type: "commit", commitment });
   return commitment;
 }
 
-export function revealAction(market, teamId, action, nonce) {
-  const team = market.teams[teamId];
-  if (!team) throw new Error("unknown team");
+export function revealAction(market, participantId, action, nonce) {
+  const participant = market.participants[participantId];
+  if (!participant) throw new Error("unknown participant");
   assertPhase(market, "reveal");
   assertCommitNonce(nonce);
-  assertCanResolve(market, team);
-  if (team.reveals[market.tick]) throw new Error("already revealed this tick");
-  const expected = team.commits[market.tick];
+  assertCanResolve(market, participant);
+  if (participant.reveals[market.tick]) throw new Error("already revealed this tick");
+  const expected = participant.commits[market.tick];
   if (!expected) throw new Error("no commit for current tick");
   const actual = hash(`${stableStringify(action)}:${nonce}`);
   if (actual !== expected) throw new Error("commitment mismatch");
 
   if (action.type !== "swap" && action.type !== "ticket") throw new Error("unsupported reveal action");
 
-  team.reveals[market.tick] = clone(action);
-  appendEvent(market, { tick: market.tick, teamId, type: "reveal-accepted" });
+  participant.reveals[market.tick] = clone(action);
+  appendEvent(market, { tick: market.tick, participantId, type: "reveal-accepted" });
   return { accepted: true, tick: market.tick };
 }
 
@@ -174,24 +184,24 @@ export function resolveTick(market) {
   assertPhase(market, "reveal");
   const resolvingTick = market.tick;
   const results = [];
-  const teams = Object.values(market.teams)
-    .filter((team) => team.commits[resolvingTick])
+  const participants = Object.values(market.participants)
+    .filter((participant) => participant.commits[resolvingTick])
     .sort((first, second) => actionOrderKey(market, resolvingTick, first.id)
       .localeCompare(actionOrderKey(market, resolvingTick, second.id)));
 
   // Reveals never mutate market state. Once the reveal boundary closes, settle the immutable queue in
   // a stable order so network timing during the reveal phase cannot change execution order.
-  for (const team of teams) {
-    const action = team.reveals[resolvingTick];
+  for (const participant of participants) {
+    const action = participant.reveals[resolvingTick];
     let resolution;
     if (!action) {
-      resolution = { tick: resolvingTick, teamId: team.id, status: "missed-reveal" };
+      resolution = { tick: resolvingTick, participantId: participant.id, status: "missed-reveal" };
     } else {
       try {
-        const result = applyResolvedAction(market, team.id, action);
+        const result = applyResolvedAction(market, participant.id, action);
         resolution = {
           tick: resolvingTick,
-          teamId: team.id,
+          participantId: participant.id,
           status: "resolved",
           actionType: action.type,
           result,
@@ -199,14 +209,14 @@ export function resolveTick(market) {
       } catch (error) {
         resolution = {
           tick: resolvingTick,
-          teamId: team.id,
+          participantId: participant.id,
           status: "failed",
           actionType: action.type,
           error: error.message,
         };
       }
     }
-    team.lastResolution = clone(resolution);
+    participant.lastResolution = clone(resolution);
     results.push(resolution);
     appendEvent(market, { ...resolution, type: "resolution" });
   }
@@ -219,24 +229,24 @@ export function resolveTick(market) {
   return clone(batch);
 }
 
-export function issueVoucher(market, teamId, { binId, nonce }) {
-  if (!market.teams[teamId]) throw new Error("unknown team");
+export function issueVoucher(market, participantId, { binId, nonce }) {
+  if (!market.participants[participantId]) throw new Error("unknown participant");
   assertPhase(market, "commit");
   getBin(market, binId);
   assertVoucherNonce(nonce);
-  const payload = { teamId, tick: market.tick, binId, nonce };
+  const payload = { participantId, tick: market.tick, binId, nonce };
   return {
     ...payload,
     signature: hmac(getVoucherAuthority(market), stableStringify(payload)),
   };
 }
 
-export function verifyVoucher(market, teamId, binId, voucher) {
-  if (!voucher || voucher.teamId !== teamId || voucher.tick !== market.tick || voucher.binId !== binId) {
+export function verifyVoucher(market, participantId, binId, voucher) {
+  if (!voucher || voucher.participantId !== participantId || voucher.tick !== market.tick || voucher.binId !== binId) {
     throw new Error("voucher binding mismatch");
   }
   const payload = {
-    teamId: voucher.teamId,
+    participantId: voucher.participantId,
     tick: voucher.tick,
     binId: voucher.binId,
     nonce: voucher.nonce,
@@ -248,28 +258,28 @@ export function verifyVoucher(market, teamId, binId, voucher) {
   return voucher.signature;
 }
 
-export function claimWithSniperTicket(market, teamId, binId, addedLiquidity, voucher) {
-  const team = market.teams[teamId];
-  if (!team) throw new Error("unknown team");
+export function claimWithSniperTicket(market, participantId, binId, addedLiquidity, voucher) {
+  const participant = market.participants[participantId];
+  if (!participant) throw new Error("unknown participant");
   const bin = getBin(market, binId);
-  const voucherId = verifyVoucher(market, teamId, binId, voucher);
-  assertCanResolve(market, team);
-  if (team.tickets <= 0) throw new Error("no sniper tickets remaining");
+  const voucherId = verifyVoucher(market, participantId, binId, voucher);
+  assertCanResolve(market, participant);
+  if (participant.tickets <= 0) throw new Error("no sniper tickets remaining");
   assertPositiveSafeInteger(addedLiquidity, "added liquidity");
   if (addedLiquidity > market.maxActionLiquidity) {
     throw new Error(`added liquidity exceeds per-action limit of ${market.maxActionLiquidity}`);
   }
-  if (addedLiquidity > team.liquidityBalance) throw new Error("insufficient funded liquidity");
+  if (addedLiquidity > participant.liquidityBalance) throw new Error("insufficient funded liquidity");
 
   const elapsed = Math.max(0, market.tick - bin.lastTouchedTick);
   const oldLiquidity = bin.liquidity;
 
   // All checks above are side-effect free. Consume the one-shot authorities only once the action is
-  // known to be valid, so malformed attempts cannot burn a team's scarce ticket or funding.
-  market.usedVouchers[voucherId] = { teamId, tick: market.tick };
-  markResolved(market, team, "ticket");
-  team.tickets -= 1;
-  team.liquidityBalance -= addedLiquidity;
+  // known to be valid, so malformed attempts cannot burn a participant's scarce ticket or funding.
+  market.usedVouchers[voucherId] = { participantId, tick: market.tick };
+  markResolved(market, participant, "ticket");
+  participant.tickets -= 1;
+  participant.liquidityBalance -= addedLiquidity;
 
   // Challenge bug: the fresh liquidity enters the denominator/position before the stale reward window
   // is settled, so it captures rewards for time where it was not actually active.
@@ -282,37 +292,41 @@ export function claimWithSniperTicket(market, teamId, binId, addedLiquidity, vou
   bin.lastTouchedTick = market.tick;
   bin.rewardPerLiquidity += rewardWindow / Math.max(1, bin.liquidity);
   bin.heat = Math.min(100, Math.round(extracted / 12));
-  team.escrow += extracted;
-  team.roundEscrow += extracted;
-  team.actions.push({ tick: market.tick, binId, addedLiquidity, extracted });
-  if (team.actions.length > 1_000) team.actions.splice(0, team.actions.length - 1_000);
+  participant.escrow += extracted;
+  participant.roundEscrow += extracted;
+  participant.actions.push({ tick: market.tick, binId, addedLiquidity, extracted });
+  if (participant.actions.length > 1_000) participant.actions.splice(0, participant.actions.length - 1_000);
   appendEvent(market, {
     tick: market.tick,
-    teamId,
+    participantId,
     type: "sniper",
     binId,
     oldLiquidity,
     addedLiquidity,
     extracted,
   });
-  return { extracted, ticketsRemaining: team.tickets };
+  return { extracted, ticketsRemaining: participant.tickets };
 }
 
-export function swap(market, teamId, toBin) {
-  const team = market.teams[teamId];
-  if (!team) throw new Error("unknown team");
+export function swap(market, participantId, toBin) {
+  const participant = market.participants[participantId];
+  if (!participant) throw new Error("unknown participant");
   const bin = getBin(market, toBin);
   const previous = getBin(market, market.activeBin);
-  assertCanResolve(market, team);
-  markResolved(market, team, "swap");
+  assertCanResolve(market, participant);
+  if (participant.liquidityBalance < SWAP_LIQUIDITY_FEE) {
+    throw new Error("insufficient funded liquidity for the swap fee");
+  }
+  markResolved(market, participant, "swap");
+  participant.liquidityBalance -= SWAP_LIQUIDITY_FEE;
   // Leaving a bin settles its public market-maker flow. The destination becomes active without
   // erasing its existing backlog, which is what makes a well-timed pressure move strategically useful.
   previous.lastTouchedTick = market.tick;
   previous.heat = Math.max(previous.heat, 12);
   market.activeBin = toBin;
   bin.heat = Math.max(bin.heat, 8);
-  appendEvent(market, { tick: market.tick, teamId, type: "swap", fromBin: previous.id, toBin });
-  return { activeBin: market.activeBin };
+  appendEvent(market, { tick: market.tick, participantId, type: "swap", fromBin: previous.id, toBin });
+  return { activeBin: market.activeBin, liquidityFee: SWAP_LIQUIDITY_FEE };
 }
 
 export function advanceTick(market, ticks = 1) {
@@ -320,7 +334,7 @@ export function advanceTick(market, ticks = 1) {
   for (let step = 0; step < ticks; step += 1) {
     market.tick += 1;
     for (const bin of market.bins) bin.heat = Math.max(0, bin.heat - 3);
-    for (const team of Object.values(market.teams)) pruneTeamTickState(team, market.tick);
+    for (const participant of Object.values(market.participants)) pruneParticipantTickState(participant, market.tick);
     for (const [voucherId, use] of Object.entries(market.usedVouchers)) {
       if (use.tick < market.tick) delete market.usedVouchers[voucherId];
     }
@@ -330,47 +344,52 @@ export function advanceTick(market, ticks = 1) {
   }
 }
 
-function applyResolvedAction(market, teamId, action) {
-  if (action.type === "swap") return swap(market, teamId, action.toBin);
+function applyResolvedAction(market, participantId, action) {
+  if (action.type === "swap") return swap(market, participantId, action.toBin);
   if (action.type === "ticket") {
-    return claimWithSniperTicket(market, teamId, action.binId, action.liquidity, action.voucher);
+    return claimWithSniperTicket(market, participantId, action.binId, action.liquidity, action.voucher);
   }
   throw new Error("unsupported reveal action");
 }
 
 export function scoreboard(market) {
-  const currentTotal = Object.values(market.teams).reduce((sum, team) => sum + team.roundEscrow, 0);
-  const rows = Object.values(market.teams)
-    .map((team) => {
-      const roundShares = clone(team.roundScores ?? []);
+  const currentTotal = Object.values(market.participants).reduce((sum, participant) => sum + participant.roundEscrow, 0);
+  const includeCurrentRound = Boolean(market.event && market.event.stage !== "complete");
+  const rows = Object.values(market.participants)
+    .map((participant) => {
+      const roundShares = clone(participant.roundScores ?? []);
       const successfulScoredRounds = roundShares.filter((round) => round.reward > 0).length;
       const requiredSuccessfulRounds = market.event
         ? Math.min(MIN_QUALIFYING_SCORED_ROUNDS, market.event.scoredRounds)
         : 0;
+      const score = scorePrecision(roundShares.reduce((sum, round) => sum + round.share, 0));
+      const currentRoundShare = includeCurrentRound && currentTotal > 0
+        ? scorePrecision(participant.roundEscrow / currentTotal)
+        : 0;
       return {
-        teamId: team.id,
-        escrow: team.escrow,
-        roundEscrow: team.roundEscrow,
-        tickets: team.tickets,
+        participantId: participant.id,
+        escrow: participant.escrow,
+        roundEscrow: participant.roundEscrow,
+        tickets: participant.tickets,
         roundShares,
         successfulScoredRounds,
         requiredSuccessfulRounds,
         qualified: Boolean(market.event?.stage === "complete" && successfulScoredRounds >= requiredSuccessfulRounds),
-        score: Number(roundShares.reduce((sum, round) => sum + round.share, 0).toFixed(4)),
-        currentRoundShare: currentTotal === 0 ? 0 : Number((team.roundEscrow / currentTotal).toFixed(4)),
+        score,
+        currentRoundShare,
+        rankingScore: market.event ? scorePrecision(score + currentRoundShare) : participant.escrow,
       };
     })
-    .sort((a, b) => (market.event ? b.score - a.score || b.currentRoundShare - a.currentRoundShare : b.escrow - a.escrow)
-      || a.teamId.localeCompare(b.teamId));
+    .sort((a, b) => b.rankingScore - a.rankingScore || a.participantId.localeCompare(b.participantId));
   const total = rows.reduce((sum, row) => sum + row.escrow, 0);
   let previousScore;
   let previousRank = 0;
   return rows.map((row, index) => {
-    const rankingScore = market.event ? row.score + row.currentRoundShare : row.escrow;
-    if (rankingScore !== previousScore) previousRank = index + 1;
-    previousScore = rankingScore;
+    if (row.rankingScore !== previousScore) previousRank = index + 1;
+    previousScore = row.rankingScore;
+    const { rankingScore, ...publicRow } = row;
     return {
-      ...row,
+      ...publicRow,
       rank: previousRank,
       share: market.event ? row.currentRoundShare : total === 0 ? 0 : Number((row.escrow / total).toFixed(4)),
       stage: market.event?.stage ?? "continuous",
@@ -378,8 +397,8 @@ export function scoreboard(market) {
   });
 }
 
-export function simulateBestTicket(market, teamId, liquidity = 900) {
-  const view = inspectMarket(market, teamId);
+export function simulateBestTicket(market, participantId, liquidity = 900) {
+  const view = inspectMarket(market, participantId);
   const scored = view.bins.map((bin) => {
     const rewardWindow = bin.staleTicks * market.rewardRate * activeMultiplier(market, bin);
     return {
@@ -428,6 +447,21 @@ function createBins(seed, round, tick) {
   return bins;
 }
 
+function binPrice(id) {
+  return Number((148.2 + id * 0.74).toFixed(2));
+}
+
+function volume24h(market, bin) {
+  const displayedLiquidity = bin.liquidity * 1_000;
+  const baseline = displayedLiquidity * 0.16;
+  const activity = bin.heat * 4_800 + (bin.id === market.activeBin ? displayedLiquidity * 0.08 : 0);
+  return Math.round(baseline + activity);
+}
+
+function fees24h(market, bin) {
+  return Math.round(volume24h(market, bin) * (bin.id === market.activeBin ? 0.0028 : 0.0017));
+}
+
 function startNextRound(market) {
   if (market.event) {
     finalizeEventRound(market);
@@ -436,11 +470,11 @@ function startNextRound(market) {
       market.event.stage = "complete";
       market.event.completedAtTick = market.tick;
       market.roundEndsAtTick = Number.MAX_SAFE_INTEGER;
-      for (const team of Object.values(market.teams)) {
-        team.tickets = 0;
-        team.liquidityBalance = 0;
-        team.commits = {};
-        team.reveals = {};
+      for (const participant of Object.values(market.participants)) {
+        participant.tickets = 0;
+        participant.liquidityBalance = 0;
+        participant.commits = {};
+        participant.reveals = {};
       }
       appendEvent(market, { tick: market.tick, round: market.round, type: "event-complete" });
       return;
@@ -461,13 +495,13 @@ function startNextRound(market) {
     activeBin: market.activeBin,
     rewardRate: market.rewardRate,
   };
-  for (const team of Object.values(market.teams)) {
-    team.roundEscrow = 0;
-    team.liquidityBalance = market.startingLiquidity;
-    team.tickets = TICKETS_PER_ROUND;
-    team.commits = {};
-    team.reveals = {};
-    team.resolvedTicks = {};
+  for (const participant of Object.values(market.participants)) {
+    participant.roundEscrow = 0;
+    participant.liquidityBalance = market.startingLiquidity;
+    participant.tickets = TICKETS_PER_ROUND;
+    participant.commits = {};
+    participant.reveals = {};
+    participant.resolvedTicks = {};
   }
   market.usedVouchers = {};
   appendEvent(market, { tick: market.tick, round: market.round, type: "round-reset", activeBin: market.activeBin });
@@ -475,13 +509,15 @@ function startNextRound(market) {
 
 function finalizeEventRound(market) {
   const isPractice = market.round <= market.event.practiceRounds;
-  const total = Object.values(market.teams).reduce((sum, team) => sum + team.roundEscrow, 0);
-  for (const team of Object.values(market.teams)) {
+  const total = Object.values(market.participants).reduce((sum, participant) => sum + participant.roundEscrow, 0);
+  for (const participant of Object.values(market.participants)) {
     if (isPractice) {
-      team.escrow = Math.max(0, team.escrow - team.roundEscrow);
+      participant.escrow = Math.max(0, participant.escrow - participant.roundEscrow);
     } else {
-      const share = total === 0 ? 0 : Number((team.roundEscrow / total).toFixed(4));
-      team.roundScores.push({ round: market.round - market.event.practiceRounds, reward: team.roundEscrow, share });
+      // Four display decimals can erase a real one-unit extraction in the bounded reward vault. Keep
+      // twelve score decimals in persisted state and leave shorter rounding to presentation only.
+      const share = total === 0 ? 0 : scorePrecision(participant.roundEscrow / total);
+      participant.roundScores.push({ round: market.round - market.event.practiceRounds, reward: participant.roundEscrow, share });
     }
   }
   if (!isPractice) market.event.completedScoredRounds += 1;
@@ -518,20 +554,20 @@ function pulseDirection(market, tick) {
   return [-1, -1, 0, 1, 1][entropy % 5];
 }
 
-function pruneTeamTickState(team, tick) {
-  for (const committedTick of Object.keys(team.commits)) {
-    if (Number(committedTick) < tick) delete team.commits[committedTick];
+function pruneParticipantTickState(participant, tick) {
+  for (const committedTick of Object.keys(participant.commits)) {
+    if (Number(committedTick) < tick) delete participant.commits[committedTick];
   }
-  for (const revealedTick of Object.keys(team.reveals)) {
-    if (Number(revealedTick) < tick) delete team.reveals[revealedTick];
+  for (const revealedTick of Object.keys(participant.reveals)) {
+    if (Number(revealedTick) < tick) delete participant.reveals[revealedTick];
   }
-  for (const resolvedTick of Object.keys(team.resolvedTicks)) {
-    if (Number(resolvedTick) < tick) delete team.resolvedTicks[resolvedTick];
+  for (const resolvedTick of Object.keys(participant.resolvedTicks)) {
+    if (Number(resolvedTick) < tick) delete participant.resolvedTicks[resolvedTick];
   }
 }
 
-function actionOrderKey(market, tick, teamId) {
-  return hash(`${market.seed}:round:${market.round}:tick:${tick}:team:${teamId}`);
+function actionOrderKey(market, tick, participantId) {
+  return hash(`${market.seed}:round:${market.round}:tick:${tick}:participant:${participantId}`);
 }
 
 function publicActivity(market) {
@@ -561,7 +597,7 @@ function getBin(market, binId) {
 }
 
 function rewardVaultEstimate(market) {
-  return Math.max(0, 500_000 - Object.values(market.teams).reduce((sum, team) => sum + team.escrow, 0));
+  return Math.max(0, 500_000 - Object.values(market.participants).reduce((sum, participant) => sum + participant.escrow, 0));
 }
 
 function assertPositiveSafeInteger(value, label) {
@@ -582,8 +618,8 @@ function assertVoucherNonce(nonce) {
   }
 }
 
-function assertCanResolve(market, team) {
-  if (team.resolvedTicks[market.tick]) throw new Error("action already resolved this tick");
+function assertCanResolve(market, participant) {
+  if (participant.resolvedTicks[market.tick]) throw new Error("action already resolved this tick");
 }
 
 function assertPhase(market, expected) {
@@ -591,8 +627,8 @@ function assertPhase(market, expected) {
   if (market.phase !== expected) throw new Error(`${expected} phase is not open`);
 }
 
-function markResolved(market, team, actionType) {
-  team.resolvedTicks[market.tick] = actionType;
+function markResolved(market, participant, actionType) {
+  participant.resolvedTicks[market.tick] = actionType;
 }
 
 function getVoucherAuthority(market) {
@@ -631,7 +667,7 @@ export function restoreMarket(value, options = {}) {
   if (!restored || typeof restored !== "object" || Array.isArray(restored)) {
     throw new Error("saved market must be an object");
   }
-  if (typeof restored.seed !== "string" || !Array.isArray(restored.bins) || !restored.teams) {
+  if (typeof restored.seed !== "string" || !Array.isArray(restored.bins) || !restored.participants) {
     throw new Error("saved market is incomplete");
   }
   assertPositiveSafeInteger(restored.tick, "saved market tick");
@@ -642,7 +678,12 @@ export function restoreMarket(value, options = {}) {
     throw new Error("saved market phase is invalid");
   }
   restored.eventId ??= crypto.randomUUID();
-  for (const team of Object.values(restored.teams)) team.roundScores ??= [];
+  for (const [participantId, participant] of Object.entries(restored.participants)) {
+    if (!PARTICIPANT_ID_PATTERN.test(participantId) || participant?.id !== participantId) {
+      throw new Error("saved market contains an invalid participant");
+    }
+    participant.roundScores ??= [];
+  }
   const voucherSecret = options.voucherSecret;
   if (!isUsableSecret(voucherSecret)) throw new Error("voucher secret must contain at least 32 bytes");
   voucherAuthorities.set(restored, voucherSecret);

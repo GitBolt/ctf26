@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { hasImmutableOfficialNightBrand } from "../src/metadata.mjs";
 import { PaymentError, TOKEN_PROGRAM, reconcilePayment } from "../src/verifier.mjs";
 
 const SIGNATURE = "1".repeat(64);
@@ -55,9 +56,15 @@ test("legitimate NIGHT payment also remains valid", async () => {
   assert.equal(result.counterfeit, false);
 });
 
+test("the production NIGHT brand must be both exact and immutable", () => {
+  assert.equal(hasImmutableOfficialNightBrand({ name: "After Hours NIGHT", symbol: "NIGHT", isMutable: false }), true);
+  assert.equal(hasImmutableOfficialNightBrand({ name: "After Hours NIGHT", symbol: "NIGHT", isMutable: true }), false);
+  assert.equal(hasImmutableOfficialNightBrand({ name: "After Hours NIGHT", symbol: "NITE", isMutable: false }), false);
+});
+
 for (const [name, overrides, code] of [
-  ["wrong amount", { amount: "9999999" }, "wrong_amount"],
-  ["wrong decimals", { decimals: 5 }, "wrong_decimals"],
+  ["wrong amount", { amount: "9999999" }, "wrong_payment_shape"],
+  ["wrong decimals", { decimals: 5 }, "wrong_payment_shape"],
   ["missing Metaplex metadata", { missingMetadata: true }, "missing_metadata"],
   ["wrong token name", { tokenName: "Random Devnet Token" }, "wrong_brand"],
   ["wrong token symbol", { tokenSymbol: "RND" }, "wrong_brand"],
@@ -76,6 +83,20 @@ for (const [name, overrides, code] of [
     );
   });
 }
+
+test("payment-shape feedback takes precedence over a missing Solana Pay reference", async () => {
+  const { rpc, metadataReader } = fixture({
+    amount: "10",
+    decimals: 0,
+    accountKeys: [{ pubkey: "OtherReference11111111111111111111111111" }],
+  });
+  await assert.rejects(
+    reconcilePayment({ signature: SIGNATURE, order: ORDER, rpc, metadataReader, now: 1_700_000_200 }),
+    (error) => error instanceof PaymentError &&
+      error.code === "wrong_payment_shape" &&
+      /amount and decimal precision/.test(error.message),
+  );
+});
 
 test("parsed inner transfer instructions are supported", async () => {
   const base = fixture();

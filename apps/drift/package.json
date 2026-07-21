@@ -20,7 +20,9 @@
   },
   "dependencies": {
     "@ctf26/agent-integrity": "file:../../packages/agent-integrity",
+    "@ctf26/leaderboard": "file:../../packages/leaderboard",
     "@ctf26/participant-ticket": "file:../../packages/participant-ticket",
+    "@ctf26/request-budget": "file:../../packages/request-budget",
     "redis": "^5.12.1"
   }
 }

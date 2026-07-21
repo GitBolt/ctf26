@@ -23,7 +23,7 @@ const signature = await program.methods
     vault: address("VAULT_ACCOUNT"),
     vaultAuthority: address("VAULT_AUTHORITY"),
     reserve: address("RESERVE_ACCOUNT"),
-    destination: address("TEAM_ESCROW"),
+    destination: address("PARTICIPANT_ESCROW"),
     strategyProgram: address("STRATEGY_PROGRAM_ID"),
     tokenProgram: TOKEN_PROGRAM_ID,
   })

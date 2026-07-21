@@ -107,7 +107,7 @@ export function qualifyingImprintDrain({
     !staticKeys.slice(0, signerCount).some((key) => keyText(key) === ownerText)
   ) {
     throw new Error(
-      "submitted transaction was not signed by this team's claimed key owner"
+      "submitted transaction was not signed by this participant's claimed key owner"
     );
   }
 
@@ -140,7 +140,7 @@ export function qualifyingImprintDrain({
   );
   if (!matchingWithdrawal) {
     throw new Error(
-      "submitted transaction did not withdraw from the canonical target with this team's event key"
+      "submitted transaction did not withdraw from this participant's assigned target with its event key"
     );
   }
 
@@ -151,7 +151,7 @@ export function qualifyingImprintDrain({
     targetIndex >= transaction.meta.postBalances.length
   ) {
     throw new Error(
-      "canonical target balance data is missing from the transaction"
+      "assigned target balance data is missing from the transaction"
     );
   }
   const before = safeLamports(
@@ -165,7 +165,7 @@ export function qualifyingImprintDrain({
   const drain = before > after ? before - after : 0n;
   if (drain < BigInt(minimumDrainLamports)) {
     throw new Error(
-      "the submitted transaction did not drain the canonical target far enough"
+      "the submitted transaction did not drain the assigned target far enough"
     );
   }
   return drain;

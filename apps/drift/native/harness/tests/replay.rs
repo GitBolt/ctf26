@@ -2,15 +2,15 @@ use {
     drift_harness::{
         ATTACKER_STARTING_BALANCE, MAX_TRACE_STEPS, ReplayHarness, Step, Submission,
         SubmittedAccountMeta, check_submission, default_program_path, parse_submission,
-        reference_rewind_steps, replay_submission, team_config,
+        reference_rewind_steps, replay_submission, participant_config,
     },
     sha2::{Digest, Sha256},
     std::fs,
 };
 
-fn submission(team_id: &str, steps: Vec<Step>) -> Submission {
+fn submission(participant_id: &str, steps: Vec<Step>) -> Submission {
     Submission {
-        team_id: team_id.to_owned(),
+        participant_id: participant_id.to_owned(),
         steps,
     }
 }
@@ -111,12 +111,12 @@ fn funded_deposit_withdraw_round_trip_is_not_a_solve() {
 
 #[test]
 fn old_self_funding_bypass_fails_in_the_native_system_transfer() {
-    let team_id = "native-old-bypass";
-    let amount = team_config(team_id).reserve.to_string();
+    let participant_id = "native-old-bypass";
+    let amount = participant_config(participant_id).reserve.to_string();
     let error = replay_submission(
         default_program_path(),
         &submission(
-            team_id,
+            participant_id,
             vec![
                 amount_instruction(
                     0,
@@ -147,10 +147,10 @@ fn old_self_funding_bypass_fails_in_the_native_system_transfer() {
 
 #[test]
 fn rewind_underflow_exploit_solves_through_sbf_execution() {
-    let team_id = "native-rewind";
-    let result = ReplayHarness::new(team_id, default_program_path())
+    let participant_id = "native-rewind";
+    let result = ReplayHarness::new(participant_id, default_program_path())
         .unwrap()
-        .replay(&reference_rewind_steps(team_id))
+        .replay(&reference_rewind_steps(participant_id))
         .unwrap();
     assert!(result.solved);
     assert!(result.accounting_consistent);
@@ -160,8 +160,8 @@ fn rewind_underflow_exploit_solves_through_sbf_execution() {
 
 #[test]
 fn scored_checker_requires_a_real_solve_and_a_server_secret() {
-    let team_id = "native-scored";
-    let solved = submission(team_id, reference_rewind_steps(team_id));
+    let participant_id = "native-scored";
+    let solved = submission(participant_id, reference_rewind_steps(participant_id));
     let output = check_submission(default_program_path(), &solved, &[0x5a; 32]).unwrap();
     assert!(output.ok);
     assert!(output.flag.starts_with("CTF26{drift_"));
@@ -183,20 +183,20 @@ fn scored_checker_requires_a_real_solve_and_a_server_secret() {
 #[test]
 fn parser_rejects_unknown_operations_fields_and_oversized_traces() {
     assert!(
-        parse_submission(br#"{"teamId":"native-parse","steps":[{"op":"set_account"}]}"#).is_err()
+        parse_submission(br#"{"participantId":"native-parse","steps":[{"op":"set_account"}]}"#).is_err()
     );
     for semantic_op in ["deposit", "accrue", "withdraw", "set_clock"] {
         let bytes = format!(
-            r#"{{"teamId":"native-parse","steps":[{{"op":"{semantic_op}"}}]}}"#
+            r#"{{"participantId":"native-parse","steps":[{{"op":"{semantic_op}"}}]}}"#
         );
         assert!(parse_submission(bytes.as_bytes()).is_err());
     }
     assert!(
-        parse_submission(br#"{"teamId":"native-parse","steps":[{"op":"invoke","dataHex":"01","accounts":[],"balance":"9"}]}"#)
+        parse_submission(br#"{"participantId":"native-parse","steps":[{"op":"invoke","dataHex":"01","accounts":[],"balance":"9"}]}"#)
             .is_err()
     );
     assert!(
-        parse_submission(br#"{"teamId":"native-parse","steps":[{"op":"invoke","dataHex":"0A","accounts":[{"account":"position","isSigner":false,"isWritable":true}]}]}"#)
+        parse_submission(br#"{"participantId":"native-parse","steps":[{"op":"invoke","dataHex":"0A","accounts":[{"account":"position","isSigner":false,"isWritable":true}]}]}"#)
             .is_err()
     );
 

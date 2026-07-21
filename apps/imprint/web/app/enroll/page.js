@@ -4,7 +4,7 @@ import { useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 
 export default function EnrollmentPage() {
-  const [teamId, setTeamId] = useState("");
+  const [participantId, setParticipantId] = useState("");
   const [secret, setSecret] = useState("");
   const [output, setOutput] = useState("");
   const [error, setError] = useState("");
@@ -21,7 +21,7 @@ export default function EnrollmentPage() {
       const optionsResponse = await fetch("/api/admin/enroll/options", {
         method: "POST",
         headers,
-        body: JSON.stringify({ teamId }),
+        body: JSON.stringify({ participantId }),
       });
       if (!optionsResponse.ok) throw new Error(await optionsResponse.text());
       const response = await startRegistration({ optionsJSON: await optionsResponse.json() });
@@ -46,9 +46,9 @@ export default function EnrollmentPage() {
       </header>
       <section className="access-panel">
         <p>Organizer-only enrollment. The participant must be present for the Touch ID, Face ID, or Windows Hello prompt.</p>
-        <label>team ID<input value={teamId} onChange={(event) => setTeamId(event.target.value)} /></label>
+        <label>participant ID<input value={participantId} onChange={(event) => setParticipantId(event.target.value)} /></label>
         <label>enrollment secret<input type="password" value={secret} onChange={(event) => setSecret(event.target.value)} /></label>
-        <div className="actions"><button type="button" disabled={busy || !teamId || !secret} onClick={enroll}>enroll platform passkey</button></div>
+        <div className="actions"><button type="button" disabled={busy || !participantId || !secret} onClick={enroll}>enroll platform passkey</button></div>
         {error ? <p className="error">{error}</p> : null}
         <pre>{output || "No roster entry generated."}</pre>
       </section>

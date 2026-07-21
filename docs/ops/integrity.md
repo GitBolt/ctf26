@@ -1,8 +1,9 @@
 # Event Integrity and Anti-Agent Enforcement
 
-Updated: 2026-07-12
+Updated: 2026-07-22
 
-This is the operational companion to the challenge-design doctrine in `00`. It coordinates the three
+This is the operational companion to the challenge-design doctrine in
+[`../strategy/anti-ai.md`](../strategy/anti-ai.md). It coordinates the three
 things the event must accomplish:
 
 1. build challenges that resist autonomous completion;
@@ -27,15 +28,15 @@ Choose the competition policy before designing enforcement. Recommended prize-tr
 The final rules must explicitly classify search AI summaries, IDE completion versus agent mode,
 translation/accessibility tools, concept questions, challenge-derived material, screenshot-to-AI flows,
 AI-generated scripts, browser/terminal/wallet agents, model-API scripts, and outside human assistance.
-Do not rely on “against the spirit” alone. Require every member to acknowledge the exact rules version
+Do not rely on “against the spirit” alone. Require every participant to acknowledge the exact rules version
 at registration and before the first scored launch.
 
-### Team responsibility
+### Participant responsibility
 
-Recommended rule: the team is responsible for every submitted flag, proof, transaction, and score. One
-member's prohibited use can affect the team result. For a reviewed solve, name the primary contributor
-and everyone who materially participated. Teammates should not submit work whose provenance they cannot
-explain.
+Recommended rule: each participant is responsible for every submitted flag, proof, transaction, and
+score under their identity. For a reviewed solve, the participant must identify any outside human
+assistance and explain the provenance of every submitted artifact. Another person must never submit
+work through the participant's account.
 
 ### Immediate submission
 
@@ -48,8 +49,9 @@ claims should not be accepted.
 
 ## 2. Pillar one — prevent autonomous completion
 
-Use the doctrine in `00`: real Solana security core; per-team state; randomized targets; strict
-state-transition/replay checkers; server-generated flags; no answers in public artifacts; physical
+Use the doctrine in [`../strategy/anti-ai.md`](../strategy/anti-ai.md): real Solana security core;
+per-participant state; randomized targets; strict state-transition/replay checkers; server-generated
+flags; no answers in public artifacts; physical
 passkey/wallet approval where authentic; live state, scarce attempts, relative scoring, and in-person
 prize-contender review.
 
@@ -60,10 +62,11 @@ discoverable on routes agents actually inspect, bind a disclosure marker to part
 record disclosure first-party before mirroring it to Discord, and retain independent behavioral detection
 for agents that ignore the policy. See `../research/reward-sniper.md`.
 
-CTF26 operational default as of 2026-07-12: every hosted scored challenge exposes the common
+CTF26 operational default as of 2026-07-16: every browser-hosted scored challenge exposes the common
 disclosure-first policy routes and reports participant-bound disclosures into the central organizer
-feed. Challenge-specific prevention/detection remains separate: IMPRINT uses its passkey gate, Reward
-Sniper adds behavioral UI/API correlation, and SIGNET/DRIFT retain their own exploit boundaries.
+feed. LAST STOP and AFTER HOURS publish the same stop policy on machine-discovery routes without adding
+it to terminal help or Discord slash commands. Challenge-specific prevention and detection remains
+separate from the exploit boundary.
 
 ---
 
@@ -76,16 +79,50 @@ Detection answers “which solve warrants human review?”, not “did a model w
 Record with synchronized server time:
 
 - rules version and acknowledgement;
-- participant, team, challenge, session, target, and artifact version/hash;
+- participant, challenge, session, target, and artifact version or hash;
 - launches, credential issuance, and hints viewed;
 - flag/proof submissions exactly as entered and checker reason codes;
 - accepted transactions, replays, commits/reveals, and high-value actions;
-- rate-limit, replay, cross-team, decoy, and safe-canary events;
+- rate-limit, replay, cross-participant, decoy, and safe-canary events;
 - scoreboard and administrative changes;
 - review trigger, evidence, decision, reviewers, and appeal result.
 
 Do not collect private keys, cookies, local files, browser history, environment variables, unrelated
 device contents, or covertly invasive telemetry. Restrict access and define retention before launch.
+
+The shared challenge telemetry records only authenticated identity, challenge action name, category,
+timestamp, outcome class, coarse client class, and UI correlation. It does not forward request bodies,
+flags, transaction signatures, wallet addresses, command arguments, cookies, tokens, or full IP
+addresses. Per-participant histories are bounded. A suspicion record never changes score, access, or
+challenge state automatically.
+
+Normal CTF behavior is explicitly non-evidence by itself. This includes curl and custom clients,
+Playwright, direct API use, endpoint enumeration, fuzzing, brute force, repeated failures, fast polling,
+few UI events, missing policy reads, and minimal use of supplied replay tools. Those patterns may remain
+in the activity history, but they cannot establish prohibited AI use without corroboration.
+
+The portal records the first challenge launch durably for each participant and event generation. A
+signed completion received less than `FAST_SOLVE_REVIEW_SECONDS` later, 300 seconds by default, opens a
+manual-review case. This timing signal never changes score, access, or eligibility automatically. A
+missing launch record opens no case, reloads do not reset the first-launch clock, and failed delivery to
+the review service remains in a Redis outbox for organizer retry.
+
+Participant-authenticated interface navigation is also non-evidence by itself. Script identifiers,
+headless-browser identifiers, missing UI events, and interface-asset requests remain in the activity
+profile but never create a suspicion or send a webhook.
+
+The activity profile retains only categorical
+Fetch Metadata, same-origin referrer/origin relationships, broad `Accept` class, and client-hint
+presence. It never stores raw referrers, origins, headers, URLs, or device fingerprints. Missing or
+contradictory request context never opens a case because ordinary redirects, privacy settings,
+referrer policies, browsers, and hosting proxies can all change these headers.
+
+Browser challenges silently record an authenticated application-boot event through their existing UI
+telemetry channel. Missing application boot is timeline context only and never creates a suspicion or
+webhook. The beacon is fail-open: failure never blocks loading, changes the challenge, delays an action,
+alters a score, or displays participant-facing integrity copy. It is evidence that the shipped
+interface executed, not proof that a human controlled it. Browser agents can execute the application
+and satisfy the beacon.
 
 ### Human workflow baselines
 
@@ -97,11 +134,11 @@ launch → first hypothesis → first valid interaction → mechanism discovery
 ```
 
 Record ranges, false starts, and legitimate alternate paths. These are review baselines, not minimum
-legal times. Prior knowledge, team parallelism, or exceptional skill may explain an outlier.
+legal times. Prior knowledge or exceptional skill may explain an outlier.
 
 ### Wrong-submission analysis
 
-Classify wrong flags/proofs as typo/encoding error, wrong team/session, public example, known decoy or
+Classify wrong flags or proofs as typo or encoding error, wrong participant or session, public example, known decoy or
 stale value, random-format guess, semantically plausible value with no derivation, or repeated exact
 agent-only marker. A thematic but non-derived flag was RITSEC's strongest reported indicator. It should
 trigger rapid review and possibly a temporary scoreboard hold, not bypass adjudication.
@@ -115,10 +152,12 @@ wrong submission.
 **Medium confidence — open review:** several independent low signals; timing inconsistent with the
 interaction trace and no credible alternate path; repeated decoy/canary actions; plausible invented
 flags; exact hidden agent-only phrases; inability to explain artifact provenance or exploit mechanics;
-automated-looking trace with normal human milestones absent.
+automated-looking trace with normal human milestones absent; or a known AI client identifier attached
+to an authenticated challenge action. User-agent evidence is spoofable and remains review evidence, not
+a finding.
 
 **High confidence — contain, then adjudicate:** admission or participant-provided transcript; an agent
-directly operating the scored service under team credentials; challenge-specific output demonstrably
+directly operating the scored service under participant credentials; challenge-specific output demonstrably
 produced through a prohibited workflow; repeated agent-only actions plus failed technical defense and
 corroborating telemetry; an outside operator or AI-lab submission competing contrary to explicit rules.
 
@@ -126,7 +165,7 @@ No prose classifier, timing threshold, IP address, or canary hit is independentl
 
 ### Triage cadence
 
-- Alert continuously only on cross-team reuse, replay, credential abuse, or high-confidence actions.
+- Alert continuously only on cross-participant reuse, replay, credential abuse, or high-confidence actions.
 - Review prize positions and anomalies at scheduled intervals.
 - After scoreboard freeze, review all prize contenders and category winners.
 - State honestly if enforcement covers only the competitive top of the board.
@@ -154,8 +193,8 @@ whether notes look professional. Provide translation and accessibility accommoda
 
 1. Preserve relevant logs, submission, artifact, and scoreboard state.
 2. Record the trigger and evidence tier without embellishment.
-3. If necessary, hold the solve/prize without publicly accusing the team.
-4. Notify the team of the rule and solve under review.
+3. If necessary, hold the solve or award without publicly accusing the participant.
+4. Notify the participant of the rule and solve under review.
 5. Request raw working artifacts and a short explanation; never demand hidden chain-of-thought.
 6. Conduct author-led questions and one safe variation/reproduction.
 7. Require two organizers for a disqualification recommendation.
@@ -166,10 +205,10 @@ whether notes look professional. Provide translation and accessibility accommoda
 
 Publish the ladder before the event. A reasonable model is warning/reset for accidental boundary contact
 without advantage; solve invalidation and related review when prohibited assistance affected one solve;
-team prize/event disqualification for deliberate autonomous solving or repeated violations; and immediate
+award or event disqualification for deliberate autonomous solving or repeated violations; and immediate
 containment for credential sharing, outside operation, or evidence tampering.
 
-Apply the same standard to prominent teams, sponsors, researchers, and AI labs. Appeals should go to
+Apply the same standard to prominent participants, sponsors, researchers, and AI labs. Appeals should go to
 someone other than the sole initial decision-maker where possible. Preserve evidence, accept new
 reproducible evidence, and make scoreboard corrections reversible.
 
@@ -182,14 +221,16 @@ scribe, floor proctors, appeal owner/panel, and scoreboard operator. Create a pr
 and case template; never debate active cases in public chat.
 
 **Before:** freeze rules; collect acknowledgement; run baselines; test logs; prepare reviewer packets;
-rehearse a false positive, mixed-compliance team, high-confidence case, and appeal.
+rehearse a false positive, mixed-compliance participant, high-confidence case, and appeal.
 
 **During:** keep synchronized clocks; monitor service integrity; review on schedule; preserve evidence;
 conduct private solve defenses; avoid public accusations.
 
 **After:** freeze the scoreboard; review prize positions; resolve appeals; rotate secrets; publish an
-aggregated integrity report; feed observed capabilities and false positives back into `00`, `02`, and
-`09`.
+aggregated integrity report; feed observed capabilities and false positives back into
+[`../strategy/anti-ai.md`](../strategy/anti-ai.md),
+[`../research/ai-resistance.md`](../research/ai-resistance.md), and
+[`playtest.md`](playtest.md).
 
 ---
 
@@ -197,19 +238,24 @@ aggregated integrity report; feed observed capabilities and false positives back
 
 The platform should support append-only structured integrity events; exact wrong-submission retention;
 synchronized launch/hint/action/solve timelines; anomaly views for bursts, impossible ordering,
-cross-team reuse, and known decoys; reviewer cases with immutable evidence references; temporary holds;
+cross-participant reuse, and known decoys; reviewer cases with immutable evidence references; temporary holds;
 author question/variant packets; two-reviewer decisions; appeals and reversible scoreboard corrections;
 retention expiry; and access auditing.
 
 Avoid a black-box “AI cheating score.” Show underlying events and reasons so reviewers can challenge the
 inference.
 
+The canonical organizer surface is `/admin`. It combines readiness, the config-driven scoring lifecycle,
+Reward Sniper state, leaderboard finalization, the integrity queue, staging-only reset, and the
+two-organizer eligibility ledger. `/admin/integrity` redirects there. Start and end timestamps remain
+deployment configuration and cannot be mutated from the dashboard.
+
 ---
 
 ## 7. Launch gates
 
-- Allowed/prohibited matrix and team-liability rule are frozen.
-- Every member acknowledges the exact rules version.
+- Allowed and prohibited matrix and participant-responsibility rule are frozen.
+- Every participant acknowledges the exact rules version.
 - Immediate submission behavior is defined per challenge format.
 - Every challenge has a workflow baseline, alternate-path list, defense questions, safe variation, and
   named reviewer.

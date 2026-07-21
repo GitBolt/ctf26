@@ -20,8 +20,8 @@ describe("signet on-chain authority path", () => {
   const attackerStrategy = anchor.workspace.AttackerStrategy;
 
   async function initializeVault(program, label, pinnedStrategyProgram) {
-    const teamSeed = Buffer.alloc(16);
-    Buffer.from(label).copy(teamSeed);
+    const participantSeed = Buffer.alloc(16);
+    Buffer.from(label).copy(participantSeed);
     const mint = await createMint(
       provider.connection,
       payer,
@@ -31,7 +31,7 @@ describe("signet on-chain authority path", () => {
     );
 
     const [vault] = PublicKey.findProgramAddressSync(
-      [Buffer.from("vault"), provider.wallet.publicKey.toBuffer(), teamSeed],
+      [Buffer.from("vault"), provider.wallet.publicKey.toBuffer(), participantSeed],
       program.programId,
     );
     const [vaultAuthority] = PublicKey.findProgramAddressSync(
@@ -44,7 +44,7 @@ describe("signet on-chain authority path", () => {
     );
 
     await program.methods
-      .initialize(Array.from(teamSeed), pinnedStrategyProgram)
+      .initialize(Array.from(participantSeed), pinnedStrategyProgram)
       .accounts({
         authority: provider.wallet.publicKey,
         mint,

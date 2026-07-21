@@ -13,79 +13,67 @@
   <body>
     <a class="skip-link" href="#main">Skip to checker</a>
 
-    <main id="main" class="shell">
-      <aside class="identity-panel" aria-label="SIGNET challenge">
-        <div class="archive-heading">
-          <p class="edition">Program archive 03</p>
-          <span class="wordmark">SIGNET</span>
-          <p class="archive-summary">Deployment record verification</p>
-        </div>
-        <ol class="provenance-track" aria-label="Verification record">
-          <li><span>01</span><strong>Published source</strong></li>
-          <li><span>02</span><strong>Deployed program</strong></li>
-          <li class="current"><span>03</span><strong>Finalized transaction</strong></li>
-        </ol>
-        <div class="identity-footer">
-          <p>Compare the record. Prove what executed.</p>
+    <main id="main" class="challenge">
+      <header class="challenge-header">
+        <h1>SIGNET</h1>
+        <div class="header-actions">
+          <span id="connection-status" class="status"><i aria-hidden="true"></i>Connecting</span>
           <a id="source-repository" class="repository-link" href="https://github.com/GitBolt/signet" target="_blank" rel="noreferrer">
-            Open source record <span aria-hidden="true">↗</span>
+            Repository <span aria-hidden="true">↗</span>
           </a>
         </div>
-      </aside>
+      </header>
 
-      <section class="work-panel">
-        <header class="masthead">
-          <span class="session-label">Evidence desk</span>
-          <span id="connection-status" class="status"><i aria-hidden="true"></i>Connecting</span>
-        </header>
-
-        <section class="checker" aria-labelledby="checker-title">
-          <p class="kicker">Finalized transaction</p>
-          <h1 id="checker-title">Verify the record.</h1>
-          <p class="intro">Submit one Solana signature. The archive will compare what executed with your assigned deployment.</p>
-
-          <form id="submission-form" novalidate>
-            <label for="transaction-signature">Transaction signature</label>
-            <textarea
-              id="transaction-signature"
-              name="signature"
-              rows="3"
-              maxlength="128"
-              spellcheck="false"
-              autocomplete="off"
-              placeholder="Paste the base58 signature"
-              aria-describedby="signature-error"
-              required
-            ></textarea>
-            <div class="form-footer">
-              <p id="signature-error" class="error" role="alert" hidden></p>
-              <button id="submit-transaction" type="submit"><span>Verify transaction</span></button>
-            </div>
-          </form>
-
-          <section id="success-result" class="result" aria-live="polite" hidden>
-            <div class="result-heading">
-              <span class="result-seal" aria-hidden="true">✓</span>
-              <div>
-                <p class="result-state">Transaction accepted</p>
-                <p id="solve-summary" class="result-summary"></p>
-              </div>
-            </div>
-            <label for="flag-output">Flag</label>
-            <div class="flag-row">
-              <input id="flag-output" type="text" readonly />
-              <button id="copy-flag" class="copy-flag" type="button">Copy flag</button>
-            </div>
-          </section>
-        </section>
+      <section class="challenge-body" aria-labelledby="checker-title">
+        <h2 id="checker-title">Assigned objective</h2>
+        <div class="challenge-brief">
+          <p>Move the assigned reserve into the registered participant escrow, then submit the finalized transaction.</p>
+          <a id="starter-download" class="starter-download" href="/signet-starter.tar.gz" download>
+            Download starter
+          </a>
+        </div>
 
         <details class="assignment">
-          <summary><span>Assigned deployment record</span><span id="team-label">loading</span></summary>
+          <summary><span>Target</span><span id="participant-label">loading</span></summary>
           <dl id="target-manifest" aria-busy="true">
             <div><dt>Program</dt><dd>—</dd></div>
           </dl>
           <p id="preview-note" class="preview-note" hidden>Preview accepts <code>demo-drain</code>.</p>
         </details>
+
+        <form id="submission-form" novalidate>
+          <label for="transaction-signature">Finalized Solana signature</label>
+          <textarea
+            id="transaction-signature"
+            name="signature"
+            rows="3"
+            maxlength="128"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="Paste signature"
+            aria-describedby="signature-error"
+            required
+          ></textarea>
+          <div class="form-footer">
+            <p id="signature-error" class="error" role="alert" hidden></p>
+            <button id="submit-transaction" type="submit"><span>Submit</span></button>
+          </div>
+        </form>
+
+        <section id="success-result" class="result" aria-live="polite" hidden>
+          <div class="result-heading">
+            <span class="result-seal" aria-hidden="true">✓</span>
+            <div>
+              <p class="result-state">Accepted</p>
+              <p id="solve-summary" class="result-summary"></p>
+            </div>
+          </div>
+          <label for="flag-output">Flag</label>
+          <div class="flag-row">
+            <input id="flag-output" type="text" readonly />
+            <button id="copy-flag" class="copy-flag" type="button">Copy</button>
+          </div>
+        </section>
 
         <p id="global-message" class="fatal" role="status" aria-live="polite" hidden></p>
       </section>

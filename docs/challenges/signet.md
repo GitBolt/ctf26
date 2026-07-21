@@ -1,14 +1,14 @@
 # Challenge Spec — SIGNET (stale deployment + source archaeology)
 
-Status: **WORKING BUILD — Challenge 3 of 6 (N-day / source archaeology)** · Updated: 2026-07-15 · Codename: SIGNET
+Status: **EVENT BUILD — Challenge 3 of 10 (N-day / source archaeology)** · Updated: 2026-07-21 · Codename: SIGNET
 
-**One line:** your per-team Solana program is a fork **deployed from the vulnerable commit just before
+**One line:** your per-participant Solana program is a fork **deployed from the vulnerable commit just before
 a CPI/PDA authority bug was silently patched** — no advisory, the fix buried in an innocuous "strategy
 refactor" PR. You do **not** exploit the latest fixed code. You use the patch to understand the bug,
 then exploit the deliberately stale pre-fix live instance. Real N-day / patch-diffing security
 research.
 
-> **Identity in the 4-challenge slate:** the **N-day / audit research** challenge. The hard part is not
+> **Identity in the ten-challenge slate:** the **N-day / audit research** challenge. The hard part is not
 > generic OSINT; the hard part is mapping a silent source patch to a **stale pre-fix Solana
 > deployment**. Navigation friction, Turnstile, and canaries are support layers only. No passkey
 > (IMPRINT), no dynamic market (Reward Sniper). Real-CTF lineage: patch-diffing, source archaeology,
@@ -28,7 +28,7 @@ maintenance commit near the tip of `main`.
 There are two versions in play:
 
 ```text
-commit A  vulnerable code        <-- the per-team live challenge program is deployed from here
+commit A  vulnerable code        <-- the per-participant live challenge program is deployed from here
 commit B  ordinary maintenance   <-- this quietly fixes the bug
 commit C  later cleanup          <-- latest repo state, fixed and not exploitable
 ```
@@ -82,35 +82,37 @@ invoke_signed(
 ```
 
 The intended solve is real security research:
-1. **Fingerprint** the deployed per-team program → which source era is it? Use behavioral probing and
+1. **Fingerprint** the deployed per-participant program to determine which source era it uses. Use behavioral probing and
    instruction/account compatibility, not a leaked version string. The portal may expose an opaque
    build fingerprint for confirmation, but not the exact commit.
 2. **Find the silent fix** by reading the recent commit history — there is no advisory to grep; the
    meaningful check is a tiny part of an otherwise ordinary maintenance diff.
 3. **Understand** the bug from the diff + discussion (intent, not pattern-match).
-4. **Exploit** the pre-fix bug on your live per-team instance by deploying/calling an attacker strategy
+4. **Exploit** the pre-fix bug on your live per-participant instance by deploying or calling an attacker strategy
    and draining the randomized target into your registered escrow.
 5. **Flag** from the checker after the validated on-chain state transition (no flag in any artifact).
 
-**No confusion rule:** the latest repo is fixed by design. If a team tries to exploit the latest code,
+**No confusion rule:** the latest repo is fixed by design. If a participant tries to exploit the latest code,
 it should fail. The challenge target is intentionally stale.
 
 ---
 
 ## 2. What we give the players
 
-- The **challenge portal** (browser/session-gated) with the per-team program id, an opaque build
+- The **challenge portal** (browser/session-gated) with the per-participant program id, an opaque build
   fingerprint, the public GitHub repository URL, and the exploit target.
 - The **controlled public project repository** at `https://github.com/GitBolt/signet` — 24 realistic
   Anchor development commits, current latest code that is already fixed, and the quiet fix among the
   most recent maintenance commits.
-- **No version signpost (deliberate, `00` §6.7).** We do **not** tell players the deployment is stale or
+- **No version signpost (deliberate; see the design laws in
+  [`anti-ai.md` §6](../strategy/anti-ai.md#6-the-design-laws-each-earned-by-a-failure)).** We do **not** tell players the deployment is stale or
   that a patch exists — that realization is the challenge (§4). The portal states only the objective and
   the program id / build fingerprint to reverse. (Internally the latest `main` is non-exploitable, so a
-  team that only reads the fixed head and attacks it fails — but we never announce that up front.)
-- A per-team **live devnet instance** + funded wallet; starter client.
-- A **paid hint ladder** is the only orientation for stuck teams — e.g. "compare your target's behaviour
-  to the latest code" costs score. No free hint names the strategy module or the patch.
+  participant who only reads the fixed head and attacks it fails, but we never announce that up front.)
+- A per-participant **live devnet instance** with a funded wallet and starter client.
+- A logged hint ladder is the only orientation for stuck participants, for example "compare your target's
+  behaviour to the latest code." No hint names the strategy module or the patch. Hints do not alter
+  points because the event does not have a consistent cross-challenge penalty instrument.
 
 ---
 
@@ -121,14 +123,15 @@ it should fail. The challenge target is intentionally stale.
 - **Mid:** fingerprint the deployed program to the pre-fix commit; diff-read to isolate the actual
   silent fix among decoys; understand *why* it's a fix.
 - **Ceiling:** exploit the stale pre-fix deployment: deploy or call an attacker strategy, reuse the
-  signer privilege forwarded by the vault, drain the randomized target, and pass the checker. First-blood +
-  partial credit (identifying the correct commit and explaining the authority bug scores partial).
+  signer privilege forwarded by the vault, drain the randomized target, and pass the checker. The
+  verified target drain is the scored capture.
 
 ---
 
 ## 4. Anti-AI mechanisms (unique mix) + honest caveats
 
-**The core property — the investigative intent-gap (`00` §4.7).** Autonomous agents almost never
+**The core property — the investigative intent-gap
+([`anti-ai.md` §4](../strategy/anti-ai.md#4-what-agents-are-bad-at--build-the-barrier-here)).** Autonomous agents almost never
 *self-initiate* source archaeology. Handed "here is a live program, drain it," an agent does not
 spontaneously decide "the bug might be buried in a closed PR and a reviewer comment from months ago" —
 that leap of investigative intent is a human instinct, not default agent behaviour. Since the goal is to
@@ -145,24 +148,25 @@ stalls because it never thinks to look at the history. Two rules protect it:
 
 Supporting layers (friction, not the boundary):
 
-1. **Live per-team exploit.** The win is a **real state transition on a running program**, not a
-   readable value. The archaeology answer alone is insufficient; teams must weaponize it.
+1. **Live per-participant exploit.** The win is a **real state transition on a running program**, not a
+   readable value. The archaeology answer alone is insufficient; participants must weaponize it.
 2. **Messy source archaeology as work.** Once a human has *decided* to look, closed PRs, review
    comments, and commit diffs are not agent-proof — REST/GraphQL enumeration may even favor agents. So
    the strength is the un-prompted intent-gap above, not the browsing being hard. Treat this layer as
    realism and attention cost.
-3. **Browser/session-gated portal.** The challenge portal and per-team target sit behind normal
+3. **Browser/session-gated portal.** The challenge portal and per-participant target sit behind normal
    browser/session checks, which slow cheap scraping. This is friction, not the security boundary.
 4. **Prompt-injection canaries** (unreliable, layered — telemetry only). Decoy READMEs/PR descriptions
    carry non-harmful injected instructions and canary markers; an autonomous agent following them
-   discloses itself. Never load-bearing, never requests private data (`02`).
+   discloses itself. It is never load-bearing and never requests private data; see
+   [`ai-resistance.md`](../research/ai-resistance.md).
 5. **Optional live/event hint.** A video or in-room clue can speed humans toward the right module, but
    it should not be required for correctness. The intended path remains source archaeology + exploit.
 
 **Honest caveats (state them):** a patient agent *that a human has pointed at the history* can enumerate
 repo history, PRs, issues, and review comments — the gap is that it won't self-start, not that browsing
 is hard. Hardening is not "humans browse better"; hardening is: (a) we never signpost the archaeology
-(§4); (b) the live target is randomized per team; (c) the exploit requires deploying/calling an attacker
+(§4); (b) the live target is randomized per participant; (c) the exploit requires deploying or calling an attacker
 strategy, not just naming the bug; (d) the checker validates the drain; (e) in-person "defend your solve"
 makes blind agent output risky for prize contention. Honest bar: *the answer is not enough; the exploit
 must work*, not "archaeology beats AI."
@@ -174,9 +178,13 @@ public-only, non-harmful.
 
 ## 5. Scoring
 
-- **First-blood + partial credit**, relative to the field: partial for correctly naming the silent-fix
-  commit and explaining the CPI/PDA authority issue; full for the live exploit that drains the per-team
-  target. Contributes leaderboard spread; rewards genuine research depth.
+- The verified per-participant target drain is one binary capture under the shared rarity curve in
+  [`event.md` §3](../strategy/event.md#3-dynamic--relative-scoring-decision). The correct commit and
+  authority explanation are not separately scored, so the challenge author does not assign subjective
+  partial values.
+- Earlier drafts proposed first-blood and written-research partial credit. Commit identification and
+  explanation remain solve-defense evidence and teaching feedback, while all successful drains receive
+  the same current leaderboard value.
 
 ---
 
@@ -185,17 +193,18 @@ public-only, non-harmful.
 - **The fictional repo:** a scoped Solana vault/strategy protocol (not a whole monorepo) with realistic
   history; the unpinned CPI/PDA authority bug; the silent fix inside a decoy strategy-refactor PR + a
   reviewer-comment hint; several plausible decoy security commits/PRs; a buried related issue.
-- **No version labeling (deliberate, `00` §6.7).** The portal states the objective ("drain your vault")
+- **No version labeling (deliberate; see
+  [`anti-ai.md` §6](../strategy/anti-ai.md#6-the-design-laws-each-earned-by-a-failure)).** The portal states the objective ("drain your vault")
   and gives the program id / opaque build fingerprint — nothing about the target being stale or a patch
   existing. That realization is the challenge. Do **not** embed a plaintext version string in the
   program; expose at most an opaque build fingerprint and require behavioral probing. Internally the
   latest head is non-exploitable, so attacking it fails — but we never say so up front.
-- **No free hint artifact.** Orientation for stuck teams comes only through the **paid hint ladder**; no
+- **No free hint artifact.** Orientation for stuck participants comes only through the **paid hint ladder**; no
   free clip/office-hours note names the strategy module or the patch.
-- **Portal** behind Turnstile; per-team program deploy at a randomized pre-fix SHA + randomized target;
+- **Portal** behind Turnstile; per-participant program deploy at a randomized pre-fix SHA and randomized target;
   checker validating the on-chain state transition → HMAC flag.
-- **Canary routes** for the prompt-injection/telemetry layer (reuse the Settlement-Room-73 anti-cheat
-  patterns, public-data-only).
+- **Canary routes** for the shared disclosure-first integrity layer documented in
+  [`integrity.md`](../ops/integrity.md); never gate the solve on them.
 
 ---
 

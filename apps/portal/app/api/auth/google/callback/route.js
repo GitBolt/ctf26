@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { centralBaseUrl } from "@/lib/config.mjs";
+import { organizerEmails } from "@/lib/organizers.mjs";
 import { registrationForEmail } from "@/lib/registration.mjs";
 import {
   SESSION_COOKIE,
@@ -62,14 +63,19 @@ export async function GET(request) {
 
     const participantId = participantIdForEmail(email);
     const registration = registrationForEmail(email, participantId);
-    if (!registration) {
+    const organizer = organizerEmails().has(email);
+    if (!registration && !organizer) {
       return NextResponse.redirect(`${baseUrl}/?error=not_registered`);
     }
+    const identity = registration || {
+      participantId,
+      displayName: String(googleUser.name || email).slice(0, 80),
+    };
     const session = createUserSession({
-      participant_id: participantId,
-      team_id: registration.teamId,
+      participant_id: identity.participantId,
       email,
       name: googleUser.name || email,
+      leaderboard_name: identity.displayName,
       picture: googleUser.picture || "",
     });
 
@@ -80,7 +86,7 @@ export async function GET(request) {
       maxAge: 12 * 60 * 60,
       path: "/",
     });
-    return NextResponse.redirect(`${baseUrl}/`);
+    return NextResponse.redirect(`${baseUrl}${organizer ? "/admin" : "/"}`);
   } catch {
     return NextResponse.redirect(`${baseUrl}/?error=google_auth`);
   }

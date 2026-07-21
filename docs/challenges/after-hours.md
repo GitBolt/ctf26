@@ -14,7 +14,9 @@ AFTER HOURS is a short Solana payment-reconciliation challenge delivered through
 - A one-time wallet-bound allotment transfer proves that NIGHT is a real on-chain asset rather than an invented label.
 - A wallet or participant-written client submits the Solana transaction.
 - The bot accepts only a transaction signature and never requests private wallet material.
-- Completion is a durable fulfillment backed by a finalized transaction and server-side receipt.
+- A payment with the official NIGHT mint settles that checkout as an ordinary, non-scoring payment and consumes its signature.
+- Completion is issued only for a finalized payment whose copied branding passes reconciliation while its received mint differs from the official mint.
+- Completion is a durable fulfillment backed by that exploit transaction and a server-side receipt.
 
 There is no challenge website. Discord is the application surface, Solana is the payment ledger, and the participant's wallet or script is the transaction composer.
 

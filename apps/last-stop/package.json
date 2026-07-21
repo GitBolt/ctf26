@@ -10,7 +10,10 @@
     "build:native": "cargo build-sbf --manifest-path native/program/Cargo.toml --sbf-out-dir native/dist && cargo +1.89.0 build --release --manifest-path native/harness/Cargo.toml"
   },
   "dependencies": {
+    "@ctf26/agent-integrity": "file:../../packages/agent-integrity",
+    "@ctf26/leaderboard": "file:../../packages/leaderboard",
     "@ctf26/participant-ticket": "file:../../packages/participant-ticket",
+    "@ctf26/request-budget": "file:../../packages/request-budget",
     "redis": "^5.8.2",
     "ssh2": "^1.17.0"
   },

@@ -1,15 +1,24 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import net from "node:net";
 import test from "node:test";
 import { issueParticipantTicket } from "@ctf26/participant-ticket";
 
 import { checkOnchainSubmission } from "../src/checker.mjs";
 import { encodeBase58 } from "../src/encoding.mjs";
-import { handleAgentPolicy, handleHealth, handleSession, handleTarget } from "../src/http-service.mjs";
+import { handleAgentPolicy, handleCompletion, handleHealth, handleSession, handleSubmit, handleTarget } from "../src/http-service.mjs";
 import { createInstancePlan } from "../src/provisioning.mjs";
 import { closeRedis, consumeLaunchJti, enforceSubmissionRateLimit, redisCommand } from "../src/redis.mjs";
+import { publishTargets } from "../scripts/publish-targets.mjs";
 import { exchangeLaunchTicket, issueSession, verifySession } from "../src/session.mjs";
-import { loadTargetForTeam, localPreviewTarget, validateTarget } from "../src/targets.mjs";
+import {
+  createTargetInventory,
+  loadTargetForParticipant,
+  loadTargetInventory,
+  localPreviewTarget,
+  validateTarget,
+  validateTargetInventory,
+} from "../src/targets.mjs";
 
 const SECRET = "0123456789abcdef0123456789abcdef";
 const NOW = 1_800_000_000;
@@ -34,20 +43,111 @@ test("base58 encoding preserves leading zero bytes", () => {
 });
 
 test("target manifests fail closed on malformed Solana addresses and impossible thresholds", () => {
-  const target = localPreviewTarget("team-a");
-  assert.throws(() => validateTarget({ ...target, reserveAccount: "not-an-address" }, "team-a"), /Solana address/);
+  const target = localPreviewTarget("participant-a");
+  assert.throws(() => validateTarget({ ...target, reserveAccount: "not-an-address" }, "participant-a"), /Solana address/);
   assert.throws(
-    () => validateTarget({ ...target, thresholdRaw: "1000001", initialReserveRaw: "1000000" }, "team-a"),
+    () => validateTarget({ ...target, thresholdRaw: "1000001", initialReserveRaw: "1000000" }, "participant-a"),
     /exceeds its reserve/,
   );
 });
 
-test("per-team instance plans are deterministic, isolated, and bounded", () => {
-  const first = createInstancePlan("team-a", SECRET);
-  const again = createInstancePlan("team-a", SECRET);
-  const second = createInstancePlan("team-b", SECRET);
+test("target inventory is deterministic, generation-bound, and contains no participant ids", () => {
+  const env = { NODE_ENV: "production", CTF_EVENT_GENERATION: "event-a" };
+  const inventory = createTargetInventory(["participant-b", "participant-a"], { env });
+  assert.deepEqual(inventory, {
+    schema: "signet-target-inventory-v1",
+    eventGeneration: "event-a",
+    count: 2,
+    participantIdsSha256: crypto.createHash("sha256")
+      .update(JSON.stringify(["participant-a", "participant-b"]))
+      .digest("hex"),
+  });
+  assert.equal(JSON.stringify(inventory).includes("participant-a"), false);
+  assert.deepEqual(validateTargetInventory(inventory, { env }), inventory);
+  assert.throws(
+    () => validateTargetInventory({ ...inventory, participantIds: ["participant-a"] }, { env }),
+    /manifest is invalid/,
+  );
+  assert.throws(
+    () => validateTargetInventory(inventory, { env: { ...env, CTF_EVENT_GENERATION: "event-b" } }),
+    /another event generation/,
+  );
+});
+
+test("target publisher validates the full field before one atomic publish", async () => {
+  const env = { NODE_ENV: "production", CTF_EVENT_GENERATION: "event-a" };
+  const validA = { ...localPreviewTarget("participant-a"), cluster: "devnet" };
+  const validB = { ...localPreviewTarget("participant-b"), cluster: "devnet" };
+  const calls = [];
+  await assert.rejects(
+    publishTargets({
+      "participant-a": validA,
+      "participant-b": { ...validB, reserveAccount: "invalid" },
+    }, {
+      env,
+      redisCommandImpl: async (command) => { calls.push(command); return 2; },
+      log: () => {},
+    }),
+    /Solana address/,
+  );
+  assert.equal(calls.length, 0);
+
+  const logs = [];
+  const inventory = await publishTargets({
+    "participant-b": validB,
+    "participant-a": validA,
+  }, {
+    env,
+    redisCommandImpl: async (command) => { calls.push(command); return 2; },
+    log: (message) => logs.push(message),
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "EVAL");
+  assert.equal(calls[0][2], "3");
+  assert.deepEqual(calls[0].slice(3, 6), [
+    "ctf26:signet:event-a:target-inventory",
+    "ctf26:signet:event-a:target:participant-a",
+    "ctf26:signet:event-a:target:participant-b",
+  ]);
+  assert.deepEqual(JSON.parse(calls[0].at(-1)), inventory);
+  assert.equal(Object.hasOwn(JSON.parse(calls[0].at(-1)), "participantIds"), false);
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].includes("participant-a"), false);
+  assert.equal(logs[0].includes("participant-b"), false);
+});
+
+test("production target inventory fails closed without a valid generation manifest", async () => {
+  const env = {
+    NODE_ENV: "production",
+    CTF_EVENT_GENERATION: "event-a",
+    KV_REST_API_URL: "https://redis.invalid",
+    KV_REST_API_TOKEN: "token",
+  };
+  await assert.rejects(
+    loadTargetInventory({
+      env,
+      fetchImpl: async () => ({ ok: true, async json() { return { result: null }; } }),
+    }),
+    /has not been published/,
+  );
+  const wrongGeneration = createTargetInventory(["participant-a"], {
+    env: { ...env, CTF_EVENT_GENERATION: "event-b" },
+  });
+  await assert.rejects(
+    loadTargetInventory({
+      env,
+      fetchImpl: async () => ({ ok: true, async json() { return { result: JSON.stringify(wrongGeneration) }; } }),
+    }),
+    /another event generation/,
+  );
+});
+
+test("per-participant instance plans are deterministic, isolated, and bounded", () => {
+  const first = createInstancePlan("participant-a", SECRET);
+  const again = createInstancePlan("participant-a", SECRET);
+  const second = createInstancePlan("participant-b", SECRET);
   assert.deepEqual(first, again);
-  assert.notDeepEqual(first.teamSeed, second.teamSeed);
+  assert.notDeepEqual(first.participantSeed, second.participantSeed);
   assert.ok(first.reserveRaw >= 900_000n && first.reserveRaw <= 1_200_000n);
   assert.ok(first.thresholdBasisPoints >= 6_800n && first.thresholdBasisPoints <= 8_000n);
   assert.ok(first.thresholdRaw > 0n && first.thresholdRaw < first.reserveRaw);
@@ -60,7 +160,7 @@ test("launch ticket exchange consumes the JTI once and creates a bound challenge
     CHALLENGE_SESSION_SECRET: "abcdef0123456789abcdef0123456789",
   };
   const ticket = issueParticipantTicket(
-    { audience: "signet", participantId: "participant-1", teamId: "team-1" },
+    { audience: "signet", eventId: "rehearsal", participantId: "participant-1" },
     SECRET,
     { now: NOW, jti: "signet-test-jti", ttlSeconds: 300 },
   );
@@ -71,7 +171,7 @@ test("launch ticket exchange consumes the JTI once and creates a bound challenge
     return true;
   };
   const exchanged = await exchangeLaunchTicket(ticket, { env, now: NOW + 1, consumeJti });
-  assert.equal(exchanged.identity.teamId, "team-1");
+  assert.equal(exchanged.identity.participantId, "participant-1");
   assert.equal(verifySession(exchanged.session, { env, now: NOW + 2 }).participantId, "participant-1");
   await assert.rejects(exchangeLaunchTicket(ticket, { env, now: NOW + 2, consumeJti }), /already been consumed/);
 });
@@ -82,6 +182,7 @@ test("session endpoint reports bad participant tickets as authentication failure
   await handleSession(request, response, {
     env: {
       NODE_ENV: "production",
+      CTF_EVENT_GENERATION: "event-a",
       CHALLENGE_TICKET_SECRET: SECRET,
       CHALLENGE_SESSION_SECRET: "abcdef0123456789abcdef0123456789",
     },
@@ -91,7 +192,7 @@ test("session endpoint reports bad participant tickets as authentication failure
 });
 
 test("session endpoint never accepts client-selected rehearsal identities", async () => {
-  const request = jsonRequest("POST", "/api/session", { directTest: true, teamId: "team-bypass" });
+  const request = jsonRequest("POST", "/api/session", { directTest: true, participantId: "participant-bypass" });
   const response = mockResponse();
   await handleSession(request, response, {
     env: {
@@ -102,7 +203,7 @@ test("session endpoint never accepts client-selected rehearsal identities", asyn
     },
   });
   assert.equal(response.statusCode, 400);
-  assert.equal(JSON.parse(response.body).error.code, "invalid_ticket");
+  assert.equal(JSON.parse(response.body).error.code, "invalid_request");
 });
 
 test("session endpoint handles the Vercel malformed-JSON body getter as a client error", async () => {
@@ -127,16 +228,16 @@ test("Redis adapters use atomic NX/EXAT ticket consumption and scripted rate lim
   };
   assert.equal(
     await consumeLaunchJti(
-      { eventId: "ctf26", jti: "jti-1", teamId: "team-1", expiresAt: NOW + 300 },
+      { eventId: "rehearsal", jti: "jti-1", participantId: "participant-1", expiresAt: NOW + 300 },
       { env, fetchImpl },
     ),
     true,
   );
-  assert.deepEqual(commands[0].slice(0, 3), ["SET", "ctf26:signet:launch:ctf26:jti-1", "team-1"]);
+  assert.deepEqual(commands[0].slice(0, 3), ["SET", "ctf26:signet:rehearsal:launch:rehearsal:jti-1", "participant-1"]);
   assert.deepEqual(commands[0].slice(3), ["NX", "EXAT", String(NOW + 300)]);
-  assert.deepEqual(await enforceSubmissionRateLimit("team-1", { env, fetchImpl }), { allowed: true, remaining: 9 });
+  assert.deepEqual(await enforceSubmissionRateLimit("participant-1", { env, fetchImpl }), { allowed: true, remaining: 9, retryAfter: 60 });
   assert.equal(commands[1][0], "EVAL");
-  assert.equal(commands[1][3], "ctf26:signet:submit:team-1");
+  assert.equal(commands[1][3], "ctf26:signet:rehearsal:submit:participant-1");
 });
 
 test("Redis adapter uses Railway's TCP URL without touching the REST transport", async () => {
@@ -150,7 +251,7 @@ test("Redis adapter uses Railway's TCP URL without touching the REST transport",
   const env = { REDIS_URL: "redis://default:secret@redis.railway.internal:6379" };
   assert.equal(
     await consumeLaunchJti(
-      { eventId: "ctf26", jti: "jti-tcp", teamId: "team-tcp", expiresAt: NOW + 300 },
+      { eventId: "rehearsal", jti: "jti-tcp", participantId: "participant-tcp", expiresAt: NOW + 300 },
       {
         env,
         tcpClient,
@@ -161,19 +262,19 @@ test("Redis adapter uses Railway's TCP URL without touching the REST transport",
   );
   assert.deepEqual(commands[0], [
     "SET",
-    "ctf26:signet:launch:ctf26:jti-tcp",
-    "team-tcp",
+    "ctf26:signet:rehearsal:launch:rehearsal:jti-tcp",
+    "participant-tcp",
     "NX",
     "EXAT",
     String(NOW + 300),
   ]);
   assert.deepEqual(
-    await enforceSubmissionRateLimit("team-tcp", { env, tcpClient }),
-    { allowed: true, remaining: 10 },
+    await enforceSubmissionRateLimit("participant-tcp", { env, tcpClient }),
+    { allowed: true, remaining: 10, retryAfter: 60 },
   );
   await assert.rejects(
     consumeLaunchJti(
-      { eventId: "ctf26", jti: "bad", teamId: "team-tcp", expiresAt: NOW + 300 },
+      { eventId: "rehearsal", jti: "bad", participantId: "participant-tcp", expiresAt: NOW + 300 },
       { env: { REDIS_URL: "https://not-redis.invalid" }, tcpClient },
     ),
     /redis:\/\/ or rediss:\/\//,
@@ -205,7 +306,7 @@ test("Railway TCP adapter connects through node-redis and sends raw atomic comma
     assert.equal(await redisCommand(["PING"], { env }), "PONG");
     assert.equal(
       await consumeLaunchJti(
-        { eventId: "ctf26", jti: "jti-live-tcp", teamId: "team-live", expiresAt: NOW + 300 },
+        { eventId: "rehearsal", jti: "jti-live-tcp", participantId: "participant-live", expiresAt: NOW + 300 },
         { env },
       ),
       true,
@@ -220,12 +321,36 @@ test("Railway TCP adapter connects through node-redis and sends raw atomic comma
 test("session tokens reject tampering and expiry", () => {
   const env = { CHALLENGE_SESSION_SECRET: SECRET };
   const token = issueSession(
-    { eventId: "ctf26", participantId: "p-1", teamId: "t-1" },
+    { eventId: "rehearsal", participantId: "p-1" },
     { env, now: NOW },
   );
-  assert.equal(verifySession(token, { env, now: NOW + 1 }).teamId, "t-1");
+  assert.equal(verifySession(token, { env, now: NOW + 1 }).participantId, "p-1");
   assert.throws(() => verifySession(`${token}x`, { env, now: NOW + 1 }), /missing or expired/);
   assert.throws(() => verifySession(token, { env, now: NOW + 12 * 60 * 60 }), /missing or expired/);
+});
+
+test("rotating the event generation invalidates old launch tickets and sessions", async () => {
+  const oldEnv = {
+    NODE_ENV: "test",
+    CTF_EVENT_GENERATION: "event-old",
+    CHALLENGE_TICKET_SECRET: SECRET,
+    CHALLENGE_SESSION_SECRET: SECRET,
+  };
+  const currentEnv = { ...oldEnv, CTF_EVENT_GENERATION: "event-current" };
+  const ticket = issueParticipantTicket(
+    { audience: "signet", eventId: "event-old", participantId: "p-old" },
+    SECRET,
+    { now: NOW, jti: "old-event-jti", ttlSeconds: 300 },
+  );
+  await assert.rejects(
+    exchangeLaunchTicket(ticket, { env: currentEnv, now: NOW + 1, consumeJti: async () => true }),
+    /another event/,
+  );
+  const session = issueSession(
+    { eventId: "event-old", participantId: "p-old" },
+    { env: oldEnv, now: NOW },
+  );
+  assert.throws(() => verifySession(session, { env: currentEnv, now: NOW + 1 }), /missing or expired/);
 });
 
 test("local player endpoint returns only the public target view", async () => {
@@ -234,10 +359,45 @@ test("local player endpoint returns only the public target view", async () => {
   await handleTarget(request, response, { env: { NODE_ENV: "test" } });
   assert.equal(response.statusCode, 200);
   const body = JSON.parse(response.body);
-  assert.equal(body.identity.teamId, "team-local");
+  assert.equal(body.identity.participantId, "participant-local");
   assert.equal(body.target.preview, true);
   assert.equal(Object.hasOwn(body.target, "commit"), false);
   assert.equal(Object.hasOwn(body.target, "pinnedStrategyProgram"), false);
+});
+
+test("a verified submission reports one authoritative solve event", async () => {
+  const reports = [];
+  const response = mockResponse();
+  await handleSubmit(jsonRequest("POST", "/api/submit", { signature: "demo-drain" }), response, {
+    env: { NODE_ENV: "test" },
+    reportSolve: async (event) => { reports.push(event); },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(JSON.parse(response.body).result.ok, true);
+  assert.deepEqual(reports.map(({ challenge, participantId, sourceId }) => ({ challenge, participantId, sourceId })), [{
+    challenge: "signet",
+    participantId: "participant-local",
+    sourceId: "demo-drain",
+  }]);
+  assert.match(reports[0].occurredAt, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test("completion status is private, generation-bound, and preserves authoritative solve time", async () => {
+  const response = mockResponse();
+  await handleCompletion({
+    method: "GET",
+    url: "/api/completion?participantId=participant-a",
+    headers: { authorization: `Bearer ${SECRET}` },
+  }, response, {
+    env: { NODE_ENV: "test", CTF_EVENT_GENERATION: "event-a", CHALLENGE_TICKET_SECRET: SECRET },
+    completionForParticipant: async () => ({ completedAt: "2027-01-15T08:00:00.000Z", eventGeneration: "event-a" }),
+  });
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), {
+    completed: true,
+    completedAt: "2027-01-15T08:00:00.000Z",
+    eventGeneration: "event-a",
+  });
 });
 
 test("production target endpoint refuses requests without a signed challenge session", async () => {
@@ -251,27 +411,29 @@ test("production target endpoint refuses requests without a signed challenge ses
   assert.equal(JSON.parse(response.body).error.code, "session_required");
 });
 
-test("production targets load from the per-team Redis store when no JSON env manifest is used", async () => {
-  const target = { ...localPreviewTarget("team-redis"), cluster: "devnet" };
+test("production targets load from the per-participant Redis store when no JSON env manifest is used", async () => {
+  const target = { ...localPreviewTarget("participant-redis"), cluster: "devnet" };
   const env = {
     NODE_ENV: "production",
+    CTF_EVENT_GENERATION: "event-a",
     KV_REST_API_URL: "https://redis.invalid",
     KV_REST_API_TOKEN: "token",
   };
-  const loaded = await loadTargetForTeam("team-redis", {
+  const loaded = await loadTargetForParticipant("participant-redis", {
     env,
     fetchImpl: async (_url, options) => {
-      assert.deepEqual(JSON.parse(options.body), ["GET", "ctf26:signet:target:team-redis"]);
+      assert.deepEqual(JSON.parse(options.body), ["GET", "ctf26:signet:event-a:target:participant-redis"]);
       return { ok: true, async json() { return { result: JSON.stringify(target) }; } };
     },
   });
   assert.equal(loaded.instanceId, target.instanceId);
-  assert.equal(loaded.teamId, "team-redis");
+  assert.equal(loaded.participantId, "participant-redis");
 });
 
 test("production health checks secrets, Redis, and Solana RPC", async () => {
   const env = {
     NODE_ENV: "production",
+    CTF_EVENT_GENERATION: "event-a",
     FLAG_SECRET: SECRET,
     CHALLENGE_TICKET_SECRET: SECRET,
     CHALLENGE_SESSION_SECRET: SECRET,
@@ -279,6 +441,7 @@ test("production health checks secrets, Redis, and Solana RPC", async () => {
     KV_REST_API_TOKEN: "token",
     SOLANA_RPC_URL: "https://rpc.invalid",
   };
+  const inventory = createTargetInventory(["participant-a", "participant-b"], { env });
   const response = mockResponse();
   await handleHealth(
     { method: "GET", url: "/api/health", headers: {} },
@@ -290,47 +453,60 @@ test("production health checks secrets, Redis, and Solana RPC", async () => {
         return {
           ok: true,
           async json() {
-            return Array.isArray(body)
-              ? { result: "PONG" }
-              : { jsonrpc: "2.0", id: 1, result: "ok" };
+            if (!Array.isArray(body)) return { jsonrpc: "2.0", id: 1, result: "ok" };
+            if (body[0] === "PING") return { result: "PONG" };
+            if (body[0] === "GET" && body[1] === "ctf26:signet:event-a:target-inventory") {
+              return { result: JSON.stringify(inventory) };
+            }
+            return { result: null };
           },
         };
       },
     },
   );
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(JSON.parse(response.body), { ok: true, service: "signet", mode: "live" });
+  assert.deepEqual(JSON.parse(response.body), {
+    ok: true,
+    service: "signet",
+    mode: "live",
+    eventGeneration: "event-a",
+    targetInventory: {
+      count: 2,
+      participantIdsSha256: inventory.participantIdsSha256,
+    },
+  });
 });
 
 test("on-chain checker accepts only the assigned finalized reserve-to-escrow transition", async () => {
-  const base = localPreviewTarget("team-checker");
+  const base = localPreviewTarget("participant-checker");
   const target = { ...base, cluster: "devnet" };
   const signature = "2".repeat(88);
   const transaction = validTransaction(target);
   const env = { NODE_ENV: "production", SOLANA_RPC_URL: "https://rpc.invalid", FLAG_SECRET: SECRET };
   const result = await checkOnchainSubmission(
-    { teamId: "team-checker", target, signature },
+    { participantId: "participant-checker", target, signature },
     { env, fetchImpl: rpcFetch(transaction) },
   );
   assert.equal(result.ok, true);
   assert.equal(result.reserveDeltaRaw, target.thresholdRaw);
+  assert.equal(result.occurredAt, "2027-01-15T08:00:00.000Z");
   assert.match(result.flag, /^CTF26\{signet_[a-f0-9]{24}\}$/);
 
   const wrongSigner = structuredClone(transaction);
   wrongSigner.transaction.message.accountKeys[3].signer = false;
   await assert.rejects(
     checkOnchainSubmission(
-      { teamId: "team-checker", target, signature },
+      { participantId: "participant-checker", target, signature },
       { env, fetchImpl: rpcFetch(wrongSigner) },
     ),
-    /team wallet/,
+    /participant wallet/,
   );
 
   const fundedEscrow = structuredClone(transaction);
   fundedEscrow.meta.postTokenBalances[1].uiTokenAmount.amount = "749999";
   await assert.rejects(
     checkOnchainSubmission(
-      { teamId: "team-checker", target, signature },
+      { participantId: "participant-checker", target, signature },
       { env, fetchImpl: rpcFetch(fundedEscrow) },
     ),
     /not moved far enough/,
@@ -338,7 +514,7 @@ test("on-chain checker accepts only the assigned finalized reserve-to-escrow tra
 });
 
 test("on-chain checker tolerates a brief finalized transaction indexing gap", async () => {
-  const base = localPreviewTarget("team-indexing");
+  const base = localPreviewTarget("participant-indexing");
   const target = { ...base, cluster: "devnet" };
   const signature = "3".repeat(88);
   const transaction = validTransaction(target);
@@ -346,7 +522,7 @@ test("on-chain checker tolerates a brief finalized transaction indexing gap", as
   let requests = 0;
   const waits = [];
   const result = await checkOnchainSubmission(
-    { teamId: "team-indexing", target, signature },
+    { participantId: "participant-indexing", target, signature },
     {
       env,
       waitImpl: async (milliseconds) => waits.push(milliseconds),
@@ -367,13 +543,14 @@ test("on-chain checker tolerates a brief finalized transaction indexing gap", as
 function validTransaction(target) {
   return {
     slot: 42,
+    blockTime: 1_800_000_000,
     transaction: {
       message: {
         accountKeys: [
           { pubkey: target.reserveAccount, signer: false, writable: true },
           { pubkey: target.escrowAccount, signer: false, writable: true },
           { pubkey: target.programId, signer: false, writable: false },
-          { pubkey: target.teamWallet, signer: true, writable: true },
+          { pubkey: target.participantWallet, signer: true, writable: true },
         ],
       },
     },
@@ -390,7 +567,7 @@ function validTransaction(target) {
         {
           accountIndex: 1,
           mint: target.mint,
-          owner: target.teamWallet,
+          owner: target.participantWallet,
           uiTokenAmount: { amount: "0" },
         },
       ],
@@ -404,7 +581,7 @@ function validTransaction(target) {
         {
           accountIndex: 1,
           mint: target.mint,
-          owner: target.teamWallet,
+          owner: target.participantWallet,
           uiTokenAmount: { amount: "750000" },
         },
       ],

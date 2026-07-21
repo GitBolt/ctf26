@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>The Broadcast</title>
+    <meta name="description" content="An archived Solana broadcast is accepting signed receipts.">
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body>
+    <main>
+      <h1>The Broadcast</h1>
+      <p>An archival relay is accepting signed receipts from your wallet.</p>
+
+      <h2>Message to sign</h2>
+      <p id="message" class="msg">Loading instance…</p>
+
+      <h2>API</h2>
+      <pre><span class="verb">GET</span>  /api/pow
+  → { "challenge": "&lt;hex&gt;", "bits": 16 }
+  Find a nonce so the response's binding has at least
+  "bits" leading zero bits. Send it back as a header:
+  X-PoW: &lt;challenge&gt;:&lt;nonce&gt;
+
+<span class="verb">POST</span> /api/claim
+  {
+    "pubkey":    "&lt;base58 Solana pubkey&gt;",
+    "message":   "&lt;exact instance message above&gt;",
+    "signature": "&lt;base64, 64 bytes&gt;"
+  }</pre>
+
+      <h2>Wallet</h2>
+      <p>Connect a Solana wallet to sign the message. No transaction is sent.</p>
+      <div class="actions">
+        <button id="connect">Connect wallet</button>
+        <button id="sign" disabled>Sign message</button>
+      </div>
+      <p id="status" class="status" role="status">Waiting for a wallet.</p>
+      <section id="authorization" class="authorization hidden">
+        <div class="section-line">
+          <span>Claim workbench</span>
+          <button id="copy-auth" class="quiet">Copy</button>
+        </div>
+        <textarea id="claim-json" rows="12" aria-label="Editable claim JSON" spellcheck="false"></textarea>
+        <button id="claim" disabled>Submit edited claim</button>
+      </section>
+
+      <h2>Receipt</h2>
+      <p>Every accepted claim returns one Base58 receipt ID.</p>
+      <textarea id="receipt" rows="3" aria-label="Receipt ID" placeholder="Paste a receipt ID"></textarea>
+      <button id="decode">Decode receipt</button>
+      <output id="decoded" class="decoded">No receipt loaded.</output>
+      <div class="receipt-history">
+        <span>Session receipts</span>
+        <ol id="receipts"><li>None yet.</li></ol>
+      </div>
+
+      <footer>This broadcast is a fictional security exercise.</footer>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

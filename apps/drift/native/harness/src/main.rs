@@ -20,23 +20,23 @@ fn main() -> Result<()> {
 
     match command.as_str() {
         "target" => {
-            let team_id = args.next().unwrap_or_else(|| "team-local".to_owned());
+            let participant_id = args.next().unwrap_or_else(|| "participant-local".to_owned());
             reject_extra_args(args)?;
-            let harness = ReplayHarness::new(&team_id, &program_path)?;
+            let harness = ReplayHarness::new(&participant_id, &program_path)?;
             println!(
                 "{}",
-                serde_json::to_string_pretty(&harness.metadata(&team_id))?
+                serde_json::to_string_pretty(&harness.metadata(&participant_id))?
             );
         }
         "demo" => {
-            let team_id = args.next().unwrap_or_else(|| "team-local".to_owned());
+            let participant_id = args.next().unwrap_or_else(|| "participant-local".to_owned());
             reject_extra_args(args)?;
-            let steps = reference_rewind_steps(&team_id);
-            let result = ReplayHarness::new(&team_id, &program_path)?.replay(&steps)?;
+            let steps = reference_rewind_steps(&participant_id);
+            let result = ReplayHarness::new(&participant_id, &program_path)?.replay(&steps)?;
             println!(
                 "{}",
                 serde_json::to_string_pretty(&serde_json::json!({
-                    "teamId": team_id,
+                    "participantId": participant_id,
                     "steps": steps,
                     "result": result,
                 }))?
@@ -45,7 +45,7 @@ fn main() -> Result<()> {
         "replay" => {
             reject_extra_args(args)?;
             let submission = read_submission()?;
-            let result = ReplayHarness::new(&submission.team_id, &program_path)?
+            let result = ReplayHarness::new(&submission.participant_id, &program_path)?
                 .replay(&submission.steps)?;
             println!("{}", serde_json::to_string_pretty(&result)?);
         }
@@ -57,7 +57,7 @@ fn main() -> Result<()> {
             let output = check_submission(&program_path, &submission, secret.as_bytes())?;
             println!("{}", serde_json::to_string_pretty(&output)?);
         }
-        _ => bail!("usage: drift-harness [target [TEAM]|demo [TEAM]|replay|check]"),
+        _ => bail!("usage: drift-harness [target [PARTICIPANT]|demo [PARTICIPANT]|replay|check]"),
     }
     Ok(())
 }

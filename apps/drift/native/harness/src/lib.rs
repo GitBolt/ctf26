@@ -103,8 +103,8 @@ impl<'de> Deserialize<'de> for Step {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Submission {
-    #[serde(rename = "teamId")]
-    pub team_id: String,
+    #[serde(rename = "participantId")]
+    pub participant_id: String,
     pub steps: Vec<Step>,
 }
 
@@ -132,7 +132,7 @@ pub struct ReplayResult {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TargetMetadata {
-    pub team_id: String,
+    pub participant_id: String,
     pub program_id: String,
     pub program_sha256: String,
     pub execution: &'static str,
@@ -153,7 +153,7 @@ pub struct CheckOutput {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct TeamConfig {
+pub struct ParticipantConfig {
     pub rate: u64,
     pub reserve: u64,
     pub threshold: u64,
@@ -181,16 +181,16 @@ pub struct ReplayHarness {
     position: Address,
     vault_rent_floor: u64,
     attacker_rent_floor: u64,
-    config: TeamConfig,
+    config: ParticipantConfig,
     gross_deposited: u128,
     gross_withdrawn: u128,
     executed_transactions: usize,
 }
 
 impl ReplayHarness {
-    pub fn new(team_id: &str, program_path: impl AsRef<Path>) -> Result<Self> {
-        validate_team_id(team_id)?;
-        let config = team_config(team_id);
+    pub fn new(participant_id: &str, program_path: impl AsRef<Path>) -> Result<Self> {
+        validate_participant_id(participant_id)?;
+        let config = participant_config(participant_id);
         let program_bytes = fs::read(program_path.as_ref())
             .with_context(|| format!("read SBF artifact {}", program_path.as_ref().display()))?;
         validate_elf(&program_bytes)?;
@@ -284,9 +284,9 @@ impl ReplayHarness {
         self.result()
     }
 
-    pub fn metadata(&self, team_id: &str) -> TargetMetadata {
+    pub fn metadata(&self, participant_id: &str) -> TargetMetadata {
         TargetMetadata {
-            team_id: team_id.to_owned(),
+            participant_id: participant_id.to_owned(),
             program_id: self.program_id.to_string(),
             program_sha256: self.program_sha256.clone(),
             execution: "litesvm-exact-sbf",
@@ -455,7 +455,7 @@ pub fn parse_submission(bytes: &[u8]) -> Result<Submission> {
         bail!("submission exceeds {MAX_SUBMISSION_BYTES} bytes");
     }
     let submission: Submission = serde_json::from_slice(bytes).context("parse submission JSON")?;
-    validate_team_id(&submission.team_id)?;
+    validate_participant_id(&submission.participant_id)?;
     validate_steps(&submission.steps)?;
     Ok(submission)
 }
@@ -464,7 +464,7 @@ pub fn replay_submission(
     program_path: impl AsRef<Path>,
     submission: &Submission,
 ) -> Result<ReplayResult> {
-    ReplayHarness::new(&submission.team_id, program_path)?.replay(&submission.steps)
+    ReplayHarness::new(&submission.participant_id, program_path)?.replay(&submission.steps)
 }
 
 pub fn check_submission(
@@ -479,7 +479,7 @@ pub fn check_submission(
     if !result.solved {
         bail!("native replay did not produce enough net drain of the original reserve");
     }
-    let flag = flag_for(&submission.team_id, &result, flag_secret)?;
+    let flag = flag_for(&submission.participant_id, &result, flag_secret)?;
     Ok(CheckOutput {
         ok: true,
         flag,
@@ -487,19 +487,19 @@ pub fn check_submission(
     })
 }
 
-pub fn team_config(team_id: &str) -> TeamConfig {
-    let digest = Sha256::digest(team_id.as_bytes());
+pub fn participant_config(participant_id: &str) -> ParticipantConfig {
+    let digest = Sha256::digest(participant_id.as_bytes());
     let rate = u64::from(3 + digest[0] % 5);
     let reserve = 40_000 + u64::from(digest[1]) * 100;
-    TeamConfig {
+    ParticipantConfig {
         rate,
         reserve,
         threshold: reserve - 1_000,
     }
 }
 
-pub fn reference_rewind_steps(team_id: &str) -> Vec<Step> {
-    let config = team_config(team_id);
+pub fn reference_rewind_steps(participant_id: &str) -> Vec<Step> {
+    let config = participant_config(participant_id);
     let high = INITIAL_CLOCK + 1_000_000;
     let sysvar = |unix_timestamp| {
         let mut clock = Clock::default();
@@ -629,8 +629,8 @@ fn decode_hex(value: &str, index: usize) -> Result<Vec<u8>> {
         .collect()
 }
 
-fn validate_team_id(team_id: &str) -> Result<()> {
-    let bytes = team_id.as_bytes();
+fn validate_participant_id(participant_id: &str) -> Result<()> {
+    let bytes = participant_id.as_bytes();
     if bytes.is_empty()
         || bytes.len() > 128
         || !bytes[0].is_ascii_alphanumeric()
@@ -638,7 +638,7 @@ fn validate_team_id(team_id: &str) -> Result<()> {
             .iter()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
     {
-        bail!("invalid teamId");
+        bail!("invalid participantId");
     }
     Ok(())
 }
@@ -659,10 +659,10 @@ fn read_u64(data: &[u8], offset: usize) -> Result<u64> {
     Ok(u64::from_le_bytes(bytes))
 }
 
-fn flag_for(team_id: &str, result: &ReplayResult, secret: &[u8]) -> Result<String> {
+fn flag_for(participant_id: &str, result: &ReplayResult, secret: &[u8]) -> Result<String> {
     let mut mac =
         Hmac::<Sha256>::new_from_slice(secret).map_err(|_| anyhow!("invalid flag secret"))?;
-    mac.update(team_id.as_bytes());
+    mac.update(participant_id.as_bytes());
     mac.update(b"\0");
     mac.update(result.program_sha256.as_bytes());
     mac.update(b"\0");

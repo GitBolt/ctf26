@@ -21,7 +21,7 @@ function setNotice(kind, title, copy) {
   elements.noticeCopy.textContent = copy;
   elements.sessionState.classList.toggle("ready", kind === "ready");
   elements.sessionState.classList.toggle("error", kind === "error");
-  elements.sessionLabel.textContent = kind === "ready" ? "Team session active" : kind === "error" ? "Launch required" : "Connecting";
+  elements.sessionLabel.textContent = kind === "ready" ? "Participant session active" : kind === "error" ? "Launch required" : "Connecting";
 }
 
 async function jsonRequest(path, options = {}) {
@@ -60,7 +60,10 @@ async function establishSession() {
       body: JSON.stringify({ ticket }),
     });
   }
-  return jsonRequest("/api/target");
+  const target = await jsonRequest("/api/target");
+  await jsonRequest("/api/ui-event", { method: "POST", body: JSON.stringify({ event: "page-ready" }) }).catch(() => {});
+  if (navigator.webdriver) await jsonRequest("/api/ui-event", { method: "POST", body: JSON.stringify({ event: "automation-present" }) }).catch(() => {});
+  return target;
 }
 
 function showTarget(target) {
@@ -76,7 +79,7 @@ function showTarget(target) {
     document.getElementById(id).textContent = value ?? "—";
   }
   elements.workspace.hidden = false;
-  setNotice("ready", "Canonical team target loaded", "The artifact hash and every replay below are bound to this environment.");
+  setNotice("ready", "Canonical participant target loaded", "The artifact hash and every replay below are bound to this environment.");
 }
 
 function parseTrace() {
@@ -109,6 +112,7 @@ async function run(kind) {
   const original = label.textContent;
   label.textContent = kind === "submit" ? "Checking trace…" : "Running replay…";
   try {
+    await jsonRequest("/api/ui-event", { method: "POST", body: JSON.stringify({ event: `${kind}-click` }) }).catch(() => {});
     const body = parseTrace();
     const result = await jsonRequest(`/api/${kind}`, {
       method: "POST",
@@ -126,6 +130,12 @@ async function run(kind) {
 
 elements.replay.addEventListener("click", () => run("replay"));
 elements.submit.addEventListener("click", () => run("submit"));
+document.querySelector('a[href="/artifact/drift_vault.so"]')?.addEventListener("click", () => {
+  void jsonRequest("/api/ui-event", { method: "POST", body: JSON.stringify({ event: "artifact-click" }) }).catch(() => {});
+});
+document.querySelector('a[href="/artifact/player-guide.md"]')?.addEventListener("click", () => {
+  void jsonRequest("/api/ui-event", { method: "POST", body: JSON.stringify({ event: "guide-click" }) }).catch(() => {});
+});
 
 establishSession()
   .then(showTarget)
@@ -136,6 +146,6 @@ establishSession()
       "Launch DRIFT from the challenge board",
       error.status === 409
         ? "This launch ticket was already used. Return to the board and open DRIFT again."
-        : "Your team session is missing or expired. Return to the event board for a fresh launch.",
+        : "Your participant session is missing or expired. Return to the event board for a fresh launch.",
     );
   });

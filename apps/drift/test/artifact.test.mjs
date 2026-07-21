@@ -56,6 +56,11 @@ test("browser workspace is accessible, responsive, and contains no rehearsal byp
   assert.match(css, /:focus-visible/);
   assert.match(css, /@media \(max-width:/);
   assert.match(css, /prefers-reduced-motion/);
+  for (const selector of ["instrument-model", "session-state", "section-label", "editor-help"]) {
+    assert.match(css, new RegExp(`\\.${selector}[^}]*font-size:\\s*12px`));
+  }
+  assert.match(css, /\.target-grid dt[^}]*font-size:\s*12px/);
+  assert.match(css, /\.target-grid dd[^}]*font-size:\s*12px/);
   assert.doesNotMatch(`${html}\n${script}`, /directTest|test_team|dummy|simulator/i);
   assert.match(script, /searchParams\.delete\("ticket"\)/);
 });

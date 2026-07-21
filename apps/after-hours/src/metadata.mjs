@@ -56,6 +56,10 @@ export function hasOfficialNightBrand(metadata) {
   return metadata?.name === OFFICIAL_NIGHT_NAME && metadata?.symbol === OFFICIAL_NIGHT_SYMBOL;
 }
 
+export function hasImmutableOfficialNightBrand(metadata) {
+  return hasOfficialNightBrand(metadata) && metadata?.isMutable === false;
+}
+
 function clean(value) {
   return String(value || "").replace(/\0+$/u, "").trim();
 }

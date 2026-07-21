@@ -1,7 +1,7 @@
 # Reward Sniper
 
 Reward Sniper is the hosted, off-chain reference implementation of the CTF26 dynamic DeFi challenge.
-Teams inspect a shared DLMM-style bin market, lock an action during a commit phase, reveal it in the
+Participants inspect a shared DLMM-style bin market, lock an action during a commit phase, reveal it in the
 next phase, and compete on relative reward extraction across rotating rounds.
 
 The service is server-authoritative. Player-delivered files contain the interface, a limited client
@@ -13,22 +13,24 @@ optimizer, or persistence state.
 - the intended JIT reward-accounting flaw: fresh liquidity enters before an old reward window settles;
 - a shared market with nine liquidity bins, a moving active bin, changing reward regimes, and partial
   public activity observations;
-- three scarce Sniper Tickets per team per round, funded liquidity limits, and automatic round
+- three scarce Sniper Tickets per participant per round, funded liquidity limits, and automatic round
   rotation;
 - ticket and market-swap orders behind a deterministic commit–reveal batch;
-- network-arrival-independent batch ordering derived from the round seed, tick, and team identity;
-- HMAC vouchers bound to team, tick, bin, and nonce, with one-shot verification;
-- incomplete multi-signal telemetry, settled market tape, cumulative escrow scores, share-of-total
-  ranking, and a multi-round rehearsal validation threshold;
+- network-arrival-independent batch ordering derived from the round seed, tick, and participant identity;
+- HMAC vouchers bound to participant, tick, bin, and nonce, with one-shot verification;
+- incomplete multi-signal telemetry, settled market tape, equal-weight finalized round shares,
+  cumulative multi-round ranking, and a multi-round rehearsal validation threshold;
 - one-time, audience-bound participant tickets from the central event portal;
-- signed 12-hour team sessions, bounded request bodies, rate limits, and production security headers;
+- signed 12-hour participant sessions, bounded request bodies, rate limits, and production security headers;
 - event-bound HttpOnly browser sessions plus explicit, short-lived searcher sessions;
-- organizer-only action audit records retaining participant, team, session scope, event, tick, and phase;
+- high-precision finalized round shares, with shorter rounding confined to presentation so every positive
+  qualifying extraction remains score-bearing;
+- organizer-only action audit records retaining participant, session scope, event, tick, and phase;
 - personalized agent-policy canaries, behavioral profiles, durable suspicion cases, and an
   organizer-only review API that never changes gameplay;
 - an organizer-scheduled waiting room for synchronized event starts;
-- atomic file snapshots for market, clock, sessions, ticket replay protection, and server-only
-  authorities;
+- atomic file snapshots for market, clock, sessions, and server-only authorities, plus shared Redis
+  JTI consumption for generation-bound launch-ticket replay protection;
 - a responsive, keyboard-usable player console and a limited automation SDK.
 
 This service is intentionally single-writer. Run one application replica against one persistent state
@@ -44,7 +46,7 @@ npm run serve
 ```
 
 Open <http://127.0.0.1:3010/> or <http://127.0.0.1:3010/web/>. With no participant-ticket secret,
-the service enables local anonymous team creation. Production disables that path.
+the service enables local anonymous participant creation. Production disables that path.
 
 Useful local timing overrides:
 
@@ -71,7 +73,8 @@ The portal's `CHALLENGE_TICKET_SECRET_REWARD_SNIPER` and this service's
 to this service's HTTPS `/web/` URL.
 
 Health check: `GET /api/health`. A `503` response means persistence is degraded and organizers should
-stop the round rather than continue with non-durable mutations.
+stop the round rather than continue with non-durable mutations. Health also fails if Redis-backed
+ticket replay protection is unavailable.
 
 ### Railway settings
 
@@ -84,22 +87,37 @@ RAILWAY_DOCKERFILE_PATH=/apps/reward-sniper/Dockerfile
 
 Leave Railway's Start Command override empty; the image starts `node src/server.mjs` from
 `/app/apps/reward-sniper`. Attach one Railway Volume at `/data`, keep exactly one service replica, and
-configure `/api/health` as the deployment healthcheck path. The image binds `0.0.0.0`, Railway injects
-`PORT`, and state is stored at `/data/reward-sniper-state.json`.
+configure `/api/health` as the deployment healthcheck path. Connect the shared Redis service through
+`REDIS_URL`. The image binds `0.0.0.0`, Railway injects `PORT`, and market state is stored at
+`/data/reward-sniper-state.json`.
 
 Required service variables are `PARTICIPANT_TICKET_SECRET`, `SESSION_SECRET`, `VOUCHER_SECRET`,
-`INTEGRITY_ADMIN_KEY`, and `MARKET_SEED`. The Docker image supplies `NODE_ENV`, `HOST`, and `STATE_FILE`; `COMMIT_MS`,
+`INTEGRITY_ADMIN_KEY`, `MARKET_SEED`, `SCORED_ROUNDS`, `START_ON_FIRST_SESSION`, `REWARD_EVENT_MODE`,
+`CTF_EVENT_GENERATION`, and `REDIS_URL`. `CTF_EVENT_GENERATION` must equal the portal's
+`LEADERBOARD_EVENT_GENERATION`.
+Production rejects reused launch tickets and never falls back to process memory. `SCORED_ROUNDS`
+must be at least two. The Docker image supplies `NODE_ENV`, `HOST`, and `STATE_FILE`; `COMMIT_MS`,
 `REVEAL_MS`, and `ROUND_TICKS` are optional tuning variables. Set the portal `REWARD_SNIPER_URL` to
 the generated HTTPS domain's `/web/` route.
 
-For internal rehearsals, `START_ON_FIRST_SESSION=true` starts the clock when the first tester joins.
-For the event, set it to `false` and set `EVENT_START_AT` to one ISO-8601 timestamp. Participants may
-redeem tickets in the waiting room, but every state-changing endpoint returns `409` until kickoff.
+Production requires an explicit event mode and one start policy. `REWARD_EVENT_MODE=staging` permits
+first-session rehearsals. `REWARD_EVENT_MODE=official` requires `START_ON_FIRST_SESSION=false`, one
+ISO-8601 `EVENT_START_AT`, one immutable `EVENT_END_AT`, and `REGISTERED_PARTICIPANT_IDS_JSON` containing exactly the portal's
+checked-in participants. Participants may redeem tickets in the waiting room, but every state-changing endpoint returns
+`409` until kickoff, and market mutations return `409` at or after the official end. Overdue phases retain
+their absolute deadlines on restart and are never granted a fresh late window. Official state is bound to
+the event generation, start, end, and a SHA-256 scoring configuration hash, so a restart fails closed if
+timing, roster, or mechanics drift. Keep `EVENT_END_AT` identical to the portal's
+`LEADERBOARD_SCORING_END_AT`. Copy `eventId` and
+`scoringConfigHash` from `GET /api/health` into the portal's `REWARD_SNIPER_EVENT_ID` and
+`REWARD_SNIPER_SCORING_CONFIG_HASH` before enabling official leaderboard scoring.
 
 The portal organizer console reads `GET /api/admin/integrity` and updates cases through
 `PATCH /api/admin/integrity/:caseId` using `INTEGRITY_ADMIN_KEY`. Cases contain public contest metadata,
 hashed network identifiers, reason codes, and participant action timelines. They are review signals,
-not automatic sanctions. `INTEGRITY_ALERT_WEBHOOK_URL` optionally mirrors new-case alerts to Discord;
+not automatic sanctions. Reports contain only the active CTF generation and active Reward Sniper market;
+prior market evidence stays in durable state but cannot bleed into the current adjudication view.
+`INTEGRITY_ALERT_WEBHOOK_URL` optionally mirrors new-case alerts to Discord;
 the persisted first-party case remains authoritative.
 
 ## Player boundary

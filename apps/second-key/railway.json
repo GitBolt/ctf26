@@ -1,0 +1,14 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "apps/second-key/Dockerfile",
+    "watchPatterns": ["apps/second-key/**", "packages/participant-ticket/**", "packages/leaderboard/**", "packages/agent-integrity/**", "packages/request-budget/**"]
+  },
+  "deploy": {
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 180,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+}

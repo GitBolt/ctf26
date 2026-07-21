@@ -12,7 +12,7 @@ import {
 } from "@/lib/webauthn-config.mjs";
 import {
   ENROLLMENT_CHALLENGE_COOKIE,
-  ENROLLMENT_TEAM_COOKIE,
+  ENROLLMENT_PARTICIPANT_COOKIE,
 } from "../options/route";
 
 export const runtime = "nodejs";
@@ -22,8 +22,8 @@ export async function POST(request) {
   try {
     requireEnrollmentOperator(request);
     const expectedChallenge = jar.get(ENROLLMENT_CHALLENGE_COOKIE)?.value;
-    const teamId = jar.get(ENROLLMENT_TEAM_COOKIE)?.value;
-    if (!expectedChallenge || !teamId)
+    const participantId = jar.get(ENROLLMENT_PARTICIPANT_COOKIE)?.value;
+    if (!expectedChallenge || !participantId)
       throw new Error("passkey enrollment challenge is missing or expired");
     const { response } = await request.json();
     const verification = await verifyRegistrationResponse({
@@ -42,7 +42,7 @@ export async function POST(request) {
       verification.registrationInfo.credential.publicKey
     );
     const rosterEntry = {
-      teamId,
+      participantId,
       credentialId: verification.registrationInfo.credential.id,
       credentialPublicKeyCoseBase64: Buffer.from(
         verification.registrationInfo.credential.publicKey
@@ -55,7 +55,7 @@ export async function POST(request) {
       credentialBackedUp: verification.registrationInfo.credentialBackedUp,
     };
     jar.delete(ENROLLMENT_CHALLENGE_COOKIE);
-    jar.delete(ENROLLMENT_TEAM_COOKIE);
+    jar.delete(ENROLLMENT_PARTICIPANT_COOKIE);
     return Response.json(rosterEntry);
   } catch (error) {
     return new Response(error.message || "security-key enrollment was denied", {

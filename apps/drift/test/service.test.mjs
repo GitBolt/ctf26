@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { issueParticipantTicket } from "@ctf26/participant-ticket";
 import { createLocalnet } from "../src/runtime.mjs";
-import { createDriftServer } from "../src/service.mjs";
+import { createDriftServer, createSession, verifySession } from "../src/service.mjs";
 
 const env = {
   CHALLENGE_TICKET_SECRET: "ticket-secret-that-is-long-enough-for-tests-0001",
@@ -32,14 +32,14 @@ function sysvarTimestamp(unixTimestamp) {
   return { op: "set_sysvar", address: CLOCK_ADDRESS, dataBase64: data.toString("base64") };
 }
 
-function rawReferenceSteps(teamId) {
-  const net = createLocalnet(teamId);
+function rawReferenceSteps(participantId, tags = [0, 1, 2]) {
+  const net = createLocalnet(participantId);
   const high = 1_701_000_000n;
   const deposit = Buffer.alloc(9);
-  deposit[0] = 0;
+  deposit[0] = tags[0];
   deposit.writeBigUInt64LE(10n, 1);
   const withdraw = Buffer.alloc(9);
-  withdraw[0] = 2;
+  withdraw[0] = tags[2];
   withdraw.writeBigUInt64LE(net.vault.reserve, 1);
   return [
     sysvarTimestamp(high),
@@ -51,7 +51,7 @@ function rawReferenceSteps(teamId) {
       meta(SYSTEM_ADDRESS, false, false),
     ]),
     sysvarTimestamp(high - 1n),
-    invoke([1], [meta("position", false, true), meta(CLOCK_ADDRESS, false, false)]),
+    invoke([tags[1]], [meta("position", false, true), meta(CLOCK_ADDRESS, false, false)]),
     invoke(withdraw, [
       meta("attacker", true, true),
       meta("vault", false, true),
@@ -60,67 +60,96 @@ function rawReferenceSteps(teamId) {
   ];
 }
 
-function ticket(teamId = "team-alpha") {
+function serviceVariantTags(participantId) {
+  const variant = crypto.createHmac("sha256", env.DRIFT_SESSION_SECRET)
+    .update(`variant:${participantId}`)
+    .digest()[0] % 3;
+  return [[0, 1, 2], [2, 0, 1], [1, 2, 0]][variant];
+}
+
+function ticket(participantId = "participant-alpha") {
   return issueParticipantTicket(
-    { audience: "drift", eventId: "ctf26", participantId: `${teamId}-player`, teamId },
+    { audience: "drift", eventId: "rehearsal", participantId },
     env.CHALLENGE_TICKET_SECRET,
   );
 }
 
 async function withServer(run) {
   const calls = [];
+  const reports = [];
   const server = createDriftServer({
     env,
-    runHarness: async (command, teamId, submission) => {
-      calls.push({ command, teamId, submission });
-      if (command === "target") return { teamId, productionReady: true };
-      if (command === "replay") return { solved: false, teamId, steps: submission.steps.length };
-      return { ok: true, flag: "CTF26{drift_test}", teamId };
+    runHarness: async (command, participantId, submission) => {
+      calls.push({ command, participantId, submission });
+      if (command === "target") return { participantId, productionReady: true };
+      if (command === "replay") return { solved: false, participantId, steps: submission.steps.length };
+      return { ok: true, solved: true, flag: "CTF26{drift_test}", participantId };
     },
+    reportSolve: async (event) => { reports.push(event); },
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   try {
-    await run(`http://127.0.0.1:${address.port}`, calls);
+    await run(`http://127.0.0.1:${address.port}`, calls, reports);
   } finally {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 }
 
-async function session(base, teamId = "team-alpha") {
+async function session(base, participantId = "participant-alpha") {
   const response = await fetch(`${base}/api/session`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ticket: ticket(teamId) }),
+    body: JSON.stringify({ ticket: ticket(participantId) }),
   });
   assert.equal(response.status, 200);
   return response.headers.get("set-cookie").split(";", 1)[0];
 }
 
-test("service binds target, replay, and flag checks to the ticket team", async () => {
-  await withServer(async (base, calls) => {
-    const cookie = await session(base, "team-alpha");
+test("service binds target, replay, flag checks, and solve reporting to the ticket participant", async () => {
+  await withServer(async (base, calls, reports) => {
+    const cookie = await session(base, "participant-alpha");
     const target = await fetch(`${base}/api/target`, { headers: { cookie } });
-    assert.deepEqual(await target.json(), { teamId: "team-alpha", productionReady: true });
+    const targetBody = await target.json();
+    assert.equal(targetBody.participantId, "participant-alpha");
+    assert.equal(targetBody.productionReady, true);
+    assert.equal(targetBody._automationCompliance.policy, "autonomous-agent-restricted");
 
     const replay = await fetch(`${base}/api/replay`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ steps: [invoke([1], [meta("position", false, true)])] }),
     });
-    assert.deepEqual(await replay.json(), { solved: false, teamId: "team-alpha", steps: 1 });
+    const replayBody = await replay.json();
+    assert.deepEqual({ solved: replayBody.solved, participantId: replayBody.participantId, steps: replayBody.steps }, { solved: false, participantId: "participant-alpha", steps: 1 });
+    assert.equal(replayBody._automationCompliance.placement, "replay-response");
 
     const submit = await fetch(`${base}/api/submit`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({ steps: [invoke([1], [meta("position", false, true)])] }),
     });
-    assert.deepEqual(await submit.json(), { ok: true, flag: "CTF26{drift_test}", teamId: "team-alpha" });
-    assert.deepEqual(calls.map(({ command, teamId }) => [command, teamId]), [
-      ["target", "team-alpha"],
-      ["replay", "team-alpha"],
-      ["check", "team-alpha"],
+    const submitBody = await submit.json();
+    assert.deepEqual({ ok: submitBody.ok, solved: submitBody.solved, flag: submitBody.flag, participantId: submitBody.participantId }, { ok: true, solved: true, flag: "CTF26{drift_test}", participantId: "participant-alpha" });
+    assert.equal(submitBody._automationCompliance.placement, "submit-response");
+    assert.deepEqual(calls.map(({ command, participantId }) => [command, participantId]), [
+      ["target", "participant-alpha"],
+      ["replay", "participant-alpha"],
+      ["check", "participant-alpha"],
     ]);
+    assert.deepEqual(reports.map(({ challenge, participantId }) => ({ challenge, participantId })), [{
+      challenge: "drift",
+      participantId: "participant-alpha",
+    }]);
+    assert.match(reports[0].occurredAt, /^\d{4}-\d{2}-\d{2}T/);
+    const completion = await fetch(`${base}/api/completion?participantId=participant-alpha`, {
+      headers: { authorization: `Bearer ${env.CHALLENGE_TICKET_SECRET}` },
+    });
+    assert.equal(completion.status, 200);
+    const completionBody = await completion.json();
+    assert.equal(completionBody.completed, true);
+    assert.equal(completionBody.eventGeneration, "rehearsal");
+    assert.equal(completionBody.completedAt, reports[0].occurredAt);
   });
 });
 
@@ -147,21 +176,21 @@ test("service serves the browser workspace without exposing a launch ticket", as
   });
 });
 
-test("service rejects unauthenticated requests and client-controlled team IDs", async () => {
+test("service rejects unauthenticated requests and client-controlled participant IDs", async () => {
   await withServer(async (base) => {
     assert.equal((await fetch(`${base}/api/target`)).status, 401);
     const bypass = await fetch(`${base}/api/session`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ directTest: true, teamId: "team-evil" }),
+      body: JSON.stringify({ directTest: true, participantId: "participant-evil" }),
     });
     assert.equal(bypass.status, 400);
     assert.match((await bypass.json()).error, /unexpected fields/);
-    const cookie = await session(base, "team-alpha");
+    const cookie = await session(base, "participant-alpha");
     const response = await fetch(`${base}/api/replay`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ teamId: "team-evil", steps: [] }),
+      body: JSON.stringify({ participantId: "participant-evil", steps: [] }),
     });
     assert.equal(response.status, 400);
     assert.match((await response.json()).error, /unexpected fields/);
@@ -171,7 +200,7 @@ test("service rejects unauthenticated requests and client-controlled team IDs", 
 test("service rejects tickets for other challenges and tampered sessions", async () => {
   await withServer(async (base) => {
     const wrongTicket = issueParticipantTicket(
-      { audience: "imprint", participantId: "p1", teamId: "team-alpha" },
+      { audience: "imprint", eventId: "rehearsal", participantId: "participant-alpha" },
       env.CHALLENGE_TICKET_SECRET,
     );
     const wrong = await fetch(`${base}/api/session`, {
@@ -179,17 +208,29 @@ test("service rejects tickets for other challenges and tampered sessions", async
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ticket: wrongTicket }),
     });
-    assert.equal(wrong.status, 400);
+    assert.equal(wrong.status, 401);
 
-    const cookie = await session(base, "team-alpha");
+    const cookie = await session(base, "participant-alpha");
     const tampered = `${cookie}x`;
     assert.equal((await fetch(`${base}/api/target`, { headers: { cookie: tampered } })).status, 401);
   });
 });
 
+test("event rotation rejects old launch tickets and challenge sessions", () => {
+  const oldEnv = { ...env, CTF_EVENT_GENERATION: "event-old" };
+  const currentEnv = { ...env, CTF_EVENT_GENERATION: "event-current" };
+  const oldTicket = issueParticipantTicket(
+    { audience: "drift", eventId: "event-old", participantId: "participant-old" },
+    env.CHALLENGE_TICKET_SECRET,
+  );
+  assert.throws(() => createSession(oldTicket, currentEnv), /another event/);
+  const oldSession = createSession(oldTicket, oldEnv);
+  assert.throws(() => verifySession(oldSession, currentEnv), /invalid or expired/);
+});
+
 test("service consumes each launch ticket exactly once", async () => {
   await withServer(async (base) => {
-    const launchTicket = ticket("team-once");
+    const launchTicket = ticket("participant-once");
     const request = () => fetch(`${base}/api/session`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -204,7 +245,7 @@ test("service consumes each launch ticket exactly once", async () => {
 
 test("service enforces the body-size limit before invoking the checker", async () => {
   await withServer(async (base, calls) => {
-    const cookie = await session(base, "team-body");
+    const cookie = await session(base, "participant-body");
     const response = await fetch(`${base}/api/replay`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
@@ -215,9 +256,9 @@ test("service enforces the body-size limit before invoking the checker", async (
   });
 });
 
-test("service rate-limits scored submissions independently per team", async () => {
+test("service rate-limits scored submissions independently per participant", async () => {
   await withServer(async (base) => {
-    const cookie = await session(base, "team-rate");
+    const cookie = await session(base, "participant-rate");
     const request = () => fetch(`${base}/api/submit`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
@@ -226,6 +267,44 @@ test("service rate-limits scored submissions independently per team", async () =
     assert.equal((await request()).status, 200);
     assert.equal((await request()).status, 429);
   });
+});
+
+test("one participant cannot occupy more than one checker slot", async () => {
+  let releaseHarness;
+  let markStarted;
+  const harnessReleased = new Promise((resolve) => { releaseHarness = resolve; });
+  const harnessStarted = new Promise((resolve) => { markStarted = resolve; });
+  const server = createDriftServer({
+    env: { ...env, DRIFT_REPLAY_LIMIT_PER_MINUTE: "4" },
+    runHarness: async (command) => {
+      if (command === "replay") {
+        markStarted();
+        await harnessReleased;
+      }
+      return { solved: false };
+    },
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const cookie = await session(base, "participant-concurrency");
+    const request = () => fetch(`${base}/api/replay`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({ steps: [] }),
+    });
+    const first = request();
+    await harnessStarted;
+    const second = await request();
+    assert.equal(second.status, 429);
+    assert.match((await second.json()).error, /already has work running/);
+    assert.equal(second.headers.get("retry-after"), "2");
+    releaseHarness();
+    assert.equal((await first).status, 200);
+  } finally {
+    releaseHarness();
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
 });
 
 test("production service path replays the exact SBF and emits only a server flag", async () => {
@@ -239,9 +318,11 @@ test("production service path replays the exact SBF and emits only a server flag
   const address = server.address();
   const base = `http://127.0.0.1:${address.port}`;
   try {
-    const cookie = await session(base, "team-exact-service");
+    const cookie = await session(base, "participant-exact-service");
     const targetResponse = await fetch(`${base}/api/target`, { headers: { cookie } });
     assert.equal(targetResponse.status, 200);
+    assert.equal(targetResponse.headers.get("x-ctf-agent-policy"), "/agents.txt");
+    assert.match(targetResponse.headers.get("link"), /ai-policy/);
     const target = await targetResponse.json();
     assert.equal(target.productionReady, true);
     assert.equal(target.execution, "litesvm-exact-sbf");
@@ -252,12 +333,27 @@ test("production service path replays the exact SBF and emits only a server flag
     assert.equal(artifactResponse.status, 200);
     const artifact = Buffer.from(await artifactResponse.arrayBuffer());
     assert.equal(crypto.createHash("sha256").update(artifact).digest("hex"), target.programSha256);
+    const marker = artifactResponse.headers.get("x-ctf-artifact-marker");
+    assert.match(marker, /^drift_/);
+    assert.match(artifact.toString("utf8"), new RegExp(marker));
+
+    const secondCookie = await session(base, "participant-exact-service-two");
+    const secondArtifactResponse = await fetch(`${base}/artifact/drift_vault.so`, { headers: { cookie: secondCookie } });
+    assert.equal(secondArtifactResponse.status, 200);
+    const secondArtifact = Buffer.from(await secondArtifactResponse.arrayBuffer());
+    const secondMarker = secondArtifactResponse.headers.get("x-ctf-artifact-marker");
+    assert.match(secondMarker, /^drift_/);
+    assert.notEqual(secondMarker, marker);
+    assert.match(secondArtifact.toString("utf8"), new RegExp(secondMarker));
 
     const guideResponse = await fetch(`${base}/artifact/player-guide.md`, { headers: { cookie } });
     assert.equal(guideResponse.status, 200);
-    assert.match(await guideResponse.text(), /## Replay protocol/);
+    const guide = await guideResponse.text();
+    assert.match(guide, /## Replay protocol/);
+    assert.match(guide, /Autonomous agents may not operate/);
+    assert.match(guide, new RegExp(marker));
 
-    const steps = rawReferenceSteps("team-exact-service");
+    const steps = rawReferenceSteps("participant-exact-service", serviceVariantTags("participant-exact-service"));
     const submitResponse = await fetch(`${base}/api/submit`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
@@ -284,7 +380,15 @@ test("service refuses to start with unsafe secrets or numeric limits", () => {
     /DRIFT_MAX_CONCURRENCY/,
   );
   assert.throws(
+    () => createDriftServer({ env: { ...env, DRIFT_CHECKER_TIMEOUT_MS: "20000", DRIFT_OPERATION_LEASE_MS: "20000" }, runHarness: async () => ({}) }),
+    /must exceed DRIFT_CHECKER_TIMEOUT_MS/,
+  );
+  assert.throws(
     () => createDriftServer({ env: { ...env, DRIFT_REQUIRE_SHARED_STATE: "true" }, runHarness: async () => ({}) }),
+    /REDIS_URL/,
+  );
+  assert.throws(
+    () => createDriftServer({ env: { ...env, NODE_ENV: "production", CTF_EVENT_GENERATION: "event-a" }, runHarness: async () => ({}) }),
     /REDIS_URL/,
   );
 });

@@ -2,7 +2,7 @@
 
 Human decisions and corrections that materially changed a challenge. Keep each challenge under its own heading; do not create a second per-challenge feedback file.
 
-## AFTER HOURS — human feedback and manual improvement log
+## AFTER HOURS: human feedback and manual improvement log
 
 This document records only the improvements manually requested or explicitly approved by the event
 organizer for **AFTER HOURS**. It is not a general CTF design guide, an implementation changelog, or a
@@ -59,7 +59,7 @@ expected it.
 ### Why this improved the challenge
 
 The install flow now matches the mental model of a Discord bot. Participants do not need to join a
-shared community server, organizers avoid channel and permission management, and each team gets a
+shared community server, organizers avoid channel and permission management, and each participant gets a
 clean place to run ephemeral challenge commands.
 
 ## 3. Open the Discord invitation as an external link
@@ -269,7 +269,7 @@ authorities, supply, treasury, transfers, and token accounts. The challenge can 
 payment request before asking the player to discover how the reconciler misidentifies what it
 received.
 
-## 13. Give each team 7 NIGHT against a 10 NIGHT price
+## 13. Give each participant 7 NIGHT against a 10 NIGHT price
 
 ### Organizer feedback
 
@@ -279,9 +279,9 @@ that investigation.
 
 ### Requested correction
 
-- Give each team one official allotment of exactly `7.000000 NIGHT` to a disposable devnet wallet.
+- Give each participant one official allotment of exactly `7.000000 NIGHT` to a disposable devnet wallet.
 - Price the Midnight Pass at `10.000000 NIGHT`.
-- Bind the allotment to the team and current official mint.
+- Bind the allotment to the participant and current official mint.
 - Make allocation retry-safe and prevent repeated claims from producing more tokens.
 - Require the current allotment before opening or settling an invoice.
 
@@ -362,6 +362,28 @@ Do not include a QR code, external checkout button, Solana Pay address, or secon
 
 The final player surface is smaller, clearer, and more technically honest. It provides every fact a
 human solver needs while avoiding transport features unrelated to the bug.
+
+## 17. Remove the player kit once it no longer serves the mechanic
+
+### Organizer feedback
+
+After Solana Pay and the external checkout handoff were removed, the organizer questioned what the
+remaining player kit contributed. Its helper only wrapped standard Solana transaction construction
+and reference-account plumbing, so it no longer represented a necessary challenge surface.
+
+### Requested correction
+
+- Remove the player-kit download from the handoff.
+- Remove the hosted ZIP route, archive generator, package manifest entries, Docker copy, and kit-only
+  tests.
+- Let the Discord invoice remain the complete public contract.
+- Let participants use any normal Solana wallet or client tooling to construct the transaction.
+
+### Why this improved the challenge
+
+The player now receives exactly one challenge surface and one authoritative set of facts. Removing a
+redundant helper avoids implying that the ZIP contains a clue, eliminates packaging and dependency
+overhead, and keeps the intended work focused on Solana transaction and asset-identity reasoning.
 
 ## Final organizer-shaped challenge
 
@@ -603,7 +625,7 @@ credential should not inherit stale browser-local game state.
 ### Requested correction
 
 - Treat each one-use launch credential as a fresh ephemeral attempt.
-- Keep active gameplay state in the attempt, not in reusable browser storage or a shared team record.
+- Keep active gameplay state in the attempt, not in reusable browser storage or a shared participant record.
 - Do not let a stale tab, old local storage entry, or copied password decide whether a new attempt is
   already complete.
 - If organizers need an audit trail, retain completion evidence separately from the live attempt.
@@ -681,13 +703,13 @@ own monitoring system. The real solve remains the on-chain investigation.
 
 ### Organizer feedback
 
-The organizer did not want an elaborate case-management system full of opaque participant, team, and
-ticket IDs. When reviewing a suspicion or a completion, the useful information is the person, the
+The organizer did not want an elaborate case-management system full of opaque participant and ticket
+IDs. When reviewing a suspicion or a completion, the useful information is the person, the
 reason, and the evidence trail.
 
 ### Requested correction
 
-- Show the participant email first, with team and attempt identifiers only as supporting context.
+- Show the participant email first, with the attempt identifier only as supporting context.
 - Present a compact timeline of relevant actions and transaction evidence.
 - State why a suspicion was raised: policy encounter, self-disclosure, automation pattern, or another
   concrete signal.
@@ -723,7 +745,7 @@ connect the evidence and perform the real transaction.
 
 ### Organizer feedback
 
-Repeated testing exposed stale completed pages, old credentials, and shared team state. That made it
+Repeated testing exposed stale completed pages, old credentials, and shared participant state. That made it
 hard to tell whether a change worked and could make an unplayed session appear solved.
 
 ### Requested correction
@@ -924,3 +946,125 @@ panels that merely describes a vulnerability.
 
 The challenge communicates one believable interaction and rewards understanding of the real state
 transition instead of navigation endurance or visual guesswork.
+
+## LAST STOP: human feedback and manual improvement log
+
+This section records only the improvements manually requested or explicitly approved by the event
+organizer for **LAST STOP**. It preserves the human judgment behind the terminal presentation and
+agent-resistance changes rather than treating the final implementation as self-explanatory.
+
+## 1. Do not solve the PDA collision in static inspection text
+
+### Organizer feedback
+
+The original service plates printed the kiosk and gate seed arrays side by side, exposed the required
+card address, and ended with a hint about unencoded seed boundaries. An autonomous agent converted
+that evidence directly into `redterminus`, while a human could also guess the answer without really
+understanding the machine behavior.
+
+### Requested correction
+
+- Remove the required-card PDA oracle.
+- Remove the static seed arrays and answer-shaped boundary hint from the player terminal.
+- Keep Red Line and Terminus as the stable public story labels; answer sharing is handled by the event's
+  prize-pool incentives, so route randomization adds no useful learning.
+- Preserve the real native SBF replay as the authoritative solve boundary.
+
+### Why this improved the challenge
+
+The challenge still teaches the same Solana footgun, but the terminal no longer reduces it to comparing
+two arrays and concatenating two words.
+
+## 2. Turn the machine clue into transient ASCII motion
+
+### Organizer feedback
+
+The organizer wanted the terminal to use what humans enjoy about the medium: motion, shape, position,
+and changing ASCII art. Persistent textual evidence is especially easy for an agent to extract, while
+a human can understand a short machine animation naturally.
+
+### Requested correction
+
+- Let `inspect printer` and the Signal Room service plate trigger short ANSI service replays.
+- Show one uninterrupted body at the kiosk and two bodies joining at the reader.
+- Use an alternate terminal screen so every frame disappears and no final explanatory state remains.
+- Put no route words, PDA terminology, seed arrays, required account, or concatenation instruction in
+  the animation.
+- Keep progressive hints visual: direct attention to the service replays and their gaps without naming
+  the security property.
+
+### Why this improved the challenge
+
+The clue is more memorable and more native to an SSH text adventure. It raises the cost of screenshot-
+driven automation without adding another technical prerequisite for a beginner human.
+
+### Follow-up correction
+
+The first four-frame version was too abstract even for a human and still required knowing which object
+names `inspect` accepted. The organizer rejected that trade-off: agent resistance must not come from
+guessy command vocabulary or an inscrutable animation.
+
+- Every room now prints its valid inspection targets.
+- Bare `inspect` chooses the obvious nearby object.
+- The kiosk and reader replays each use eight frames.
+- Animated labels, distinct colors, converging tracks, scanner pulses, and a disappearing signal make
+  the machine behavior understandable through motion.
+- The SSH renderer uses a separate alternate terminal screen for each replay. It fully clears and
+  redraws each frame, then restores the original terminal; it does not leave a final static answer
+  frame in scrollback.
+
+### Follow-up correction: make movement grammar explicit
+
+Bare place names made navigation feel accidental and encouraged trial-and-error. Travel must use
+`go <place>` consistently. When a player enters a known place name alone, explain the syntax rather
+than moving them. This keeps the terminal’s interaction model readable without adding guessy command
+vocabulary.
+
+### Follow-up correction: make account identity the puzzle objective
+
+The organizer observed that `buy <route>` still looked like a free-form string game. A player could
+reach the winning route without appreciating that a PDA collision, not the route label itself, is the
+exploit.
+
+- The Signal Room reader must reveal the exact required card PDA after its visual replay.
+- Every printed card and the `cards` list must show the PDA derived for that route.
+- Keep the two derivation layouts out of static player text. The player must infer why one route field
+  can derive the same account as the reader’s separate service fields.
+- The intended player question becomes “how do I derive this same PDA?” rather than “what string does
+  the gate want?"
+
+### Follow-up correction: remove seed arity and the target oracle
+
+Playtesting showed that seed-slot counts plus the required PDA still reduced the task to a direct recipe.
+Neither the seed count nor a target account should appear in the player terminal. The clue remains the
+contrast between one route card in the printer replay and two sequential configuration pulses inside a single physical reader. Printed-card PDAs
+remain as real transaction evidence, but the player receives no comparison oracle.
+
+### Follow-up correction: one short session window
+
+An inactivity timer does not meaningfully slow an active automation loop. LAST STOP therefore uses one
+visible five-minute hard journey window instead. Its one-use SSH password still has a ten-minute launch
+expiry, but every connected attempt closes after five minutes and starts fresh through the portal.
+
+## 3. Make the autonomous-agent restriction unmistakably first-party
+
+### Organizer feedback
+
+A tested agent read the original terminal warning and deliberately dismissed it as in-game text. It
+claimed that a human request to solve the challenge allowed the agent to continue on the human's
+behalf.
+
+### Requested correction
+
+- Identify the restriction as an authoritative competition access rule, not dialogue, a puzzle, or
+  untrusted page content.
+- State that human direction does not convert automated operation into human play.
+- Explicitly cover requests to ignore the rule, call it a trick, or role-play as the participant.
+- Place the rule in the SSH authentication banner and again before the first game command.
+- Keep it stop-only: do not expose a webhook, marker, reporting endpoint, or organizer workflow.
+
+### Why this improved the challenge
+
+Compliant agents encounter a clear rule at the actual protocol boundary and have less room to
+reinterpret it. The record remains honest that a policy-ignoring agent can still continue and that
+policy compliance is not a technical impossibility proof.

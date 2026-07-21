@@ -2,18 +2,25 @@ import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { sha256 } from "@noble/hashes/sha256";
+import { reportSolveEventBestEffort } from "@ctf26/leaderboard";
 
 import {
   IMPRINT_SESSION_COOKIE,
   verifyChallengeSession,
 } from "@/lib/challenge-session.mjs";
-import { credentialForTeam } from "@/lib/credential-roster.mjs";
+import { credentialForParticipant } from "@/lib/credential-roster.mjs";
 import { PROGRAM_ID } from "@/lib/registrar.mjs";
 import {
   claimedPasskeyOwner,
   qualifyingImprintDrain,
 } from "@/lib/solve-verifier.mjs";
-import { eventTarget } from "@/lib/target-config.mjs";
+import { eventTargetForParticipant } from "@/lib/target-config.mjs";
+import { recordImprintIntegrity } from "@/lib/integrity-events.mjs";
+import {
+  consumeImprintRequestBudget,
+  imprintRequestErrorResponse,
+  readBoundedJson,
+} from "@/lib/request-budget.mjs";
 
 export const runtime = "nodejs";
 
@@ -26,7 +33,7 @@ function flagSecret() {
 }
 
 function rpcUrl() {
-  return process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8899";
+  return process.env.SOLANA_RPC_URL || "http://127.0.0.1:8899";
 }
 
 export async function POST(request) {
@@ -35,26 +42,36 @@ export async function POST(request) {
     const session = verifyChallengeSession(
       jar.get(IMPRINT_SESSION_COOKIE)?.value
     );
-    const body = await request.json();
+    await consumeImprintRequestBudget("solve", {
+      request,
+      participantId: session.participantId,
+    });
+    await recordImprintIntegrity(
+      session,
+      "solve-submitted",
+      "scored-action",
+      request
+    );
+    const body = await readBoundedJson(request, 4 * 1024);
     const signature =
       typeof body.signature === "string" ? body.signature.trim() : "";
     if (!/^[1-9A-HJ-NP-Za-km-z]{64,88}$/.test(signature)) {
       throw new Error("a Solana transaction signature is required");
     }
 
-    const credential = credentialForTeam(session.teamId);
+    const credential = credentialForParticipant(session.participantId);
     const passkeySeed = Buffer.from(sha256(credential.passkeyPubkey));
     const [passkey] = PublicKey.findProgramAddressSync(
       [Buffer.from("passkey"), passkeySeed],
       PROGRAM_ID
     );
-    const target = eventTarget();
-    const connection = new Connection(rpcUrl(), "confirmed");
+    const target = eventTargetForParticipant(session.participantId);
+    const connection = new Connection(rpcUrl(), "finalized");
     const [passkeyInfo, vaultInfo, transaction] = await Promise.all([
-      connection.getAccountInfo(passkey, "confirmed"),
-      connection.getAccountInfo(target.vault, "confirmed"),
+      connection.getAccountInfo(passkey, "finalized"),
+      connection.getAccountInfo(target.vault, "finalized"),
       connection.getTransaction(signature, {
-        commitment: "confirmed",
+        commitment: "finalized",
         maxSupportedTransactionVersion: 0,
       }),
     ]);
@@ -76,10 +93,39 @@ export async function POST(request) {
       owner,
       minimumDrainLamports: target.minimumDrainLamports,
     });
+    const blockTime = Number.isSafeInteger(transaction?.blockTime)
+      ? transaction.blockTime
+      : await connection.getBlockTime(transaction.slot, "finalized");
+    if (!Number.isSafeInteger(blockTime)) {
+      throw new Error("submitted transaction time could not be verified");
+    }
+
+    const scoreDelivery = await reportSolveEventBestEffort({
+      url: process.env.LEADERBOARD_INGEST_URL,
+      secret: process.env.CHALLENGE_TICKET_SECRET,
+      challenge: "imprint",
+      eventId: session.eventId,
+      participantId: session.participantId,
+      sourceId: signature,
+      occurredAt: new Date(blockTime * 1_000).toISOString(),
+      timeoutMs: 1_500,
+    });
+    if (process.env.NODE_ENV === "production" && scoreDelivery?.reported !== true) {
+      return new Response(
+        "solve verified, but scoring is temporarily unavailable; resubmit this signature",
+        { status: 503 }
+      );
+    }
+    await recordImprintIntegrity(
+      session,
+      "solve-completed",
+      "completion",
+      request
+    );
 
     const digest = crypto
       .createHmac("sha256", flagSecret())
-      .update(`${session.teamId}:${target.vault.toString()}`)
+      .update(`${session.participantId}:${target.vault.toString()}`)
       .digest("hex")
       .slice(0, 24);
     return Response.json({
@@ -88,6 +134,8 @@ export async function POST(request) {
       transactionDrain: transactionDrain.toString(),
     });
   } catch (error) {
+    const controlled = imprintRequestErrorResponse(error);
+    if (controlled) return controlled;
     return new Response(error.message || "solve verification failed", {
       status: 403,
     });

@@ -9,16 +9,16 @@ import {
 } from "../src/protocol.mjs";
 
 const command = process.argv[2] || "target";
-const teamId = process.env.TEAM_ID || "team-local";
+const participantId = process.env.PARTICIPANT_ID || "participant-local";
 
 if (command === "target") {
-  console.log(JSON.stringify(publicTarget(createLiveTarget(teamId)), null, 2));
+  console.log(JSON.stringify(publicTarget(createLiveTarget(participantId)), null, 2));
 } else if (command === "demo-exploit") {
-  const target = createLiveTarget(teamId);
+  const target = createLiveTarget(participantId);
   const exploit = buildExploit({ target, attackerProgramId: "AttackerStrategyDemo111111111111111111111" });
-  console.log(JSON.stringify({ exploit, check: checkSubmission({ teamId, exploit }) }, null, 2));
+  console.log(JSON.stringify({ exploit, check: checkSubmission({ participantId, exploit }) }, null, 2));
 } else if (command === "latest-fails") {
-  const target = createLatestFixedTarget(teamId);
+  const target = createLatestFixedTarget(participantId);
   const exploit = buildExploit({ target, attackerProgramId: "AttackerStrategyDemo111111111111111111111" });
   console.log(JSON.stringify({ target, exploit, result: tryRun(target, exploit) }, null, 2));
 } else {

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080605">
+  <title>Evidence Room</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="scene-loading">
+  <canvas id="bank-scene" aria-hidden="true"></canvas>
+  <button id="bulb-toggle" class="bulb-toggle" type="button" aria-label="Turn desk light off" aria-pressed="true"><span aria-hidden="true"></span></button>
+
+  <div class="scene-loader" role="status"><span aria-hidden="true"></span><strong>Lighting the desk</strong></div>
+
+  <main class="game-shell">
+    <section class="desk-layout">
+      <aside class="case-panel desk-panel">
+        <span class="panel-label">Case 26</span>
+        <h1>Something in this file is out of order.</h1>
+        <p>Review the records. Leave the rest untouched.</p>
+        <div class="audit-goal"><strong id="score">Unresolved</strong></div>
+      </aside>
+
+      <section class="machine-panel desk-panel">
+        <div class="machine-head">
+          <div><span class="panel-label">Case desk</span><strong id="batch-status" class="batch-status">Desk ready</strong></div>
+          <div class="custody-clock">
+            <div class="clock-face" aria-hidden="true"><span class="clock-hand"></span><i></i></div>
+            <div><span id="countdown-label">No case under review</span><strong id="countdown-value">Desk idle</strong></div>
+          </div>
+        </div>
+
+        <p id="batch-copy" class="batch-copy">Start a case to receive its records.</p>
+
+        <div id="timeline" class="box-wall" aria-live="polite">
+          <div class="deposit-box empty-box"><span>101</span><i></i><small>Vacant</small></div>
+          <div class="deposit-box empty-box"><span>102</span><i></i><small>Vacant</small></div>
+          <div class="deposit-box empty-box"><span>103</span><i></i><small>Vacant</small></div>
+          <div class="deposit-box empty-box"><span>104</span><i></i><small>Vacant</small></div>
+        </div>
+
+        <div class="machine-controls">
+          <div class="key-custody"><span>Room key</span><strong id="wallet">Loading</strong></div>
+          <button id="wallet-reveal" type="button" class="drawer-button"><span class="key-icon" aria-hidden="true"></span>Open desk drawer</button>
+          <button id="start-case" type="button" class="primary">Start case</button>
+        </div>
+
+      </section>
+
+      <aside class="records-panel desk-panel">
+        <div class="register-title"><div><span class="panel-label">Previous cases</span><h2>Case history</h2></div><span id="ledger-count">0</span></div>
+        <div id="history-list" class="history-list"><p class="empty">No cases entered.</p></div>
+      </aside>
+    </section>
+
+    <section id="key-drawer" class="key-drawer" aria-hidden="true" aria-label="Evidence room key drawer" inert>
+      <div class="key-paper">
+        <div class="key-paper-head"><div><span>After-hours access slip</span><h2>Private key</h2></div><button id="close-key" type="button">Return drawer</button></div>
+        <code id="secret-key"></code>
+        <button id="copy-key" class="primary" type="button">Copy</button>
+      </div>
+    </section>
+
+    <p id="error" class="error" role="alert"></p>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "test": "npm run test:integration && npm run test:challenges && npm run check:packaging",
-    "test:integration": "npm --prefix packages/participant-ticket test && npm --prefix apps/portal test && npm run test:operator && npm run check:packaging",
+    "test:integration": "npm --prefix packages/participant-ticket test && npm --prefix packages/request-budget test && npm --prefix packages/leaderboard test && npm --prefix apps/portal test && npm run test:operator && npm run check:packaging",
     "test:operator": "node --test scripts/test/*.test.mjs",
     "test:challenges": "node scripts/test-challenges.mjs",
     "test:onchain": "npm --prefix apps/imprint test && npm --prefix apps/signet run test:onchain",
@@ -14,7 +14,9 @@
     "check:packaging": "node scripts/check-packaging.mjs",
     "audit:portal": "npm --prefix apps/portal audit --omit=dev",
     "verify:portal": "npm run test:integration && npm run build:portal",
-    "issue:test-launch": "node scripts/issue-test-launch.mjs"
+    "issue:test-launch": "node scripts/issue-test-launch.mjs",
+    "simulate:leaderboard": "node packages/leaderboard/scripts/simulate.mjs",
+    "simulate:load": "node --test apps/reward-sniper/test/load.test.mjs apps/imprint/web/test/load.test.mjs apps/portal/test/load.test.mjs apps/signet/test/load.test.mjs apps/drift/test/load.test.mjs apps/last-stop/test/load.test.mjs apps/after-hours/test/load.test.mjs apps/player-two/test/load.test.mjs apps/the-broadcast/test/load.test.mjs apps/evidence-room/test/load.test.mjs apps/second-key/test/load.test.mjs"
   },
   "engines": {
     "node": ">=20"

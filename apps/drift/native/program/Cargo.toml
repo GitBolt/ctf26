@@ -7,6 +7,11 @@ publish = false
 [lib]
 crate-type = ["cdylib", "lib"]
 
+[features]
+default = []
+variant-1 = []
+variant-2 = []
+
 [dependencies]
 # Keep transitive releases compatible with the Cargo 1.84 bundled in Solana platform-tools 1.48.
 # Newer blake3/zeroize releases use manifest features that that SBF toolchain cannot parse.

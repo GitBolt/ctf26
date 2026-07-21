@@ -8,13 +8,13 @@ const I64_MAX = (1n << 63n) - 1n;
 export const MAX_TRACE_STEPS = 32;
 export const ATTACKER_STARTING_BALANCE = 1_000n;
 
-export function createLocalnet(teamId = "team-local") {
-  assertTeamId(teamId);
-  const seed = crypto.createHash("sha256").update(teamId).digest();
+export function createLocalnet(participantId = "participant-local") {
+  assertParticipantId(participantId);
+  const seed = crypto.createHash("sha256").update(participantId).digest();
   const rate = BigInt(3 + (seed[0] % 5));
   const reserve = BigInt(40_000 + seed[1] * 100);
   return {
-    teamId,
+    participantId,
     clock: 1_700_000_000n,
     rate,
     threshold: reserve - 1_000n,
@@ -234,8 +234,8 @@ function assertU64Addition(left, right, label) {
   }
 }
 
-function assertTeamId(teamId) {
-  if (typeof teamId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(teamId)) {
-    throw new Error("invalid teamId");
+function assertParticipantId(participantId) {
+  if (typeof participantId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(participantId)) {
+    throw new Error("invalid participantId");
   }
 }

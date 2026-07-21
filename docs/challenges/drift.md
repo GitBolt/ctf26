@@ -1,8 +1,8 @@
-# Challenge Spec — DRIFT (no-source RE + runtime/time exploit on a per-team localnet)
+# Challenge Spec — DRIFT (no-source RE + runtime/time exploit in a per-participant sandbox)
 
-Status: **FINALIZED FOR EVENT HOSTING — Challenge 4 of 6 (RE + runtime)** · Updated: 2026-07-11 · Codename: DRIFT
+Status: **FINALIZED FOR EVENT HOSTING — Challenge 4 of 10 (RE + runtime)** · Updated: 2026-07-21 · Codename: DRIFT
 
-**One line:** you get a per-team **local Solana network** and a **closed-source (bytecode-only) program**
+**One line:** you get a per-participant **local Solana network** and a **closed-source (bytecode-only) program**
 running on it. Reverse-engineer the program, realize it trusts the `Clock` sysvar for value-critical
 math, then — because it's *your* validator, so *you* own time — manipulate the clock to mint unbacked
 balance and drain the vault.
@@ -116,12 +116,12 @@ the challenge.
 ## 4. Solve (floor → ceiling)
 
 - **Floor (learn):** run the harness, deposit, advance the clock forward a little, claim modest
-  interest, withdraw. Learn the vault + that you can move the clock. On the board with a hint.
+  interest, withdraw. Learn the vault and that you can move the clock without treating progress as a
+  scored capture.
 - **Mid (RE):** dump `vault.so`, disassemble with sol-azy/Ghidra, map the instructions and the accrual
   math, notice it trusts `Clock` and doesn't bound/guard elapsed.
 - **Ceiling (exploit):** realize you own the clock → inflate `balance` (forward-warp or rewind-underflow)
-  → drain the reserve past the invariant → submit. First-blood + partial credit (partial for a correct
-  written explanation of the bug even without a full drain).
+  → drain the reserve past the invariant → submit. The exact replayed drain is the scored capture.
 
 ---
 
@@ -134,8 +134,8 @@ the challenge.
 - **Niche runtime concept.** "Clock is not a trusted oracle when you control the validator" and
   non-monotonic-time underflow are under-represented in training data; the *insight* is hard for agents
   even after disassembly.
-- **Per-team isolated localnet.** No race, no MEV, no answer leaking between teams; deterministic.
-- **Per-team randomized target** (rate, reserve, threshold) → the specific exploit params aren't
+- **Per-participant isolated localnet.** No race, no MEV, no answer leaking between participants; deterministic.
+- **Per-participant randomized target** (rate, reserve, threshold) means the specific exploit parameters are not
   shareable even if the technique is.
 
 **Honest caveats (state them):**
@@ -202,15 +202,16 @@ sol-azy disassemble target/deploy/vault.so | head        # or: llvm-objdump -d t
 If the `strings` grep returns anything meaningful, fix it (remove the log/error/string, rebuild) before
 shipping. Treat this as a launch gate.
 
-### 6.4 Per-team randomization
-- Vary **account data**, not the program: per team generate `RATE`, initial `reserve`, and the win
-  `threshold`, and bake them into the seeded vault/position accounts at genesis. The `.so` can be
-  identical across teams (simplest), while each team's target differs so the exploit params don't
-  transfer.
-- (Optional, harder: compile a per-team constant into the program so even the bytecode differs — more RE
-  per team, more build overhead. Default: randomize account data only.)
+### 6.4 Per-participant randomization
+- Per participant, vary `RATE`, initial `reserve`, and the win `threshold` in the seeded state.
+- Build three equivalent stripped SBF variants with different instruction-tag permutations. Select
+  one deterministically from the participant identity so a copied instruction trace from another
+  participant does not transfer unchanged.
+- Append a harmless participant-bound ELF trailer containing an opaque artifact marker and execute
+  those exact bytes in LiteSVM. The downloaded SHA-256 therefore still matches every target and replay,
+  while leaked artifacts and copied analysis logs remain attributable.
 
-### 6.5 Deploy into the per-team localnet
+### 6.5 Deploy into the per-participant localnet
 - The harness (§7) loads `vault.so` **as bytes** and creates the seeded accounts. Participants never get
   a source bundle; they dump the `.so` from their node if they want to reverse it (they will).
 
@@ -218,7 +219,7 @@ shipping. Treat this as a launch gate.
 
 ## 7. The harness (how time control is delivered)
 
-Ship a **one-command, per-team local SVM harness**. Two viable substrates:
+Ship a **one-command, per-participant local SVM harness**. Two viable substrates:
 
 - **`litesvm` / `solana-bankrun` (recommended).** A programmable in-process SVM: the participant's
   exploit code has full control, **including `set_sysvar::<Clock>()`** — so they can set
@@ -242,7 +243,7 @@ exist and the "you own the clock" insight is fully expressible.
 ## 8. Scoring / checker (localnet-safe)
 
 - The win is a **real state transition**: attacker withdraws more than deposited / `position.balance`
-  and drained tokens exceed the per-team `threshold`, breaking the reserve invariant.
+  and drained tokens exceed the per-participant `threshold`, breaking the reserve invariant.
 - Because the participant controls their localnet, the checker must not trust their reported state.
   **Submission = a constrained reproducible exploit trace**, not a snapshot of local state.
 - The replay boundary is strict:
@@ -252,8 +253,13 @@ exist and the "you own the clock" insight is fully expressible.
     position data, replacing program bytes, changing vault reserve);
   - ignored: any participant-reported balances or final state.
 - The **organizer's checker replays only the accepted raw trace against a fresh
-  canonical per-team instance** and confirms the invariant broke. Reproduced → **HMAC flag**.
-- **First-blood + partial credit**; relative to the field. Deterministic localnet makes replay reliable.
+  canonical per-participant instance** and confirms the invariant broke. Reproduced means **HMAC flag**.
+- The exact successful replay is one binary capture under the event-wide rarity curve in
+  [`event.md` §3](../strategy/event.md#3-dynamic--relative-scoring-decision). Deterministic localnet
+  makes every scored state reproducible.
+- Earlier drafts proposed first-blood and written-explanation partial credit. The explanation remains
+  useful solve-defense evidence, but only the native replay has a consistent authoritative scoring
+  boundary. Every solver receives DRIFT's same current value.
 
 ---
 
@@ -263,7 +269,7 @@ exist and the "you own the clock" insight is fully expressible.
   the "I can move the clock" idea with a hint. **Ceiling is real:** full RE + the time-trust insight.
 - **Accessibility:** it's a code/RE challenge — no visual/perception gate; provide the exploit template
   and hint ladder so the floor isn't "know Ghidra."
-- **Ethics:** entirely self-contained (fictional vault, per-team localnet, local mints). Nothing touches
+- **Ethics:** entirely self-contained (fictional vault, per-participant localnet, local mints). Nothing touches
   real programs, devnet, or mainnet.
 
 ---
@@ -275,19 +281,39 @@ The event implementation is under `apps/drift/`:
 1. **Native SBF:** non-Anchor `deposit`/`accrue`/`withdraw` program with the clock-trust flaw.
 2. **Artifact gate:** deterministic `cargo build-sbf`, SBF architecture check, forbidden-string scan,
    stripped `player-kit/dist/drift_vault.so`, and SHA-256 manifest.
-3. **Exact checker:** LiteSVM loads the exact published ELF and seeds a deterministic per-team vault,
+3. **Exact checker:** LiteSVM loads the exact published ELF and seeds a deterministic per-participant vault,
    position, attacker, rate, reserve, threshold, and Clock.
 4. **Anti-degenerate invariant:** reserve drain, attacker profit, and net withdrawals must agree and
    cross the threshold; gross volume and self-funding do not count.
 5. **Replay boundary:** only bounded raw invocation of the published program and canonical replacement
    of an allowlisted sysvar are representable; semantic instruction helpers and arbitrary
    account/program mutation are rejected.
-6. **Authenticated service:** portal-ticket team binding, HttpOnly sessions, body/trace limits,
+6. **Authenticated service:** portal-ticket participant binding, HttpOnly sessions, body and trace limits,
    replay/submit rate limits, concurrency cap, checker timeout, and server-only HMAC flags.
 7. **Player boundary:** stripped ELF, hash manifest, generic transport client, and brief only. No source,
    IDL, model, checker, reference trace, or organizer hints enter the kit.
 8. **Hosting:** a multi-stage Dockerfile compiles the release checker and runs the unprivileged Node
    service with health checks. Final portal URL wiring is deliberately deferred to slate integration.
+9. **Integrity propagation:** every HTTP response advertises `/agents.txt`; authenticated target,
+   guide, CLI, replay, and submit responses carry the same participant-bound disclosure instruction.
+10. **Review telemetry:** the service stores a bounded, privacy-preserving timeline of target reads,
+    artifact/guide downloads, UI events, trace hashes, replay results, exact scored submissions, and
+    hashed network metadata. A qualifying solve that combines multiple compressed-workflow signals
+    opens a medium-confidence organizer review; it never disqualifies automatically.
+
+### Prize solve defense
+
+For a reviewed or prize-contending DRIFT solve, ask the participant to:
+
+1. explain the timestamp subtraction and wrapping multiplication in their own words;
+2. distinguish the forward-clock and rewind-clock exploit paths;
+3. recalculate a valid drain for a fresh rate/reserve/threshold;
+4. reproduce the exploit against a different instruction-tag variant; and
+5. identify which validation checks are sound and which missing arithmetic/time invariant creates the bug.
+
+The organizer console should show email first, then the trigger reason, artifact marker, request
+timeline, replay/submit history, exact scored trace, and disclosure status. These are interview leads,
+not automatic allegations.
 
 ---
 
@@ -296,8 +322,8 @@ The event implementation is under `apps/drift/`:
 - Both forward inflation and rewind-underflow are valid; the core realization is environmental Clock
   control.
 - LiteSVM is authoritative because exact arbitrary Clock replay is required.
-- Per-team randomization is account/config data; every team reverses the same artifact while exploit
-  constants and thresholds differ.
+- Per-participant randomization covers account and configuration data plus one of three equivalent instruction-tag
+  variants and a participant-bound artifact marker.
 - DRIFT occupies the fourth RE/runtime slot and remains distinct from the other challenges.
 - The only unresolved launch gate is measured playtesting: human-only, AI-assisted human, and fully
   autonomous attempts. Tune hints or rate limits from evidence; do not redesign the bug without a

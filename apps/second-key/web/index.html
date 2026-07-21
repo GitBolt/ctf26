@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Second Key</title>
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body data-custody="loading">
+    <main class="office">
+      <section class="cabinet" aria-label="Collateral desk 22">
+        <div class="cabinet-top">
+          <div><span class="cabinet-icon" aria-hidden="true">▣</span><span>Collateral desk 22</span></div>
+          <div class="case-meta"><span class="status-light" aria-hidden="true"></span><span id="caseState">Preparing case</span><span class="network"><i aria-hidden="true"></i>Devnet</span></div>
+        </div>
+
+        <div class="cabinet-brief">
+          <div><span>Open file</span><h1>The lender stepped out.</h1></div>
+          <p>Recover Lot 22 without settling the account.</p>
+        </div>
+
+        <div class="cabinet-stage">
+          <section class="custody-side owner-side">
+            <span class="side-label">Your account</span>
+            <div class="account-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+            <strong id="sourceBalance">Checking receipt</strong>
+          </section>
+
+          <div class="transfer-lane" aria-hidden="true">
+            <span></span><i></i><i></i><i></i><span></span>
+          </div>
+
+          <section class="custody-side vault-side">
+            <span class="side-label">Lender vault</span>
+            <div class="vault-wheel" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+            <strong id="vaultBalance">Checking vault</strong>
+          </section>
+
+          <div class="receipt-card" aria-hidden="true">
+            <span>Lot 22</span>
+            <b>Warehouse<br>receipt</b>
+            <small>1 unit</small>
+          </div>
+
+          <div class="verified-state" aria-hidden="true">
+            <i>✓</i>
+            <div><strong>Case reconciled</strong><span>Accepted on Devnet</span></div>
+          </div>
+        </div>
+
+        <div class="cabinet-footer">
+          <div class="cabinet-tools">
+            <button id="noteButton" class="tool-button" type="button" aria-haspopup="dialog"><span class="paperclip" aria-hidden="true"></span><span><b>Lender note</b><small>Open the desk copy</small></span></button>
+            <button id="keyButton" class="tool-button" type="button"><span class="key-dot" aria-hidden="true"></span><span><b>Participant wallet</b><small>Open wallet file</small></span></button>
+          </div>
+          <div class="loan-state">
+            <span>Advance</span>
+            <strong id="loanState">Not drawn</strong>
+          </div>
+          <div class="desk-actions">
+            <button id="pledgeButton" class="primary-button" type="button"><span>Pledge receipt</span></button>
+            <button id="chainButton" class="secondary-button quiet" type="button">Chain evidence</button>
+          </div>
+        </div>
+      </section>
+
+      <p id="notice" class="notice" role="status">Opening the desk.</p>
+    </main>
+
+    <dialog id="noteDialog" class="note-dialog">
+      <form method="dialog"><button class="close-button" aria-label="Close note">×</button></form>
+      <article class="lender-note">
+        <span class="note-date">Desk 22</span>
+        <h2>I approved the Lot 22 receipt.</h2>
+        <p>The desk releases the advance as soon as the receipt reaches lender custody.</p>
+        <p>The register should reconcile before the next shift.</p>
+        <p class="signature">Leave the file on my desk.<br><strong>Mara</strong></p>
+      </article>
+    </dialog>
+
+    <dialog id="chainDialog" class="chain-dialog">
+      <form method="dialog"><button class="close-button" aria-label="Close chain details">×</button></form>
+      <header>
+        <span>Devnet evidence</span>
+        <h2>Chain record</h2>
+        <p>These are the live accounts assigned to you.</p>
+      </header>
+      <dl class="chain-list">
+        <div><dt>Participant wallet</dt><dd><code id="wallet">provisioning</code><button class="copy-address" data-copy="wallet" type="button">Copy</button></dd></div>
+        <div><dt>Approved mint</dt><dd><code id="mint">provisioning</code><button class="copy-address" data-copy="mint" type="button">Copy</button></dd></div>
+        <div><dt>Participant token account</dt><dd><code id="source">provisioning</code><button class="copy-address" data-copy="source" type="button">Copy</button></dd></div>
+        <div><dt>Vault authority</dt><dd><code id="vaultAuthority">provisioning</code><button class="copy-address" data-copy="vaultAuthority" type="button">Copy</button></dd></div>
+        <div><dt>Lender vault</dt><dd><code id="vault">provisioning</code><button class="copy-address" data-copy="vault" type="button">Copy</button></dd></div>
+        <div><dt>Loan account</dt><dd><code id="loan">provisioning</code><button class="copy-address" data-copy="loan" type="button">Copy</button></dd></div>
+        <div><dt>Lending program</dt><dd><code id="programId">provisioning</code><button class="copy-address" data-copy="programId" type="button">Copy</button></dd></div>
+        <div id="transactionRow" class="is-hidden"><dt>Pledge transaction</dt><dd><code id="transaction">pending</code><a id="transactionLink" href="#" target="_blank" rel="noreferrer">Open ↗</a></dd></div>
+      </dl>
+    </dialog>
+
+    <dialog id="keyDialog" class="key-dialog">
+      <form method="dialog"><button class="close-button" aria-label="Close key">×</button></form>
+      <span class="key-icon" aria-hidden="true"></span>
+      <h2>Participant wallet file</h2>
+      <p>This Devnet wallet belongs to your participant account and is funded for transaction fees. You can reopen it whenever you return with a valid ticket.</p>
+      <textarea id="walletKeypair" readonly aria-label="Participant wallet keypair"></textarea>
+      <button id="copyKey" class="primary-button" type="button"><span>Copy wallet file</span></button>
+    </dialog>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

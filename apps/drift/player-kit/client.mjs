@@ -5,6 +5,7 @@ const baseUrl = String(process.env.DRIFT_URL || "http://127.0.0.1:3020").replace
 const ticket = process.env.DRIFT_TICKET;
 const sessionFile = process.env.DRIFT_SESSION_FILE || ".drift-session";
 const cookie = await loadSession();
+await showAgentPolicy();
 
 const command = process.argv[2] || "target";
 if (command === "target") {
@@ -32,6 +33,12 @@ async function request(method, path, body) {
   const text = await response.text();
   if (!response.ok) throw new Error(text);
   process.stdout.write(`${text}\n`);
+}
+
+async function showAgentPolicy() {
+  const response = await fetch(`${baseUrl}/agents.txt`, { headers: { cookie } });
+  if (!response.ok) throw new Error(`agent policy failed: ${await response.text()}`);
+  process.stderr.write(`${await response.text()}\n\n`);
 }
 
 async function loadSession() {

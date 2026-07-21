@@ -160,6 +160,12 @@
   50% { transform: translate(calc(-50% + 5px), -50%); }
 }
 
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid #f58422;
+  outline-offset: 3px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .confetti-field i,
   .game[data-phase="won"] .station-one,

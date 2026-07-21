@@ -590,8 +590,8 @@ body {
 
 .wordmark { flex: none; font-size: 13px; letter-spacing: 0; white-space: nowrap; }
 .wordmark::before { margin-right: 9px; content: "◆"; font-size: 10px; }
-.instrument-model { color: #4d5552; font-size: 9px; }
-.session-state { color: #303633; font-size: 9px; }
+.instrument-model { color: #4d5552; font-size: 12px; }
+.session-state { color: #303633; font-size: 12px; }
 .status-dot { width: 7px; height: 7px; border: 1px solid #661414; background: #d22d2d; }
 
 .hero {
@@ -606,9 +606,9 @@ body {
 
 .hero::after { display: none; }
 .hero > div { display: flex; align-items: baseline; gap: 12px; }
-.kicker { margin: 0; color: #5a625f; font-size: 9px; }
+.kicker { margin: 0; color: #5a625f; font-size: 12px; }
 .hero h1 { margin: 0; color: #141817; font: 700 15px/1.2 "Courier New",monospace; letter-spacing: 0; text-transform: none; }
-.hero-copy { display: block; padding: 0; color: #535c58; font-size: 10px; }
+.hero-copy { display: block; padding: 0; color: #535c58; font-size: 12px; }
 
 .notice {
   min-height: 48px;
@@ -620,8 +620,8 @@ body {
   box-shadow: inset 1px 1px #fff, inset -1px -1px #b1b2ac;
 }
 .notice-mark { font-size: 14px; }
-.notice strong { font-size: 11px; }
-.notice p { font-size: 10px; }
+.notice strong { font-size: 12px; }
+.notice p { font-size: 12px; }
 
 .workspace {
   min-height: 640px;
@@ -652,24 +652,24 @@ body {
   box-shadow: inset 0 1px #fff;
 }
 .section-heading h2 { font: 700 12px/1.2 "Courier New",monospace; letter-spacing: 0; }
-.section-label { margin: 0 0 2px; color: #5d6561; font-size: 8px; }
-.section-heading .button { min-height: 30px; padding: 5px 9px; font-size: 9px; }
+.section-label { margin: 0 0 2px; color: #5d6561; font-size: 12px; }
+.section-heading .button { min-height: 30px; padding: 5px 9px; font-size: 12px; }
 
 .target-grid { display: block; padding: 6px; }
 .target-grid > div { margin-bottom: 4px; padding: 8px; border: 1px solid #b4b6b0; border-radius: 0; background: #f0f0e9; }
-.target-grid dt { margin-bottom: 3px; font-size: 8px; text-transform: uppercase; }
-.target-grid dd { font-size: 9px; }
+.target-grid dt { margin-bottom: 3px; font-size: 12px; text-transform: uppercase; }
+.target-grid dd { font-size: 12px; }
 
-.editor-label { display: block; margin: 8px 10px 5px; font-size: 9px; text-transform: uppercase; }
+.editor-label { display: block; margin: 8px 10px 5px; font-size: 12px; text-transform: uppercase; }
 .editor-wrap { margin: 0 10px; border: 1px solid #151918; border-radius: 0; background: #090c0b; box-shadow: inset 0 0 20px rgb(57 255 148 / 7%); }
 textarea { min-height: 370px; padding: 14px; color: #7ff0a6; font: 12px/1.55 "Courier New",monospace; }
-.editor-help { margin: 6px 10px; font-size: 9px; }
+.editor-help { margin: 6px 10px; font-size: 12px; }
 .action-row { margin: 8px 10px 10px; }
-.button { min-height: 34px; border: 1px solid #555a56; border-radius: 0; padding: 7px 12px; color: #131716; background: #d5d6cf; box-shadow: inset 1px 1px #fff, inset -1px -1px #8f928d; font: 700 10px/1.2 "Courier New",monospace; }
+.button { min-height: 34px; border: 1px solid #555a56; border-radius: 0; padding: 7px 12px; color: #131716; background: #d5d6cf; box-shadow: inset 1px 1px #fff, inset -1px -1px #8f928d; font: 700 12px/1.2 "Courier New",monospace; }
 .button-primary { color: #fff7ef; border-color: #671313; background: #b62121; box-shadow: inset 1px 1px #df6565, inset -1px -1px #671313; }
 pre { margin: 8px; border: 1px solid #151918; border-radius: 0; background: #090c0b; color: #7ff0a6; }
 
-footer { min-height: 34px; margin: 0 8px; border-top: 1px solid #7e827d; color: #5c6561; font-size: 9px; }
+footer { min-height: 34px; margin: 0 8px; border-top: 1px solid #7e827d; color: #5c6561; font-size: 12px; }
 
 @media (max-width: 800px) {
   body { padding: 0; }

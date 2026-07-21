@@ -21,10 +21,10 @@ export async function GET(request) {
     return NextResponse.redirect(`${baseUrl}/?error=not_registered`);
   }
   const session = createUserSession({
-    participant_id: participantId,
-    team_id: registration.teamId,
+    participant_id: registration.participantId,
     email,
     name: email.split("@")[0],
+    leaderboard_name: registration.displayName,
   });
 
   const jar = await cookies();

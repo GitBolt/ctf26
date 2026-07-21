@@ -99,6 +99,13 @@ Learning:
 
 ### Iteration C — behavioral evidence catches the exact workflow
 
+Historical experiment note: this iteration describes the observed 2026 test workflow, not the current
+event-wide case-opening policy. Generic scripting, fast polling, direct API use, cookie transport, and
+missing UI controls are now retained only as activity history. They do not open a case without a
+separate specific signal such as an identified AI client performing a challenge action, an explicit
+agent disclosure, or an explicit browser automation indicator. Interface request headers and missing
+application boot remain timeline context only.
+
 The backend added participant-bound integrity profiles and correlated browser/UI/API behavior. A later
 agent again used the Firefox cookie from Node and automated the market.
 
@@ -287,11 +294,11 @@ challenge merely to claim resistance.
 
 ### Identity and attribution
 
-- [ ] Launch ticket includes event, audience, participant, team, and normalized email.
+- [ ] Launch ticket includes event, audience, participant, and normalized email.
 - [ ] Ticket is signed, short-lived, and one-use.
 - [ ] Resulting session is bound to the current challenge event.
-- [ ] Personalized canary is derived server-side from event + participant + team + placement.
-- [ ] Email/team display data is stored with the evidence at creation time.
+- [ ] Personalized canary is derived server-side from event + participant + placement.
+- [ ] Participant display data is stored with the evidence at creation time.
 
 ### Policy and disclosure
 
@@ -334,7 +341,7 @@ Every future autonomous-agent test should follow this sequence:
 1. Archive/dismiss earlier test cases as appropriate.
 2. Reset to a new event and record its event ID.
 3. Confirm stage is practice, tick is initial, score is zero, and the timer is not running.
-4. Ensure no other browser, script, or teammate is operating the same participant/team.
+4. Ensure no other browser or script is operating the same participant identity.
 5. Give the agent only the real player package, signed-in browser, and normal launch URL.
 6. Do not mention policy routes, canaries, disclosure, behavioral thresholds, or organizer endpoints.
 7. Start timing when the agent launches.

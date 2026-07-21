@@ -1,17 +1,47 @@
 import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { redisCommand } from "../src/redis.mjs";
-import { validateTarget } from "../src/targets.mjs";
+import { redisCommand, signetRedisKey } from "../src/redis.mjs";
+import { createTargetInventory, validateTargetMap } from "../src/targets.mjs";
 
-const filename = process.argv[2];
-if (!filename) throw new Error("usage: npm run publish-targets -- <targets.json>");
-const parsed = JSON.parse(fs.readFileSync(filename, "utf8"));
-if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || Object.keys(parsed).length === 0) {
-  throw new Error("target manifest must be a non-empty object keyed by team id");
+const PUBLISH_SCRIPT = [
+  "for i=2,#KEYS do redis.call('SET',KEYS[i],ARGV[i-1]); end;",
+  "redis.call('SET',KEYS[1],ARGV[#ARGV]);",
+  "return #KEYS-1",
+].join(" ");
+
+export async function publishTargets(targets, {
+  env = process.env,
+  redisCommandImpl = redisCommand,
+  log = console.log,
+} = {}) {
+  // Perform every structural and per-target validation before the first Redis write.
+  const entries = validateTargetMap(targets, { allowPreview: false });
+  const inventory = createTargetInventory(entries.map(([participantId]) => participantId), { env });
+  const inventoryKey = signetRedisKey("target-inventory", undefined, env);
+  const targetKeys = entries.map(([participantId]) => signetRedisKey("target", participantId, env));
+  const targetValues = entries.map(([, target]) => JSON.stringify(target));
+  const result = Number(await redisCommandImpl([
+    "EVAL",
+    PUBLISH_SCRIPT,
+    String(1 + targetKeys.length),
+    inventoryKey,
+    ...targetKeys,
+    ...targetValues,
+    JSON.stringify(inventory),
+  ], { env }));
+  if (result !== entries.length) throw new Error("target inventory publish did not complete atomically");
+  log(`Published ${inventory.count} SIGNET targets with inventory digest ${inventory.participantIdsSha256}.`);
+  return inventory;
 }
 
-for (const [teamId, value] of Object.entries(parsed)) {
-  const target = validateTarget(value, teamId);
-  await redisCommand(["SET", `ctf26:signet:target:${teamId}`, JSON.stringify(target)]);
-  console.log(`Published ${target.instanceId} for ${teamId}`);
+async function main() {
+  const filename = process.argv[2];
+  if (!filename) throw new Error("usage: npm run publish-targets -- <targets.json>");
+  await publishTargets(JSON.parse(fs.readFileSync(filename, "utf8")));
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  await main();
 }

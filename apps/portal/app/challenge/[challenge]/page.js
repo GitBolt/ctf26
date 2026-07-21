@@ -1,19 +1,23 @@
+import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
 import { currentUser } from "@/lib/auth";
 import { challengeByKey, challengeDestination } from "@/lib/challenges.mjs";
-import { lastStopCompletion } from "@/lib/completions.mjs";
-import { createChallengeTicket } from "@/lib/tickets";
+import { completionMatchesEvent, lastStopCompletion } from "@/lib/completions.mjs";
+import { assertChallengeLaunchAllowed, ChallengeLaunchError } from "@/lib/leaderboard-config.mjs";
+import { resolveLeaderboardConfig } from "@/lib/leaderboard-lifecycle.mjs";
+import { createLeaderboardStore } from "@/lib/leaderboard-store.mjs";
+import { createChallengeTicket, RULES_COOKIE, verifyRulesAcknowledgment } from "@/lib/tickets";
 
 import CopyButton from "./CopyButton";
 
 export const dynamic = "force-dynamic";
 
-async function sshAccess(challenge, user) {
+async function sshAccess(challenge, user, config) {
   const destination = challengeDestination(challenge);
   if (!destination.ticketed) return null;
 
-  const ticket = createChallengeTicket(user, challenge.audience);
+  const ticket = createChallengeTicket(user, challenge.audience, { config });
   destination.url.searchParams.set("ticket", ticket);
 
   const response = await fetch(destination.url, {
@@ -27,6 +31,10 @@ async function sshAccess(challenge, user) {
 export default async function ChallengeDetails({ params }) {
   const user = await currentUser();
   if (!user) redirect("/?error=session_required");
+  const jar = await cookies();
+  if (!verifyRulesAcknowledgment(jar.get(RULES_COOKIE)?.value || "", user)) {
+    redirect("/?error=rules_required");
+  }
 
   const { challenge: challengeKey } = await params;
   const challenge = challengeByKey(challengeKey);
@@ -34,12 +42,35 @@ export default async function ChallengeDetails({ params }) {
 
   let access = null;
   let unavailable = false;
-  const completion = await lastStopCompletion(user).catch(() => null);
+  let unavailableMessage = "Refresh this page to create a new SSH password. If it still fails, ask an organizer for help.";
+  const store = createLeaderboardStore();
+  let activeConfig;
   try {
-    access = await sshAccess(challenge, user);
-    unavailable = !access;
-  } catch {
-    unavailable = true;
+    activeConfig = await resolveLeaderboardConfig({ store });
+  } catch (error) {
+    console.error("LAST STOP event lifecycle is unavailable", error);
+    activeConfig = null;
+  }
+  const observedCompletion = await lastStopCompletion(user).catch(() => null);
+  const completion = activeConfig && completionMatchesEvent(observedCompletion, activeConfig.eventGeneration)
+    ? observedCompletion
+    : null;
+  if (!completion) {
+    try {
+      if (!activeConfig) throw new Error("event lifecycle unavailable");
+      assertChallengeLaunchAllowed(user.participant_id || user.participantId, process.env, new Date(), activeConfig);
+      await store.recordChallengeLaunch({
+        participantId: user.participant_id || user.participantId,
+        challenge: challenge.key,
+        email: user.email,
+      });
+      access = await sshAccess(challenge, user, activeConfig);
+      unavailable = !access;
+    } catch (error) {
+      console.error("LAST STOP access could not be created", error);
+      unavailable = true;
+      if (error instanceof ChallengeLaunchError) unavailableMessage = error.message;
+    }
   }
 
   return (
@@ -107,7 +138,7 @@ export default async function ChallengeDetails({ params }) {
             {unavailable ? (
               <div className="connection-panel connection-error" role="alert">
                 <h2>Connection details unavailable</h2>
-                <p>Refresh this page to create a new SSH password. If it still fails, ask an organizer for help.</p>
+                <p>{unavailableMessage}</p>
               </div>
             ) : (
               <div className="connection-panel">

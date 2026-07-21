@@ -10,7 +10,7 @@ fn concatenated_route_opens_segmented_gate() {
     let output = replay(
         program(),
         &ReplayInput {
-            team_id: "team-test".into(),
+            participant_id: "participant-test".into(),
             actions: vec![
                 Action::Buy {
                     route: "redterminus".into(),
@@ -34,7 +34,7 @@ fn ordinary_route_does_not_open_red_line() {
     let error = replay(
         program(),
         &ReplayInput {
-            team_id: "team-test".into(),
+            participant_id: "participant-test".into(),
             actions: vec![
                 Action::Buy {
                     route: "red".into(),
@@ -56,7 +56,7 @@ fn redline_route_does_not_open_red_terminus_gate() {
     let error = replay(
         program(),
         &ReplayInput {
-            team_id: "team-test".into(),
+            participant_id: "participant-test".into(),
             actions: vec![
                 Action::Buy {
                     route: "redline".into(),

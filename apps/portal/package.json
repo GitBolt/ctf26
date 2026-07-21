@@ -12,10 +12,13 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
+    "@ctf26/leaderboard": "file:../../packages/leaderboard",
     "@ctf26/participant-ticket": "file:../../packages/participant-ticket",
+    "@ctf26/request-budget": "file:../../packages/request-budget",
     "next": "^16.2.9",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "redis": "^6.1.0"
   },
   "overrides": {
     "postcss": "8.5.10"

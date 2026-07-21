@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-export function replayJourney(teamId, actions, env = process.env) {
+export function replayJourney(participantId, actions, env = process.env) {
   const binary = env.LAST_STOP_CHECKER_PATH || join(root, "native", "harness", "target", "release", "last-stop-harness");
   const childEnv = {
     ...env,
@@ -43,6 +43,6 @@ export function replayJourney(teamId, actions, env = process.env) {
       try { finish(null, JSON.parse(Buffer.concat(stdout).toString("utf8"))); }
       catch { finish(new Error("the validator returned malformed output")); }
     });
-    child.stdin.end(JSON.stringify({ teamId, actions }));
+    child.stdin.end(JSON.stringify({ participantId, actions }));
   });
 }

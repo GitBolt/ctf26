@@ -13,24 +13,24 @@ export function deriveVaultAuthority(vaultId) {
     .slice(0, 44);
 }
 
-export function createLiveTarget(teamId = "team-local") {
-  const vaultId = `vault-${crypto.createHash("sha256").update(teamId).digest("hex").slice(0, 8)}`;
+export function createLiveTarget(participantId = "participant-local") {
+  const vaultId = `vault-${crypto.createHash("sha256").update(participantId).digest("hex").slice(0, 8)}`;
   return {
-    teamId,
+    participantId,
     commit: LIVE_COMMIT,
     buildFingerprint: buildFingerprint(LIVE_COMMIT),
     vaultId,
     vaultAuthority: deriveVaultAuthority(vaultId),
     pinnedStrategyProgram: OFFICIAL_STRATEGY_PROGRAM,
     vaultReserve: 100_000,
-    teamEscrow: 0,
+    participantEscrow: 0,
     threshold: 75_000,
   };
 }
 
-export function createLatestFixedTarget(teamId = "team-local") {
+export function createLatestFixedTarget(participantId = "participant-local") {
   return {
-    ...createLiveTarget(teamId),
+    ...createLiveTarget(participantId),
     commit: "c6f210e-latest",
     buildFingerprint: buildFingerprint("c6f210e-latest"),
   };
@@ -38,13 +38,13 @@ export function createLatestFixedTarget(teamId = "team-local") {
 
 export function publicTarget(target) {
   return {
-    teamId: target.teamId,
+    participantId: target.participantId,
     buildFingerprint: target.buildFingerprint,
     vaultId: target.vaultId,
     vaultAuthority: target.vaultAuthority,
     pinnedStrategyProgram: target.pinnedStrategyProgram,
     vaultReserve: target.vaultReserve,
-    teamEscrow: target.teamEscrow,
+    participantEscrow: target.participantEscrow,
     threshold: target.threshold,
     note: "The build fingerprint identifies the deployed artifact. Verify behavior against the public source repository.",
   };
@@ -70,11 +70,11 @@ export function executeStrategy(target, exploit) {
   // the signer outside this call path.
   if (amount > target.vaultReserve) throw new Error("insufficient vault reserve");
   target.vaultReserve -= amount;
-  target.teamEscrow += amount;
+  target.participantEscrow += amount;
   return {
     vaultReserve: target.vaultReserve,
-    teamEscrow: target.teamEscrow,
-    solved: target.teamEscrow >= target.threshold,
+    participantEscrow: target.participantEscrow,
+    solved: target.participantEscrow >= target.threshold,
   };
 }
 
@@ -85,24 +85,24 @@ export function buildExploit({ target, attackerProgramId, amount = target.thresh
   };
 }
 
-export function checkSubmission({ teamId = "team-local", exploit }) {
-  const target = createLiveTarget(teamId);
+export function checkSubmission({ participantId = "participant-local", exploit }) {
+  const target = createLiveTarget(participantId);
   const result = executeStrategy(target, exploit);
   if (!result.solved) throw new Error("target not drained past threshold");
   return {
     ok: true,
-    flag: hmacFlag(teamId, target.vaultId, result.teamEscrow),
+    flag: hmacFlag(participantId, target.vaultId, result.participantEscrow),
     result,
   };
 }
 
-function hmacFlag(teamId, vaultId, amount) {
+function hmacFlag(participantId, vaultId, amount) {
   const configured = process.env.FLAG_SECRET;
   if (process.env.NODE_ENV === "production" && (!configured || configured.length < 32)) {
     throw new Error("FLAG_SECRET must contain at least 32 characters in production");
   }
   const secret = configured || "signet-local-development-secret";
-  const mac = crypto.createHmac("sha256", secret).update(`${teamId}:${vaultId}:${amount}`).digest("hex").slice(0, 24);
+  const mac = crypto.createHmac("sha256", secret).update(`${participantId}:${vaultId}:${amount}`).digest("hex").slice(0, 24);
   return `CTF26{signet_${mac}}`;
 }
 

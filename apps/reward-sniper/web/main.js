@@ -74,8 +74,8 @@ function launchTicketFromUrl() {
   return new URL(window.location.href).searchParams.get("ticket");
 }
 
-function directTestTeamFromUrl() {
-  return new URL(window.location.href).searchParams.get("test_team");
+function directTestParticipantFromUrl() {
+  return new URL(window.location.href).searchParams.get("test_participant");
 }
 
 function directTestKeyFromUrl() {
@@ -85,14 +85,14 @@ function directTestKeyFromUrl() {
 function clearLaunchTicket() {
   const url = new URL(window.location.href);
   url.searchParams.delete("ticket");
-  url.searchParams.delete("test_team");
+  url.searchParams.delete("test_participant");
   url.searchParams.delete("test_key");
   history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
 async function establishSession() {
   const launchTicket = launchTicketFromUrl();
-  const directTestTeam = directTestTeamFromUrl();
+  const directTestParticipant = directTestParticipantFromUrl();
   const directTestKey = directTestKeyFromUrl();
   if (launchTicket) {
     session = await api("/api/session", {
@@ -102,10 +102,10 @@ async function establishSession() {
     clearLaunchTicket();
     return;
   }
-  if (directTestTeam) {
+  if (directTestParticipant) {
     session = await api("/api/session", {
       method: "POST",
-      body: JSON.stringify({ directTest: true, teamId: directTestTeam, testKey: directTestKey }),
+      body: JSON.stringify({ directTest: true, participantId: directTestParticipant, testKey: directTestKey }),
     });
     clearLaunchTicket();
     if (session.launchMode === "direct-test") elements.testModeBadge?.removeAttribute("hidden");
@@ -141,7 +141,7 @@ async function refresh() {
     }
 
     if (!transitionMessage && pending && pending.tick !== nextView.tick) {
-      transitionMessage = describeResolution(nextView.team.lastResolution, pending.tick);
+      transitionMessage = describeResolution(nextView.participant.lastResolution, pending.tick);
       clearPending();
     } else if (lastTick !== undefined && nextView.tick !== lastTick && pending) {
       clearPending();
@@ -150,15 +150,15 @@ async function refresh() {
     }
 
     if (pending && pending.tick === nextView.tick) {
-      if (nextView.team.hasRevealed) pending.stage = "revealed";
-      else if (nextView.team.hasCommitted) pending.stage = "committed";
+      if (nextView.participant.hasRevealed) pending.stage = "revealed";
+      else if (nextView.participant.hasCommitted) pending.stage = "committed";
       else if (nextView.phase === "reveal") {
         clearPending();
         transitionMessage = "The commit window closed before your order was locked.";
       }
       if (pending) savePending();
     }
-    strandedCommit = !pending && nextView.team.hasCommitted;
+    strandedCommit = !pending && nextView.participant.hasCommitted;
 
     lastTick = nextView.tick;
     lastPhase = nextView.phase;
@@ -188,18 +188,18 @@ function render() {
 }
 
 function renderOverview() {
-  elements.identity.textContent = session.teamId;
+  elements.identity.textContent = session.participantId;
   elements.roundValue.textContent = String(marketView.round).padStart(2, "0");
   const ticksLeft = Math.max(0, marketView.roundEndsAtTick - marketView.tick);
   elements.roundProgress.textContent = `${ticksLeft} tick${ticksLeft === 1 ? "" : "s"} until rotation`;
   elements.phaseValue.textContent = marketView.phase === "commit" ? "Commit" : "Reveal";
   elements.phaseValue.dataset.phase = marketView.phase;
-  elements.vaultValue.textContent = formatNumber(marketView.rewardVault);
-  elements.footerTick.textContent = `Round ${marketView.round} · tick ${marketView.tick} · ${marketView.phase} phase`;
-  elements.ticketsValue.textContent = String(marketView.team.tickets);
-  elements.balanceValue.textContent = formatNumber(marketView.team.liquidityBalance);
-  elements.roundEscrowValue.textContent = formatNumber(marketView.team.roundEscrow);
-  elements.escrowValue.textContent = formatNumber(marketView.team.escrow);
+  elements.vaultValue.textContent = formatUsdc(marketView.rewardVault);
+  elements.footerTick.textContent = `Round ${marketView.round}, cycle ${marketView.tick}, ${marketView.phase} window`;
+  elements.ticketsValue.textContent = String(marketView.participant.tickets);
+  elements.balanceValue.textContent = formatUsdc(marketView.participant.liquidityBalance);
+  elements.roundEscrowValue.textContent = formatUsdc(marketView.participant.roundEscrow);
+  elements.escrowValue.textContent = formatUsdc(marketView.participant.escrow);
   renderEventState();
 }
 
@@ -236,30 +236,32 @@ function renderBins() {
     button.setAttribute("aria-pressed", String(bin.id === selectedBinId));
     button.setAttribute(
       "aria-label",
-      `Bin ${signed(bin.id)}, ${formatNumber(bin.liquidity)} liquidity, ${bin.isActive ? "active" : "inactive"}, ${heatBand(bin.heat)} activity`,
+      `SOL price ${formatPrice(bin.price)}, bin ${signed(bin.id)}, ${formatUsdc(bin.liquidity)} liquidity, ${formatUsdc(bin.volume24h)} 24 hour volume, ${bin.isActive ? "active" : "inactive"}`,
     );
 
     const top = document.createElement("span");
     top.className = "bin-top";
     const id = document.createElement("strong");
-    id.textContent = signed(bin.id);
+    id.textContent = formatPrice(bin.price);
     const state = document.createElement("span");
     state.className = "bin-state";
-    state.textContent = bin.isActive ? "Active" : "Inactive";
+    state.textContent = `Bin ${signed(bin.id)}${bin.isActive ? " active" : ""}`;
     top.append(id, state);
 
     const liquidity = document.createElement("span");
     liquidity.className = "bin-liquidity";
     const liquidityLabel = document.createElement("small");
-    liquidityLabel.textContent = "Liquidity";
+    liquidityLabel.textContent = "Bin liquidity";
     const liquidityValue = document.createElement("b");
-    liquidityValue.textContent = formatNumber(bin.liquidity);
+    liquidityValue.textContent = formatUsdc(bin.liquidity);
     liquidity.append(liquidityLabel, liquidityValue);
     const pressure = document.createElement("span");
     pressure.className = "pressure-track";
     pressure.setAttribute("aria-hidden", "true");
-    pressure.append(document.createElement("i"));
-    button.append(top, liquidity, pressure);
+    const volume = document.createElement("span");
+    volume.className = "bin-volume";
+    volume.textContent = formatUsdc(bin.volume24h);
+    button.append(top, liquidity, volume);
     button.addEventListener("click", () => selectBin(bin.id));
     elements.bins.append(button);
   }
@@ -270,26 +272,26 @@ function renderBins() {
 
 function renderSelection() {
   const selected = marketView.bins.find((bin) => bin.id === selectedBinId);
-  elements.selectedBin.textContent = selected ? signed(selected.id) : "—";
+  elements.selectedBin.textContent = selected ? formatPrice(selected.price) : "—";
   elements.selectedWindow.textContent = selected ? titleCase(heatBand(selected.heat)) : "—";
-  elements.selectedLiquidity.textContent = selected ? formatNumber(selected.liquidity) : "—";
+  elements.selectedLiquidity.textContent = selected ? formatUsdc(selected.liquidity) : "—";
 }
 
 function renderTelemetry() {
-  const telemetry = marketView.team.telemetry;
+  const telemetry = marketView.participant.telemetry;
   elements.telemetry.replaceChildren();
   elements.telemetry.removeAttribute("aria-busy");
   const title = document.createElement("strong");
-  title.textContent = "Partial market observations";
+  title.textContent = "Delayed pool signals";
   const values = document.createElement("div");
   values.className = "telemetry-values";
   for (const [index, value] of telemetry.rewardSamples.entries()) {
-    values.append(metric(`Reward sample ${index + 1}`, formatNumber(value)));
+    values.append(metric(`Fee estimate ${index + 1}`, `${value} USDC per cycle`));
   }
-  values.append(metric("Flow", titleCase(telemetry.flow.direction)));
-  values.append(metric("Flow confidence", `${Math.round(telemetry.flow.confidence * 100)}%`));
+  values.append(metric("Price direction", titleCase(telemetry.flow.direction)));
+  values.append(metric("Signal confidence", `${Math.round(telemetry.flow.confidence * 100)}%`));
   for (const touch of telemetry.touches.slice(-3)) {
-    values.append(metric(`Observed ${signed(touch.binId)}`, `tick ${touch.lastTouchedTick}`));
+    values.append(metric(`Bin ${signed(touch.binId)}`, relativeUpdate(touch.lastTouchedTick)));
   }
 
   const note = document.createElement("p");
@@ -319,15 +321,15 @@ function renderActivity() {
     const detail = document.createElement("small");
     if (event.type === "round-reset") {
       heading.textContent = `Round ${event.round} opened`;
-      detail.textContent = `Active bin ${signed(event.activeBin)}`;
+      detail.textContent = `Active price bin ${signed(event.activeBin)}`;
     } else if (event.type === "market-pulse") {
-      heading.textContent = event.fromBin === event.toBin ? "Market held position" : `Active bin moved to ${signed(event.toBin)}`;
-      detail.textContent = `Tick ${event.tick} public flow`;
+      heading.textContent = event.fromBin === event.toBin ? "Active price held" : `Active price moved to bin ${signed(event.toBin)}`;
+      detail.textContent = `${relativeUpdate(event.tick)} public update`;
     } else {
-      heading.textContent = `${event.teamId} · ${event.status}`;
+      heading.textContent = `${event.participantId}: ${event.status}`;
       detail.textContent = event.actionType
-        ? `Tick ${event.tick} ${event.actionType} order${event.result?.extracted !== undefined ? ` · ${formatNumber(event.result.extracted)} extracted` : ""}`
-        : `Tick ${event.tick} commitment`;
+        ? `${relativeUpdate(event.tick)} ${event.actionType} order${event.result?.extracted !== undefined ? `, ${formatUsdc(event.result.extracted)} rewards claimed` : ""}`
+        : `${relativeUpdate(event.tick)} commitment`;
     }
     copy.append(heading, detail);
     item.append(marker, copy);
@@ -342,18 +344,18 @@ function renderScoreboard() {
     const cell = document.createElement("td");
     cell.colSpan = 7;
     cell.className = "empty-cell";
-    cell.textContent = "Waiting for the first team…";
+    cell.textContent = "Waiting for the first participant…";
     row.append(cell);
     elements.scoreboard.append(row);
     return;
   }
   for (const score of scores) {
     const row = document.createElement("tr");
-    row.classList.toggle("is-team", score.teamId === session.teamId);
+    row.classList.toggle("is-participant", score.participantId === session.participantId);
     for (const value of [
       String(score.rank).padStart(2, "0"),
-      score.teamId,
-      formatNumber(score.escrow),
+      score.participantId,
+      formatUsdc(score.escrow),
       String(score.tickets),
       `${(score.share * 100).toFixed(1)}%`,
       Number(score.score ?? 0).toFixed(4),
@@ -372,7 +374,7 @@ function syncControls() {
   const committed = pending?.stage === "committed";
   const revealed = pending?.stage === "revealed";
   const locked = Boolean(pending) || strandedCommit;
-  const ticketUnavailable = actionType === "ticket" && marketView?.team.tickets <= 0;
+  const ticketUnavailable = actionType === "ticket" && marketView?.participant.tickets <= 0;
   const liquidity = Number(elements.liquidity.value);
   const badLiquidity = !Number.isSafeInteger(liquidity) || liquidity < 1 || liquidity > 1_000;
   const waiting = Boolean(marketView?.event && !marketView.eventStartedAt);
@@ -457,8 +459,8 @@ function setActionType(nextType) {
   actionType = nextType;
   syncControls();
   setStatus(nextType === "ticket"
-    ? "Ticket order selected. Size funded liquidity, then lock the exact action."
-    : "Market swap selected. A resolved swap moves the active bin but earns no direct reward.");
+    ? "Reward claim selected. Choose a USDC deposit, then lock the exact order."
+    : "Price rebalance selected. A resolved rebalance moves the active price bin but earns no direct reward.");
 }
 
 function setStatus(message, isError = false) {
@@ -483,7 +485,7 @@ function savePending() {
 function restorePending() {
   try {
     const restored = JSON.parse(sessionStorage.getItem(PENDING_KEY));
-    if (restored?.teamId === session.teamId && restored?.action && restored?.nonce) {
+    if (restored?.participantId === session.participantId && restored?.action && restored?.nonce) {
       pending = restored;
       actionType = restored.action.type;
       selectedBinId = restored.action.type === "ticket" ? restored.action.binId : restored.action.toBin;
@@ -499,7 +501,7 @@ function describeResolution(resolution, expectedTick) {
   if (resolution.status === "missed-reveal") return "The locked order expired because no reveal was accepted.";
   if (resolution.status === "failed") return `Settlement rejected the order: ${resolution.error}`;
   if (resolution.actionType === "ticket") {
-    return `Settlement complete: ${formatNumber(resolution.result.extracted)} reward extracted; ${resolution.result.ticketsRemaining} tickets remain.`;
+    return `Settlement complete: ${formatUsdc(resolution.result.extracted)} rewards claimed. ${resolution.result.ticketsRemaining} claim passes remain.`;
   }
   return `Settlement complete: active bin moved to ${signed(resolution.result.activeBin)}.`;
 }
@@ -520,7 +522,7 @@ async function lockOrder() {
     }),
   });
   pending = {
-    teamId: session.teamId,
+    participantId: session.participantId,
     action: result.action,
     nonce,
     commitment: result.commitment,
@@ -529,7 +531,7 @@ async function lockOrder() {
     stage: "committed",
   };
   savePending();
-  setStatus(`Order locked for tick ${result.tick}. Keep this tab open and reveal when the phase changes.`);
+  setStatus(`Order locked for cycle ${result.tick}. Keep this tab open and reveal when the phase changes.`);
 }
 
 async function revealOrder() {
@@ -604,6 +606,20 @@ function formatNumber(value) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value ?? 0);
 }
 
+function formatUsdc(value) {
+  return `${formatNumber(value)} USDC`;
+}
+
+function formatPrice(value) {
+  return `$${Number(value ?? 0).toFixed(2)}`;
+}
+
+function relativeUpdate(tick) {
+  const seconds = Math.max(0, (marketView?.tick ?? tick) - tick) * 30;
+  if (seconds < 60) return "Updated just now";
+  return `Updated ${Math.floor(seconds / 60)}m ago`;
+}
+
 function titleCase(value) {
   return String(value ?? "").replace(/(^|-)([a-z])/g, (_match, separator, letter) => `${separator === "-" ? " " : ""}${letter.toUpperCase()}`);
 }
@@ -626,7 +642,8 @@ async function start() {
   setConnection("connecting", "Connecting");
   try {
     await establishSession();
-    recordUiEvent("page-ready");
+    await recordUiEvent("page-ready");
+    if (navigator.webdriver) await recordUiEvent("automation-present");
     restorePending();
     await refresh();
     if (pending?.stage === "revealed") {
@@ -636,7 +653,7 @@ async function start() {
         ? "Reveal is open. Submit the locked order before this phase closes."
         : "Order locked. Wait for the reveal phase.");
     } else if (strandedCommit) {
-      setStatus("This team has a locked order, but this tab does not have its reveal secret. Return to the tab that created the order.", true);
+      setStatus("This participant has a locked order, but this tab does not have its reveal secret. Return to the tab that created the order.", true);
     } else {
       setStatus(marketView.phase === "commit"
         ? "Select a bin and lock one exact order before the commit window closes."

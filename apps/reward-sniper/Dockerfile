@@ -3,6 +3,8 @@ FROM node:22-alpine
 WORKDIR /app
 
 COPY packages/participant-ticket ./packages/participant-ticket
+COPY packages/leaderboard ./packages/leaderboard
+COPY packages/request-budget ./packages/request-budget
 COPY apps/reward-sniper/package.json apps/reward-sniper/package-lock.json ./apps/reward-sniper/
 
 WORKDIR /app/apps/reward-sniper

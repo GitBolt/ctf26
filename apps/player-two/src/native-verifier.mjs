@@ -3,9 +3,9 @@ import { spawn } from "node:child_process";
 export function createNativeVerifier({ executable = process.env.PLAYER_TWO_HARNESS_PATH, program = process.env.PLAYER_TWO_PROGRAM_PATH, required = process.env.NODE_ENV === "production" } = {}) {
   const harness = executable || new URL("../native/harness/target/release/player-two-harness", import.meta.url).pathname;
   const artifact = program || new URL("../native/dist/player_two_program.so", import.meta.url).pathname;
-  return async ({ teamId, firstGeneration, secondGeneration }) => {
+  return async ({ participantId, firstGeneration, secondGeneration }) => {
     try {
-      const result = await run(harness, artifact, { teamId, firstGeneration, secondGeneration });
+      const result = await run(harness, artifact, { participantId, firstGeneration, secondGeneration });
       return result?.solved === true;
     } catch (error) {
       if (required) throw error;

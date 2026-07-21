@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { consumeParticipantTicket } from "@ctf26/participant-ticket";
+import { ParticipantTicketError, verifyParticipantTicket } from "@ctf26/participant-ticket";
+import { eventGeneration } from "@ctf26/leaderboard";
 import { consumeLaunchJti } from "./redis.mjs";
 
 export const SESSION_COOKIE = "signet_session";
@@ -37,7 +38,6 @@ export function issueSession(identity, { env = process.env, now = Math.floor(Dat
       v: 1,
       eventId: identity.eventId,
       participantId: identity.participantId,
-      teamId: identity.teamId,
       email: identity.email || "",
       iat: now,
       exp: now + SESSION_TTL_SECONDS,
@@ -65,9 +65,9 @@ export function verifySession(token, { env = process.env, now = Math.floor(Date.
   }
   if (
     body.v !== 1 ||
-    body.eventId !== "ctf26" ||
+    body.eventId !== eventGeneration(env) ||
     typeof body.participantId !== "string" ||
-    typeof body.teamId !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(body.participantId) ||
     !Number.isSafeInteger(body.iat) ||
     !Number.isSafeInteger(body.exp) ||
     body.exp <= now ||
@@ -79,14 +79,13 @@ export function verifySession(token, { env = process.env, now = Math.floor(Date.
   return Object.freeze({
     eventId: body.eventId,
     participantId: body.participantId,
-    teamId: body.teamId,
     email: body.email || "",
   });
 }
 
 export async function exchangeLaunchTicket(
   ticket,
-  { env = process.env, now = Math.floor(Date.now() / 1000), consumeJti } = {},
+  { env = process.env, now = Math.floor(Date.now() / 1000), consumeJti, admitClaims } = {},
 ) {
   const secret = requireSecret("CHALLENGE_TICKET_SECRET", env);
   const consume = consumeJti || (async (record) => {
@@ -97,15 +96,23 @@ export async function exchangeLaunchTicket(
     }
     return consumeLaunchJti(record, { env });
   });
-  const claims = await consumeParticipantTicket(ticket, secret, {
+  const claims = verifyParticipantTicket(ticket, secret, {
     audience: TICKET_AUDIENCE,
+    eventId: eventGeneration(env),
     now,
-    consumeJti: consume,
   });
+  if (typeof admitClaims === "function") await admitClaims(claims);
+  const accepted = await consume({
+    eventId: claims.event_id,
+    audience: claims.aud,
+    participantId: claims.participant_id,
+    jti: claims.jti,
+    expiresAt: claims.exp,
+  });
+  if (accepted !== true) throw new ParticipantTicketError("replayed", "ticket has already been consumed");
   const identity = {
     eventId: claims.event_id,
     participantId: claims.participant_id,
-    teamId: claims.team_id,
     email: claims.email || "",
   };
   return { identity, session: issueSession(identity, { env, now }) };
@@ -129,7 +136,7 @@ export function identityFromRequest(request, { env = process.env } = {}) {
   const cookies = parseCookies(request.headers?.cookie);
   if (cookies[SESSION_COOKIE]) return verifySession(cookies[SESSION_COOKIE], { env });
   if (env.NODE_ENV !== "production" && env.ALLOW_LOCAL_DEMO !== "false") {
-    return Object.freeze({ eventId: "ctf26", participantId: "participant-local", teamId: "team-local" });
+    return Object.freeze({ eventId: eventGeneration(env), participantId: "participant-local" });
   }
   throw new AuthenticationError();
 }

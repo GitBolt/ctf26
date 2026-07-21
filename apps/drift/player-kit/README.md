@@ -38,7 +38,7 @@ llvm-objdump --arch-name=sbf --disassemble --no-show-raw-insn drift_vault.so
 Solana addresses embedded by a program may appear only as their raw 32-byte public keys rather than
 printable base58 strings. Standard Solana SDK or base58 tooling can convert between the two forms.
 
-The first command exchanges the one-time ticket and stores a team session in `.drift-session` with
+The first command exchanges the one-time ticket and stores a participant session in `.drift-session` with
 owner-only permissions. Later commands reuse it. Delete that file when leaving the event machine; if
 it expires, launch DRIFT from the portal again to obtain a fresh ticket.
 
@@ -50,7 +50,7 @@ node client.mjs replay submission.json
 node client.mjs submit submission.json
 ```
 
-Every replay uses a fresh canonical instance for your team. Only state produced by the published SBF
+Every replay uses a fresh canonical instance for your participant. Only state produced by the published SBF
 program and the declared replay environment is scored.
 
 ## Replay protocol

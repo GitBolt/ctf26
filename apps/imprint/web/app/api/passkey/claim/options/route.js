@@ -5,8 +5,9 @@ import {
   IMPRINT_SESSION_COOKIE,
   verifyChallengeSession,
 } from "@/lib/challenge-session.mjs";
-import { credentialForTeam } from "@/lib/credential-roster.mjs";
+import { credentialForParticipant } from "@/lib/credential-roster.mjs";
 import { expectedWebAuthnRpID } from "@/lib/webauthn-config.mjs";
+import { consumeImprintRequestBudget, imprintRequestErrorResponse } from "@/lib/request-budget.mjs";
 
 export const runtime = "nodejs";
 const CLAIM_CHALLENGE_COOKIE = "imprint_claim_challenge";
@@ -17,7 +18,11 @@ export async function POST(request) {
     const session = verifyChallengeSession(
       jar.get(IMPRINT_SESSION_COOKIE)?.value
     );
-    const credential = credentialForTeam(session.teamId);
+    await consumeImprintRequestBudget("passkeyOptions", {
+      request,
+      participantId: session.participantId,
+    });
+    const credential = credentialForParticipant(session.participantId);
     const options = await generateAuthenticationOptions({
       rpID: expectedWebAuthnRpID(request),
       allowCredentials: [
@@ -38,6 +43,8 @@ export async function POST(request) {
     });
     return Response.json(options);
   } catch (error) {
+    const controlled = imprintRequestErrorResponse(error);
+    if (controlled) return controlled;
     return new Response(error.message || "security-key claim was denied", {
       status: 403,
     });

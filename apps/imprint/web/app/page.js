@@ -5,7 +5,6 @@ import { Buffer } from "buffer";
 import { PublicKey } from "@solana/web3.js";
 import { startAuthentication } from "@simplewebauthn/browser";
 import {
-  DEFAULT_VAULT_ID,
   PROGRAM_ID,
   Transaction,
   base64UrlToBuffer,
@@ -13,7 +12,6 @@ import {
   getAssertion,
   passkeyPda,
   program,
-  targetVault,
 } from "@/lib/imprint";
 
 const EXPLORER_CLUSTER = "devnet";
@@ -114,7 +112,13 @@ function Toast({ toast, onDismiss }) {
     <div className="toast" data-kind={toast.kind} role="status">
       <div className="toast-head">
         <span className="toast-dot" aria-hidden="true" />
-        <span>{toast.kind === "error" ? "error" : toast.kind === "success" ? "confirmed" : "notice"}</span>
+        <span>
+          {toast.kind === "error"
+            ? "error"
+            : toast.kind === "success"
+            ? "confirmed"
+            : "notice"}
+        </span>
       </div>
       <div className="toast-message">{toast.message}</div>
       {toast.sig ? (
@@ -222,9 +226,8 @@ export default function Home() {
   }
 
   async function refresh() {
-    if (!wallet?.publicKey) return;
-    const targetAddress = targetVault();
-    setTarget(targetAddress);
+    if (!wallet?.publicKey || !target) return;
+    const targetAddress = target;
 
     try {
       const account = await challengeProgram.account.vault.fetch(targetAddress);
@@ -255,37 +258,55 @@ export default function Home() {
 
   useEffect(() => {
     const ticket = new URLSearchParams(window.location.search).get("ticket");
-    const testTeam = new URLSearchParams(window.location.search).get("test_team");
-    const request = testTeam
+    const testParticipant = new URLSearchParams(window.location.search).get(
+      "test_participant"
+    );
+    const uiHeaders = {
+      "x-imprint-ui": "vault",
+      ...(navigator.webdriver ? { "x-imprint-automation": "webdriver" } : {}),
+    };
+    const request = testParticipant
       ? fetch("/api/session", {
           method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ directTest: true, teamId: testTeam }),
+          headers: { "content-type": "application/json", ...uiHeaders },
+          body: JSON.stringify({ directTest: true, participantId: testParticipant }),
         })
       : ticket
       ? fetch("/api/session", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: { "content-type": "application/json", ...uiHeaders },
           body: JSON.stringify({ ticket }),
         })
-      : fetch("/api/session");
+      : fetch("/api/session", { headers: uiHeaders });
     request
       .then(async (response) => {
         if (!response.ok) throw new Error(await response.text());
-        if (ticket || testTeam)
+        const session = await response.json();
+        if (typeof session.target?.vault !== "string") {
+          throw new Error("this participant has no assigned IMPRINT target");
+        }
+        setTarget(new PublicKey(session.target.vault));
+        if (ticket || testParticipant)
           window.history.replaceState({}, "", window.location.pathname);
         setAccessState("ready");
       })
       .catch((error) => {
         setAccessState("denied");
-        setAccessError(error.message || "open IMPRINT from the event portal to establish a challenge session");
+        setAccessError(
+          error.message ||
+            "open IMPRINT from the event portal to establish a challenge session"
+        );
       });
   }, []);
 
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet?.publicKey?.toString(), passkey?.credentialId]);
+  }, [
+    wallet?.publicKey?.toString(),
+    passkey?.credentialId,
+    target?.toString(),
+  ]);
 
   const currentStep = !wallet?.publicKey ? 1 : !passkeyState ? 2 : 4;
 
@@ -319,7 +340,9 @@ export default function Home() {
     setBusy(true);
     try {
       if (!wallet?.publicKey) throw new Error("connect a Solana wallet first");
-      const optionsResponse = await fetch("/api/passkey/claim/options", { method: "POST" });
+      const optionsResponse = await fetch("/api/passkey/claim/options", {
+        method: "POST",
+      });
       if (!optionsResponse.ok) throw new Error(await optionsResponse.text());
       const optionsJSON = await optionsResponse.json();
       notify("info", "requesting a Touch ID, Face ID, or passkey assertion");
@@ -359,7 +382,10 @@ export default function Home() {
       if (challenge.length !== 32) {
         throw new Error("challenge must decode to exactly 32 bytes");
       }
-      notify("info", "requesting a passkey assertion for the supplied challenge");
+      notify(
+        "info",
+        "requesting a passkey assertion for the supplied challenge"
+      );
 
       const assertion = await getAssertion({
         credentialId: passkey.credentialId,
@@ -406,8 +432,16 @@ export default function Home() {
     : passkeyState
     ? "done"
     : "current";
-  const step3Status = targetState ? "done" : wallet?.publicKey ? "current" : "locked";
-  const step4Status = passkeyState ? (assertionOutput ? "done" : "current") : "locked";
+  const step3Status = targetState
+    ? "done"
+    : wallet?.publicKey
+    ? "current"
+    : "locked";
+  const step4Status = passkeyState
+    ? assertionOutput
+      ? "done"
+      : "current"
+    : "locked";
 
   return (
     <main>
@@ -427,179 +461,204 @@ export default function Home() {
             devnet · program <strong>{short(PROGRAM_ID.toString())}</strong>
           </span>
           <span>
-            vault id <strong>{DEFAULT_VAULT_ID}</strong>
+            assigned target{" "}
+            <strong>{target ? short(target) : "pending"}</strong>
           </span>
         </div>
       </header>
 
       {accessState !== "ready" ? (
         <section className="access-panel" aria-live="polite">
-          <h2>{accessState === "loading" ? "verifying challenge access" : "challenge access required"}</h2>
+          <h2>
+            {accessState === "loading"
+              ? "verifying challenge access"
+              : "challenge access required"}
+          </h2>
           <p>{accessState === "loading" ? "please wait…" : accessError}</p>
         </section>
       ) : (
-      <div className="dial">
-        <Step
-          number={1}
-          title="connect wallet"
-          hint={
-            wallet?.publicKey
-              ? `connected · ${walletName} · ${short(wallet.publicKey.toString())}`
-              : "connect a Solana wallet on devnet to begin"
-          }
-          status={step1Status}
-          isOpen={expandedStep === 1}
-          onToggle={() => toggleStep(1)}
-        >
-          {wallet?.publicKey ? (
-            <dl>
-              <dt>provider</dt>
-              <dd>{walletName}</dd>
-              <dt>connected</dt>
-              <dd>{wallet.publicKey.toString()}</dd>
-            </dl>
-          ) : (
-            <>
-              <p className="note">
-                Any injected Solana wallet works. Make sure it&apos;s set to devnet.
-              </p>
-              <div className="actions">
-                {walletOptions.length > 1 ? (
-                  <select
-                    value={selectedWalletId}
-                    onChange={(event) => setSelectedWalletId(event.target.value)}
+        <div className="dial">
+          <Step
+            number={1}
+            title="connect wallet"
+            hint={
+              wallet?.publicKey
+                ? `connected · ${walletName} · ${short(
+                    wallet.publicKey.toString()
+                  )}`
+                : "connect a Solana wallet on devnet to begin"
+            }
+            status={step1Status}
+            isOpen={expandedStep === 1}
+            onToggle={() => toggleStep(1)}
+          >
+            {wallet?.publicKey ? (
+              <dl>
+                <dt>provider</dt>
+                <dd>{walletName}</dd>
+                <dt>connected</dt>
+                <dd>{wallet.publicKey.toString()}</dd>
+              </dl>
+            ) : (
+              <>
+                <p className="note">
+                  Any injected Solana wallet works. Make sure it&apos;s set to
+                  devnet.
+                </p>
+                <div className="actions">
+                  {walletOptions.length > 1 ? (
+                    <select
+                      value={selectedWalletId}
+                      onChange={(event) =>
+                        setSelectedWalletId(event.target.value)
+                      }
+                    >
+                      {walletOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                  <button
+                    onClick={() => guarded(connectWallet)}
+                    disabled={busy}
                   >
-                    {walletOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
-                <button onClick={() => guarded(connectWallet)} disabled={busy}>
-                  connect solana wallet
-                </button>
-              </div>
-            </>
-          )}
-        </Step>
+                    connect solana wallet
+                  </button>
+                </div>
+              </>
+            )}
+          </Step>
 
-        <Step
-          number={2}
-          title="claim event security key"
-          hint={
-            passkeyState
-              ? "claimed on-chain"
-              : "use the platform passkey assigned to your team"
-          }
-          status={step2Status}
-          isOpen={expandedStep === 2}
-          onToggle={() => toggleStep(2)}
-        >
-          <p className="note">
-            Claiming requires a live user-verifying passkey assertion. Use Touch
-            ID, Face ID, Windows Hello, or another platform passkey during the
-            organizer enrollment ceremony and again when claiming.
-          </p>
-          {passkey ? (
+          <Step
+            number={2}
+            title="claim event security key"
+            hint={
+              passkeyState
+                ? "claimed on-chain"
+                : "use the platform passkey assigned to you"
+            }
+            status={step2Status}
+            isOpen={expandedStep === 2}
+            onToggle={() => toggleStep(2)}
+          >
+            <p className="note">
+              Claiming requires a live user-verifying passkey assertion. Use
+              Touch ID, Face ID, Windows Hello, or another platform passkey
+              during the organizer enrollment ceremony and again when claiming.
+            </p>
+            {passkey ? (
+              <dl>
+                <dt>credential</dt>
+                <dd>{short(passkey.credentialId)}</dd>
+                <dt>p-256 pubkey</dt>
+                <dd>
+                  {passkey.publicKey
+                    ? Buffer.from(passkey.publicKey).toString("hex")
+                    : "claimed from roster"}
+                </dd>
+                <dt>passkey account</dt>
+                <dd>{passkeyAddress?.toString()}</dd>
+                <dt>on-chain status</dt>
+                <dd className={passkeyState ? "ok" : "pending"}>
+                  {passkeyState ? "registered" : "not yet registered"}
+                </dd>
+              </dl>
+            ) : null}
+            <div className="actions">
+              <button
+                onClick={() => guarded(claimEventPasskey)}
+                disabled={
+                  busy || accessState !== "ready" || !wallet || !!passkeyState
+                }
+              >
+                claim platform passkey
+              </button>
+            </div>
+          </Step>
+
+          <Step
+            number={3}
+            title="target vault"
+            hint={
+              targetState
+                ? `${targetState.lamports / 1e9} SOL · nonce ${
+                    targetState.account.nonce
+                  }`
+                : "inspect the configured vault state"
+            }
+            status={step3Status}
+            isOpen={expandedStep === 3}
+            onToggle={() => toggleStep(3)}
+          >
+            <p className="note">
+              Inspect the configured vault and its public state.
+            </p>
             <dl>
-              <dt>credential</dt>
-              <dd>{short(passkey.credentialId)}</dd>
-              <dt>p-256 pubkey</dt>
+              <dt>target</dt>
+              <dd>{target?.toString() || "connect wallet"}</dd>
+              <dt>registered passkey</dt>
               <dd>
-                {passkey.publicKey
-                  ? Buffer.from(passkey.publicKey).toString("hex")
-                  : "claimed from roster"}
+                {targetState
+                  ? Buffer.from(targetState.account.registeredPasskey).toString(
+                      "hex"
+                    )
+                  : "not initialized"}
               </dd>
-              <dt>passkey account</dt>
-              <dd>{passkeyAddress?.toString()}</dd>
-              <dt>on-chain status</dt>
-              <dd className={passkeyState ? "ok" : "pending"}>
-                {passkeyState ? "registered" : "not yet registered"}
+              <dt>nonce</dt>
+              <dd>
+                {targetState ? targetState.account.nonce.toString() : "-"}
               </dd>
+              <dt>lamports</dt>
+              <dd>{targetState ? targetState.lamports.toString() : "-"}</dd>
             </dl>
-          ) : null}
-          <div className="actions">
-            <button
-              onClick={() => guarded(claimEventPasskey)}
-              disabled={busy || accessState !== "ready" || !wallet || !!passkeyState}
-            >
-              claim platform passkey
-            </button>
-          </div>
-        </Step>
+            <div className="actions">
+              <button
+                className="secondary"
+                onClick={() => guarded(refresh)}
+                disabled={busy || !wallet}
+              >
+                refresh
+              </button>
+            </div>
+          </Step>
 
-        <Step
-          number={3}
-          title="target vault"
-          hint={
-            targetState
-              ? `${targetState.lamports / 1e9} SOL · nonce ${targetState.account.nonce}`
-              : "inspect the configured vault state"
-          }
-          status={step3Status}
-          isOpen={expandedStep === 3}
-          onToggle={() => toggleStep(3)}
-        >
-          <p className="note">
-            Inspect the configured vault and its public state.
-          </p>
-          <dl>
-            <dt>target</dt>
-            <dd>{target?.toString() || "connect wallet"}</dd>
-            <dt>registered passkey</dt>
-            <dd>
-              {targetState
-                ? Buffer.from(targetState.account.registeredPasskey).toString("hex")
-                : "not initialized"}
-            </dd>
-            <dt>nonce</dt>
-            <dd>{targetState ? targetState.account.nonce.toString() : "-"}</dd>
-            <dt>lamports</dt>
-            <dd>{targetState ? targetState.lamports.toString() : "-"}</dd>
-          </dl>
-          <div className="actions">
-            <button className="secondary" onClick={() => guarded(refresh)} disabled={busy || !wallet}>
-              refresh
-            </button>
-          </div>
-        </Step>
-
-        <Step
-          number={4}
-          title="assertion workbench"
-          hint={
-            assertionOutput
-              ? "assertion signed"
-              : "sign a supplied challenge with your passkey"
-          }
-          status={step4Status}
-          isOpen={expandedStep === 4}
-          onToggle={() => toggleStep(4)}
-        >
-          <p className="note">
-            This workbench signs one 32-byte base64url challenge with your
-            registered passkey. It does not construct or submit a Solana
-            transaction.
-          </p>
-          <label>
-            challenge (base64url, no padding)
-            <input
-              value={challengeInput}
-              onChange={(event) => setChallengeInput(event.target.value)}
-            />
-          </label>
-          <div className="actions">
-            <button
-              onClick={() => guarded(signChallenge)}
-              disabled={busy || !passkeyState || !challengeInput.trim()}
-            >
-              sign challenge with passkey
-            </button>
-          </div>
-          <pre>{assertionOutput || "no assertion yet"}</pre>
-        </Step>
-      </div>
+          <Step
+            number={4}
+            title="assertion workbench"
+            hint={
+              assertionOutput
+                ? "assertion signed"
+                : "sign a supplied challenge with your passkey"
+            }
+            status={step4Status}
+            isOpen={expandedStep === 4}
+            onToggle={() => toggleStep(4)}
+          >
+            <p className="note">
+              This workbench signs one 32-byte base64url challenge with your
+              registered passkey. It does not construct or submit a Solana
+              transaction.
+            </p>
+            <label>
+              challenge (base64url, no padding)
+              <input
+                value={challengeInput}
+                onChange={(event) => setChallengeInput(event.target.value)}
+              />
+            </label>
+            <div className="actions">
+              <button
+                onClick={() => guarded(signChallenge)}
+                disabled={busy || !passkeyState || !challengeInput.trim()}
+              >
+                sign challenge with passkey
+              </button>
+            </div>
+            <pre>{assertionOutput || "no assertion yet"}</pre>
+          </Step>
+        </div>
       )}
 
       <details className="log-drawer">

@@ -11,44 +11,44 @@ import {
 } from "../src/protocol.mjs";
 
 test("pre-fix live target forwards its trusted signer to a caller-selected strategy", () => {
-  const target = createLiveTarget("team-a");
+  const target = createLiveTarget("participant-a");
   const exploit = buildExploit({ target, attackerProgramId: "AttackerStrategy111111111111111111111111" });
   const result = executeStrategy(target, exploit);
 
   assert.equal(target.vaultAuthority, deriveVaultAuthority(target.vaultId));
-  assert.ok(result.teamEscrow >= target.threshold);
+  assert.ok(result.participantEscrow >= target.threshold);
   assert.equal(result.solved, true);
 });
 
 test("latest fixed target rejects attacker supplied strategy program", () => {
-  const target = createLatestFixedTarget("team-a");
+  const target = createLatestFixedTarget("participant-a");
   const exploit = buildExploit({ target, attackerProgramId: "AttackerStrategy111111111111111111111111" });
 
   assert.throws(() => executeStrategy(target, exploit), /not pinned/);
 });
 
 test("latest fixed target still accepts the official strategy", () => {
-  const target = createLatestFixedTarget("team-a");
+  const target = createLatestFixedTarget("participant-a");
   const exploit = {
     strategyProgramId: OFFICIAL_STRATEGY_PROGRAM,
     amount: 1,
   };
 
   const result = executeStrategy(target, exploit);
-  assert.equal(result.teamEscrow, 1);
+  assert.equal(result.participantEscrow, 1);
 });
 
 test("checker validates state transition, not a text answer", () => {
-  const target = createLiveTarget("team-b");
+  const target = createLiveTarget("participant-b");
   const exploit = buildExploit({ target, attackerProgramId: "AttackerStrategy222222222222222222222222" });
-  const result = checkSubmission({ teamId: "team-b", exploit });
+  const result = checkSubmission({ participantId: "participant-b", exploit });
 
   assert.equal(result.ok, true);
   assert.match(result.flag, /^CTF26\{signet_[a-f0-9]{24}\}$/);
 });
 
 test("malformed strategy programs cannot reach the stale target", () => {
-  const target = createLiveTarget("team-c");
+  const target = createLiveTarget("participant-c");
   const exploit = {
     strategyProgramId: "bad",
     amount: target.threshold,
@@ -64,13 +64,13 @@ test("production flag issuance fails closed without a strong secret", () => {
   delete process.env.FLAG_SECRET;
 
   try {
-    const target = createLiveTarget("team-prod");
+    const target = createLiveTarget("participant-prod");
     const exploit = buildExploit({
       target,
       attackerProgramId: "AttackerStrategyProduction11111111111111111",
     });
     assert.throws(
-      () => checkSubmission({ teamId: "team-prod", exploit }),
+      () => checkSubmission({ participantId: "participant-prod", exploit }),
       /FLAG_SECRET must contain at least 32 characters/
     );
   } finally {

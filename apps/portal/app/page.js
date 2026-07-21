@@ -1,6 +1,34 @@
+import { cookies } from "next/headers";
+
 import { CHALLENGES } from "@/lib/challenges.mjs";
 import { currentUser, isOrganizer } from "@/lib/auth";
-import { lastStopCompletion, stGenesisCompletion } from "@/lib/completions.mjs";
+import {
+  afterHoursCompletion,
+  broadcastCompletion,
+  completedChallengeKeys,
+  driftCompletion,
+  lastStopCompletion,
+  evidenceRoomCompletion,
+  playerTwoCompletion,
+  recoverLeaderboardCompletions,
+  secondKeyCompletion,
+  signetCompletion,
+} from "@/lib/completions.mjs";
+import { resolveLeaderboardConfig } from "@/lib/leaderboard-lifecycle.mjs";
+import { createLeaderboardStore } from "@/lib/leaderboard-store.mjs";
+import { consumePortalRequestBudget } from "@/lib/request-budget.mjs";
+import { RULES_COOKIE, RULES_VERSION, verifyRulesAcknowledgment } from "@/lib/tickets";
+
+const COMPLETION_READERS = Object.freeze([
+  ["signet", signetCompletion],
+  ["drift", driftCompletion],
+  ["last-stop", lastStopCompletion],
+  ["after-hours", afterHoursCompletion],
+  ["player-two", playerTwoCompletion],
+  ["the-broadcast", broadcastCompletion],
+  ["evidence-room", evidenceRoomCompletion],
+  ["second-key", secondKeyCompletion],
+]);
 
 export default async function Home({ searchParams }) {
   const user = await currentUser();
@@ -14,7 +42,6 @@ export default async function Home({ searchParams }) {
           <a className="wordmark" href="/" aria-label="CTF26 home">
             <span aria-hidden="true">[ st</span><strong>CTF</strong><span aria-hidden="true"> ]</span>
           </a>
-          <span className="event-mode">Participant portal</span>
         </nav>
 
         <section className="auth-stage">
@@ -60,10 +87,104 @@ export default async function Home({ searchParams }) {
     );
   }
 
-  const [lastStop, stGenesis] = await Promise.all([
-    lastStopCompletion(user).catch(() => null),
-    stGenesisCompletion(user).catch(() => null),
-  ]);
+  const leaderboardStore = createLeaderboardStore();
+  await leaderboardStore.upsertProfile(user).catch(() => null);
+  const jar = await cookies();
+  const rulesAccepted = verifyRulesAcknowledgment(jar.get(RULES_COOKIE)?.value || "", user);
+
+  if (!rulesAccepted) {
+    return (
+      <main className="shell board-shell">
+        <nav className="topbar" aria-label="Event">
+          <a className="wordmark" href="/" aria-label="CTF26 home">
+            <span aria-hidden="true">[ st</span><strong>CTF</strong><span aria-hidden="true"> ]</span>
+          </a>
+        </nav>
+        <section className="rules-panel" aria-labelledby="rules-title">
+          <p className="kicker">Event rules</p>
+          <h1 id="rules-title">Confirm before you play</h1>
+          <p className="rules-intro">These rules apply to every participant and every scored challenge.</p>
+          {error === "rules_required" ? <p className="error" role="alert">Accept the event rules before opening a challenge.</p> : null}
+          {error === "rules_save_failed" ? <p className="error" role="alert">Your acceptance could not be saved. Please try again or ask an organizer for help.</p> : null}
+          <ul className="rules-list">
+            <li>Solve only as the registered participant. Do not share or receive flags, solutions, credentials, or challenge access.</li>
+            <li>Public documentation, general concept questions, ordinary non-agent code completion, translation, and accessibility tools are allowed.</li>
+            <li>Do not give challenge files, screenshots, code, logs, account data, or challenge-specific tasks to an AI system.</li>
+            <li>Do not use an AI or outside operator to control a browser, terminal, wallet, RPC client, debugger, or submission, or to construct a scored exploit.</li>
+            <li>Do not attack the event infrastructure, other participants, shared services, or anything outside the challenge scope.</li>
+            <li>Use disposable Devnet wallets and accounts. Never submit a production secret or real funds.</li>
+            <li>You are responsible for every score. Organizers may hold a result for private review, ask you to explain or reproduce it, and provide an appeal before payout.</li>
+          </ul>
+          <form className="rules-form" action="/api/rules/acknowledge" method="post">
+            <label className="rules-check">
+              <input type="checkbox" name="accepted" value="yes" required />
+              <span>I have read and agree to rules version {RULES_VERSION}.</span>
+            </label>
+            <button className="button button-primary" type="submit">Enter challenge room</button>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
+  const config = await resolveLeaderboardConfig({ store: leaderboardStore });
+  const recordedSolves = await leaderboardStore.solves().catch(() => []);
+  const storedCompletions = completedChallengeKeys({
+    solves: recordedSolves,
+    participantId: user.participant_id,
+    eventGeneration: config.eventGeneration,
+  });
+  const recoveryCandidates = (await Promise.all(COMPLETION_READERS.map(async ([challenge, reader]) => {
+    if (storedCompletions.has(challenge)) return null;
+    try {
+      const [launch, ready] = await Promise.all([
+        leaderboardStore.challengeLaunch(challenge, user.participant_id),
+        leaderboardStore.completionRecoveryReady(challenge, user.participant_id),
+      ]);
+      return launch && ready ? { challenge, reader } : null;
+    } catch {
+      return null;
+    }
+  }))).filter(Boolean);
+
+  let admittedRecoveries = [];
+  if (recoveryCandidates.length > 0) {
+    try {
+      await consumePortalRequestBudget("completionRecovery", {
+        participantId: user.participant_id,
+        cost: recoveryCandidates.length,
+      });
+      admittedRecoveries = recoveryCandidates;
+    } catch {
+      // Stored solve events remain authoritative when dependency recovery is busy.
+    }
+  }
+  const recoveredPairs = await Promise.all(admittedRecoveries.map(async ({ challenge, reader }) => {
+    try {
+      const completion = await reader(user);
+      if (completion) await leaderboardStore.clearCompletionRecoveryBackoff(challenge, user.participant_id).catch(() => null);
+      else await leaderboardStore.deferCompletionRecovery(challenge, user.participant_id, 30).catch(() => null);
+      return [challenge, completion];
+    } catch {
+      await leaderboardStore.deferCompletionRecovery(challenge, user.participant_id, 10).catch(() => null);
+      return [challenge, null];
+    }
+  }));
+  const completionByChallenge = new Map(recoveredPairs);
+  const [signet, drift, lastStop, afterHours, playerTwo, broadcast, evidenceRoom, secondKey] = COMPLETION_READERS
+    .map(([challenge]) => completionByChallenge.get(challenge) || null);
+  await recoverLeaderboardCompletions(
+    user,
+    [signet, drift, lastStop, afterHours, playerTwo, broadcast, evidenceRoom, secondKey],
+    leaderboardStore,
+    { config },
+  ).catch(() => []);
+  const completedChallenges = completedChallengeKeys({
+    completions: [signet, drift, lastStop, afterHours, playerTwo, broadcast, evidenceRoom, secondKey],
+    solves: recordedSolves,
+    participantId: user.participant_id,
+    eventGeneration: config.eventGeneration,
+  });
 
   return (
     <main className="shell board-shell">
@@ -71,20 +192,14 @@ export default async function Home({ searchParams }) {
         <a className="wordmark" href="/" aria-label="CTF26 home">
           <span aria-hidden="true">[ st</span><strong>CTF</strong><span aria-hidden="true"> ]</span>
         </a>
-        <div className="session-state">
-          <span className="status-dot" aria-hidden="true" />
-          Session active
-          {isOrganizer(user) ? <a className="admin-link" href="/admin/integrity">Integrity review</a> : null}
-        </div>
       </nav>
 
       <header className="board-header">
         <div>
-          <p className="kicker">Challenge board</p>
           <h1>Challenges</h1>
         </div>
         <p className="board-summary">
-          Open a challenge or download its files. Return here to switch.
+          Choose a challenge and start playing.
         </p>
       </header>
 
@@ -97,26 +212,20 @@ export default async function Home({ searchParams }) {
           <span>Participant</span>
           <strong>{user.participant_id}</strong>
         </div>
-        <div>
-          <span>Team</span>
-          <strong>{user.team_id}</strong>
-        </div>
       </section>
 
       <section className="challenge-grid" aria-label="Challenges">
         {CHALLENGES.map((challenge) => {
-          const completed = (challenge.key === "last-stop" && Boolean(lastStop)) ||
-            (challenge.key === "st-genesis-airdrop" && Boolean(stGenesis));
+          const completed = completedChallenges.has(challenge.key);
           return (
-          <article className={`challenge${completed ? " challenge-completed" : ""}`} key={challenge.key} id={`${challenge.key}-local-kit`}>
+          <article className={`challenge challenge-${challenge.key}${completed ? " challenge-completed" : ""}`} key={challenge.key} id={`${challenge.key}-local-kit`}>
+            <div className="challenge-visual" aria-hidden="true">
+              <span className="challenge-visual-glyph" />
+            </div>
             <div className="challenge-number" aria-hidden="true">
               {challenge.number}
             </div>
             <div className="challenge-content">
-              <div className="challenge-meta">
-                <span>{challenge.label}</span>
-                <span>{challenge.format}</span>
-              </div>
               <div>
                 <div className="challenge-title-row">
                   <h2>{challenge.name}</h2>
@@ -154,6 +263,10 @@ export default async function Home({ searchParams }) {
         <p>
           If a challenge does not open, refresh this page and try again.
         </p>
+        <div className="board-footer-actions">
+          <a className="plain" href="/leaderboard">Leaderboard</a>
+          {isOrganizer(user) ? <a className="plain" href="/admin">Organizer console</a> : null}
+        </div>
         <form action="/api/auth/logout" method="post">
           <button className="plain" type="submit">
             Sign out

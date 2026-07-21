@@ -15,8 +15,14 @@
   "private": true,
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
-    "next": "^16.2.9",
+    "next": "^16.2.11",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
+  },
+  "overrides": {
+    "postcss": "8.5.10",
+    "jayson": {
+      "uuid": "11.1.1"
+    }
   }
 }

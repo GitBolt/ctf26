@@ -46,7 +46,7 @@ main { padding: 22px 0 32px; }
 h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: 5px; font-size: 26px; font-weight: 610; letter-spacing: -.025em; }
 .market-address { max-width: 660px; margin: 0; color: var(--muted); }
-.team-chip, .phase-chip, .intel-state { max-width: 260px; overflow: hidden; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--muted); font: 10px/1.2 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.participant-chip, .phase-chip, .intel-state { max-width: 260px; overflow: hidden; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--muted); font: 10px/1.2 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 
 .market-stats { display: grid; margin: 0 0 12px; border: 1px solid var(--border); background: var(--border); grid-template-columns: repeat(5, 1fr); gap: 1px; }
 .market-stats > div { min-width: 0; padding: 12px 14px; background: var(--surface); }
@@ -154,8 +154,8 @@ th, td { padding: 9px 14px; border-bottom: 1px solid var(--border); text-align: 
 th { color: var(--faint); font: 9px/1 var(--mono); text-transform: uppercase; letter-spacing: .05em; }
 td { color: var(--text-2); font: 10px/1.3 var(--mono); }
 tbody tr:last-child td { border-bottom: 0; }
-tbody tr.is-team { background: var(--accent-dim); }
-tbody tr.is-team td:nth-child(2) { color: var(--accent); }
+tbody tr.is-participant { background: var(--accent-dim); }
+tbody tr.is-participant td:nth-child(2) { color: var(--accent); }
 .empty-cell { color: var(--faint); text-align: center; }
 
 footer { display: flex; min-height: 54px; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); color: var(--faint); font: 9px/1.4 var(--mono); gap: 20px; }
@@ -172,7 +172,7 @@ footer p:first-child { display: flex; gap: 14px; }
 @media (max-width: 640px) {
   .app-shell { width: min(100% - 20px, 1180px); }
   .market-head { align-items: flex-start; flex-direction: column; }
-  .team-chip { max-width: 100%; }
+  .participant-chip { max-width: 100%; }
   .market-stats { grid-template-columns: repeat(3, 1fr); }
   .market-stats > div { padding: 10px; }
   .market-stats dd { font-size: 14px; }
@@ -369,7 +369,7 @@ main { padding: 0 0 14px; }
 .market-head > div { min-width: 0; display: flex; align-items: baseline; gap: 14px; }
 .market-head h1 { margin: 0; font: 760 14px/1.2 var(--sans); letter-spacing: -.01em; text-transform: uppercase; }
 .market-address { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.team-chip { margin-left: auto; border-color: #42454d; border-radius: 1px; background: #111318; }
+.participant-chip { margin-left: auto; border-color: #42454d; border-radius: 1px; background: #111318; }
 
 .market-stats {
   height: 74px;
@@ -416,7 +416,7 @@ footer { min-height: 34px; }
   .market-head { min-height: 52px; padding: 7px 10px; }
   .market-head > div { display: block; }
   .market-head h1 { font-size: 12px; }
-  .team-chip { max-width: 152px; }
+  .participant-chip { max-width: 152px; }
   .market-stats { height: 70px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .market-stats > div { padding: 8px 9px; }
   .market-stats dd { font-size: 15px; }
@@ -497,7 +497,7 @@ main { padding: 0 0 28px; }
   text-transform: none;
 }
 .market-address { max-width: 620px; color: var(--muted); font-size: 12px; white-space: normal; }
-.team-chip {
+.participant-chip {
   border-color: var(--border);
   border-radius: 99px;
   background: var(--surface);
@@ -550,6 +550,7 @@ main { padding: 0 0 28px; }
 .bin:hover { background: rgb(167 122 242 / 6%); }
 .bin.selected { background: rgb(167 122 242 / 10%); box-shadow: inset 3px 0 var(--accent); }
 .bin.active { color: #c8a8fa; }
+.bin-volume { color: var(--text-2); font: 500 11px/1 var(--sans); font-variant-numeric: tabular-nums; }
 .pressure-track { height: 4px; border-radius: 99px; }
 .pressure-track i { border-radius: inherit; }
 .heat-high .pressure-track i { background: var(--selection); }
@@ -631,7 +632,7 @@ footer { min-height: 44px; border-top-color: var(--border); }
   .market-head > div { display: block; }
   .market-head h1 { font-size: 24px; }
   .market-address { display: block; font-size: 11px; }
-  .team-chip { max-width: 132px; }
+  .participant-chip { max-width: 132px; }
   .market-stats {
     display: flex;
     overflow-x: auto;
