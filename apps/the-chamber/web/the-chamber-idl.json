@@ -1,0 +1,285 @@
+{
+  "address": "Ekw4Zx3Nu9zTvCYsuzn1ubHNtgWjRAtm8PMUNavgmPXj",
+  "metadata": {
+    "name": "st_chamber_of_secrets",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "create_user",
+      "discriminator": [
+        108,
+        227,
+        130,
+        130,
+        252,
+        109,
+        75,
+        218
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "address": "2pqmreJiLwbPMwCbwBH2rexfeWs7J6zpTaJcZCRv7AGZ"
+        },
+        {
+          "name": "user",
+          "docs": [
+            "The wallet this PDA belongs to; not a signer (the admin provisions it)."
+          ]
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unlock_first",
+      "discriminator": [
+        65,
+        151,
+        59,
+        207,
+        225,
+        172,
+        250,
+        221
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "signer": true,
+          "relations": [
+            "user_account"
+          ]
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unlock_second",
+      "discriminator": [
+        148,
+        100,
+        228,
+        208,
+        75,
+        162,
+        7,
+        13
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "docs": [
+            "The PDA owner must co-sign alongside the hidden key."
+          ],
+          "signer": true,
+          "relations": [
+            "user_account"
+          ]
+        },
+        {
+          "name": "hidden",
+          "signer": true,
+          "address": "AnCccXSJrEbge2W5cttNJ6JEf21dusiXfNMqMAZtXaty"
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unlock_third",
+      "discriminator": [
+        136,
+        198,
+        241,
+        44,
+        131,
+        184,
+        1,
+        75
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "signer": true,
+          "relations": [
+            "user_account"
+          ]
+        },
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "User",
+      "discriminator": [
+        159,
+        117,
+        95,
+        227,
+        239,
+        151,
+        58,
+        236
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "FirstLockNotUnlocked",
+      "msg": "The first lock has not been unlocked yet"
+    },
+    {
+      "code": 6001,
+      "name": "SecondLockNotUnlocked",
+      "msg": "The second lock has not been unlocked yet"
+    },
+    {
+      "code": 6002,
+      "name": "UnauthorizedAdmin",
+      "msg": "Signer is not the admin key"
+    },
+    {
+      "code": 6003,
+      "name": "UnauthorizedHiddenKey",
+      "msg": "Signer is not the hidden key"
+    },
+    {
+      "code": 6004,
+      "name": "UserMismatch",
+      "msg": "User account does not belong to this user"
+    },
+    {
+      "code": 6005,
+      "name": "ThirdLockResists",
+      "msg": "Unlocking the third lock isn't going to be easy"
+    }
+  ],
+  "types": [
+    {
+      "name": "User",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "first_unlock",
+            "type": "bool"
+          },
+          {
+            "name": "second_unlock",
+            "type": "bool"
+          },
+          {
+            "name": "third_unlock",
+            "type": "bool"
+          },
+          {
+            "name": "chamber_open",
+            "type": "bool"
+          }
+        ]
+      }
+    }
+  ]
+}

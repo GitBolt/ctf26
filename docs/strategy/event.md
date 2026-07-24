@@ -3,19 +3,19 @@
 Updated: 2026-07-22
 
 The current design direction for the next Superteam Solana security CTF. This doc holds the event
-framing, the scoring decision, the AI policy, and the **ten-challenge slate** (§4). **Read
+framing, the scoring decision, the AI policy, and the **eleven-challenge slate** (§4). **Read
 [`anti-ai.md`](anti-ai.md) first** — it is the doctrine this builds on.
 
 **Where the arc landed (important):** we spent a long time trying to make the *bug* agent-proof and
 kept producing gimmicks. The resolution (see
 [`anti-ai.md` §2](anti-ai.md#2-the-key-model-two-layers)) is to keep the security bug **deep and real**
-and put the anti-AI in the **access/action layer**. The event runs **ten distinct challenges** (§4),
+and put the anti-AI in the **access/action layer**. The event runs **eleven distinct challenges** (§4),
 each Solana-specific and each a different real-CTF style: Reward Sniper (dynamic DeFi KOTH), IMPRINT
 (passkey hardware-auth), SIGNET (N-day source archaeology ending in a live Solana exploit), DRIFT
 (bytecode/runtime RE on a localnet), LAST STOP (hosted SSH/PDA journey), AFTER HOURS
 (Discord-native checkout reconciliation), PLAYER TWO (credential lifecycle arcade), THE BROADCAST
-(wallet-signature cryptography), EVIDENCE ROOM (account initialization lifecycle), and SECOND KEY
-(Token-2022 custody analysis).
+(wallet-signature cryptography), EVIDENCE ROOM (account initialization lifecycle), SECOND KEY
+(Token-2022 custody analysis), and THE CHAMBER (cross-program invocation authority).
 Full specs live in [`../challenges/`](../challenges/). Sponsorship, including the OtterSec fund, lives in
 [`../ops/sponsors.md`](../ops/sponsors.md); deeper history lives in [`../research/`](../research/).
 
@@ -85,7 +85,7 @@ portal. It has four locked principles:
 ### Binary challenge value
 
 IMPRINT, SIGNET, DRIFT, LAST STOP, AFTER HOURS, PLAYER TWO, THE BROADCAST, EVIDENCE ROOM,
-and SECOND KEY use one
+SECOND KEY, and THE CHAMBER use one
 information-content curve. For `s` unique participant solves in a checked-in field of `N`:
 
 ```text
@@ -120,7 +120,7 @@ genuinely relative without an extra subjective exponent or bonus.
 
 ### Rank and projected prize
 
-Total points are the sum of the nine binary values plus Reward Sniper points, for a 10,000-point
+Total points are the sum of the ten binary values plus Reward Sniper points, for an 11,000-point
 theoretical ceiling. Every participant with positive points first receives the configured individual
 award floor. The remainder of the configured pool follows points, with a small 10% boost to the top
 ten. Rank does not otherwise determine payout:
@@ -215,9 +215,9 @@ enforce that with access/act gates (hardware-auth touch, wallet approve, venue-l
 
 ---
 
-## 4. The ten-challenge slate
+## 4. The eleven-challenge slate
 
-The event runs **ten distinct challenges**, each Solana-specific, each replicating a different
+The event runs **eleven distinct challenges**, each Solana-specific, each replicating a different
 real-CTF style, and each carrying a **different anti-AI mechanism** so they don't overlap. Full specs
 live in [`../challenges/`](../challenges/).
 
@@ -233,15 +233,16 @@ live in [`../challenges/`](../challenges/).
 | 8 | **[THE BROADCAST](../challenges/the-broadcast.md)** | hosted wallet cryptography | Ed25519 signature variants bypass byte-level uniqueness accounting | wallet authorization + bounded proof of work + uniform receipts |
 | 9 | **[EVIDENCE ROOM](../challenges/evidence-room.md)** | live account-lifecycle investigation | legacy token account created before initialization | wallet-held room key + live chain state + repeated evidence |
 | 10 | **[SECOND KEY](../challenges/second-key.md)** | live collateral custody | Token-2022 permanent delegate bypasses lender custody assumption | mint-extension discovery + real delegated removal + live invariant checker |
+| 11 | **[THE CHAMBER](../challenges/the-chamber.md)** | three-lock vault authorization | CPI-shape check mistaken for an authorization boundary | venue-issued physical co-signing key + unprompted deploy-your-own-program leap |
 
 Together they cover distinct CTF skills without repeating the same trick: **dynamic DeFi extraction**
 (1), **hardware-auth cryptographic authorization** (2), **N-day audit research** (3),
 **bytecode/runtime reverse engineering** (4), terminal PDA reasoning (5), and payment reconciliation
-(6), **credential lifecycle analysis** (7), **wallet-signature cryptography** (8), account lifecycle analysis (9), and Token-2022 authority analysis (10). Each ends in a
+(6), **credential lifecycle analysis** (7), **wallet-signature cryptography** (8), account lifecycle analysis (9), Token-2022 authority analysis (10), and cross-program invocation authority (11). Each ends in a
 **live per-participant exploit or technical submission**, so there is no read-only or scrape-only solve in
 any of them.
 
-**Design rules honored by all ten** ([`anti-ai.md`](anti-ai.md)): real Solana security core; one shared field-relative
+**Design rules honored by all eleven** ([`anti-ai.md`](anti-ai.md)): real Solana security core; one shared field-relative
 scoring contract with no first-blood bonus; anti-AI in the access/act layer rather than hiding the
 bug; on-site proctoring backstop; validation by all-human, AI-assisted, and autonomous-agent playtest.
 
@@ -328,7 +329,7 @@ the field.**
 3. **Decide the access-layer stack** — passkey + Solana wallet approval + optional venue-local parameter +
    proctoring rules (screen-share/replay for prize contention).
 4. **Event-day scoring configuration** — lock actual check-in count, publish the final prize pool,
-   verify all ten signed solve reporters, and rehearse a scoreboard freeze plus integrity review.
+   verify all eleven signed solve reporters, and rehearse a scoreboard freeze plus integrity review.
 5. Feed the flagship into the OtterSec one-pager (`../ops/sponsors.md`).
 
 ---

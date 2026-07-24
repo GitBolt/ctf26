@@ -6,8 +6,8 @@ earlier exploration.
 
 ## Current event
 
-CTF26 is an individual event with ten shipped challenges: Reward Sniper, IMPRINT, SIGNET, DRIFT,
-LAST STOP, AFTER HOURS, PLAYER TWO, THE BROADCAST, EVIDENCE ROOM, and SECOND KEY. The shared
+CTF26 is an individual event with eleven shipped challenges: Reward Sniper, IMPRINT, SIGNET, DRIFT,
+LAST STOP, AFTER HOURS, PLAYER TWO, THE BROADCAST, EVIDENCE ROOM, SECOND KEY, and THE CHAMBER. The shared
 event systems are Google authentication, participant tickets, scoring, the leaderboard, passive
 integrity observations, and the organizer portal. Start with `strategy/event.md`, then use the
 operations documents for the live configuration and runbook.
@@ -36,7 +36,7 @@ operations documents for the live configuration and runbook.
 
 ## Challenge specs
 
-The official slate has ten individual specifications:
+The official slate has eleven individual specifications:
 
 - [`challenges/reward-sniper.md`](challenges/reward-sniper.md): dynamic DeFi.
 - [`challenges/imprint.md`](challenges/imprint.md): passkey-gated authorization.
@@ -48,6 +48,7 @@ The official slate has ten individual specifications:
 - [`challenges/the-broadcast.md`](challenges/the-broadcast.md): THE BROADCAST, wallet-signature cryptography.
 - [`challenges/evidence-room.md`](challenges/evidence-room.md): EVIDENCE ROOM live account-lifecycle challenge.
 - [`challenges/second-key.md`](challenges/second-key.md): Token-2022 collateral custody.
+- [`challenges/the-chamber.md`](challenges/the-chamber.md): THE CHAMBER, cross-program invocation authority.
 
 ## Feedback and source material
 

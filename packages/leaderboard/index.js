@@ -18,6 +18,7 @@ export const BINARY_CHALLENGE_KEYS = Object.freeze([
   "the-broadcast",
   "evidence-room",
   "second-key",
+  "the-chamber",
 ]);
 export const PERFORMANCE_CHALLENGE_KEY = "reward-sniper";
 export const ALL_CHALLENGE_KEYS = Object.freeze([

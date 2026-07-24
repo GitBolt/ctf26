@@ -3,7 +3,7 @@
 Design, research, and implementation code for the next **Superteam Solana security CTF** — an
 on-site, learn-friendly event combining a dynamic flagship with focused Solana-native security
 challenges. Jeopardy-style scoring is acceptable where the solve still requires meaningful human
-interaction or judgment and resists unattended agent completion, but the active ten-challenge slate
+interaction or judgment and resists unattended agent completion, but the active eleven-challenge slate
 uses one field-relative scoring contract with no author-assigned difficulty.
 
 ## Layout
@@ -26,6 +26,7 @@ ctf-26/
     ├── the-broadcast/        # hosted Solana-wallet signature challenge
     ├── evidence-room/        # live account-lifecycle factory challenge
     ├── second-key/           # Token-2022 collateral custody challenge
+    ├── the-chamber/          # three-lock Anchor vault + CPI authority challenge
     └── portal/               # central registration portal (Next.js)
 
 prototypes/
@@ -92,6 +93,17 @@ npm run dev                  # http://localhost:3001
 # public standings:          # http://localhost:3001/leaderboard
 ```
 
+### THE CHAMBER
+
+```bash
+cd apps/the-chamber
+npm install
+cp .env.example .env
+npm test                     # service suite
+npm run test:onchain         # anchor suite, needs a local validator
+npm start                    # http://localhost:3012
+```
+
 ### THE BROADCAST
 
 ```bash
@@ -118,8 +130,8 @@ market scoreboard. The portal's Redis-backed public leaderboard applies the form
 
 For local use, the CLI and harness challenges are launched from their app directories. For production,
 set `REWARD_SNIPER_URL`, `IMPRINT_URL`, `SIGNET_URL`, `DRIFT_URL`, `LAST_STOP_URL`,
-`AFTER_HOURS_URL`, `PLAYER_TWO_URL`, `THE_BROADCAST_URL`, `EVIDENCE_ROOM_URL`, and
-`SECOND_KEY_URL` to the ten hosted challenge surfaces.
+`AFTER_HOURS_URL`, `PLAYER_TWO_URL`, `THE_BROADCAST_URL`, `EVIDENCE_ROOM_URL`,
+`SECOND_KEY_URL`, and `THE_CHAMBER_URL` to the eleven hosted challenge surfaces.
 
 Run all fast unit/integration checks, or the slower on-chain suites, from the repository root:
 
@@ -138,7 +150,7 @@ added to the repository test sweep by declaring its `appPath` there.
 ## Deploy note
 
 The portal and IMPRINT web console deploy as separate Vercel projects rooted at `apps/portal` and
-`apps/imprint/web`. The other nine hosted challenge services run on Railway. Redis provides durable
+`apps/imprint/web`. The other ten hosted challenge services run on Railway. Redis provides durable
 ticket, session, completion, rate-limit, and challenge state where required. Reward Sniper uses one
 persistent Railway volume and exactly one writer replica. Services whose state transitions are not yet
 safe across replicas must also remain at one replica, as listed in the operations runbook. See

@@ -226,10 +226,31 @@ Provisional launch gate: another participant wallet or mint cannot satisfy the c
 provision requests are idempotent; restart preserves the loan; the health check fails when chain access
 fails; and portal recovery discovers a completed on-chain state.
 
+### THE CHAMBER
+
+- Give only the hosted surface and the program interface. Hand the participant the venue card exactly as
+  a real attendee receives it: a blank PVC card, with no verbal explanation that it is readable.
+- Do not name cross-program invocation, `get_stack_height`, or "deploy a program" anywhere in the brief
+  or the room. The vague `ThirdLockResists` message is the only feedback lock three gives.
+- Suggested timebox: 60 minutes. Record wallet registration, the first-lock transaction, how long the card
+  discovery takes, every direct third-lock attempt, and the deployed caller program ID.
+- Close the browser immediately after the successful CPI, then return to the portal. The private
+  completion check must reconcile chain state without a final browser poll.
+- A solve is only `chamber_open` set true on the participant's own PDA.
+
+Provisional launch gate: a second wallet cannot be bound to a registered participant and a registered
+wallet cannot be claimed by a second participant; `create_user` is idempotent across repeated
+registrations and a restart; a direct (non-CPI) third-lock call always fails; the health check fails when
+the RPC or the admin payer reserve cannot cover the field; and portal recovery discovers a completed
+on-chain state.
+
+Because one shared hidden key serves the whole field, run the card-discovery observation with the
+*first* cohort. Once any playtester has seen the key, later runs no longer measure lock two honestly.
+
 ## Event-wide system run
 
 Run at least one full rehearsal with the final roster, production-like Redis, final field size, and all
-ten services. Include a small concurrent human cohort, then run the repository's 40-participant HTTP
+eleven services. Include a small concurrent human cohort, then run the repository's 40-participant HTTP
 load simulation with the documented spam bursts and service concurrency bounds.
 
 - Confirm every participant must acknowledge the same current rules version before launch.

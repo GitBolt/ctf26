@@ -18,6 +18,7 @@ const TICKET_SECRET_ENV = Object.freeze({
   "the-broadcast": "CHALLENGE_TICKET_SECRET_THE_BROADCAST",
   "evidence-room": "CHALLENGE_TICKET_SECRET_EVIDENCE_ROOM",
   "second-key": "CHALLENGE_TICKET_SECRET_SECOND_KEY",
+  "the-chamber": "CHALLENGE_TICKET_SECRET_THE_CHAMBER",
 });
 
 function secret(name, env = process.env) {

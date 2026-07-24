@@ -13,6 +13,7 @@ import {
   recoverLeaderboardCompletions,
   secondKeyCompletion,
   signetCompletion,
+  theChamberCompletion,
 } from "../app/lib/completions.mjs";
 
 const env = {
@@ -95,6 +96,15 @@ test("Second Key completion is read from its private participant endpoint", asyn
     fetchImpl: async () => new Response(JSON.stringify({ completed: true, completedAt: "2026-07-16T13:00:00.000Z", eventGeneration: "event-a" })),
   });
   assert.deepEqual(completion, { challenge: "second-key", completedAt: "2026-07-16T13:00:00.000Z", eventGeneration: "event-a" });
+});
+
+test("The Chamber completion is read from its private participant endpoint", async () => {
+  const secret = "the-chamber-completion-secret-xxxxxxxxxxxxxx";
+  const completion = await theChamberCompletion({ participant_id: "player-26" }, {
+    env: { THE_CHAMBER_URL: "https://the-chamber.example/", CHALLENGE_TICKET_SECRET_THE_CHAMBER: secret },
+    fetchImpl: async () => new Response(JSON.stringify({ completed: true, completedAt: "2026-07-16T15:00:00.000Z", eventGeneration: "event-a" })),
+  });
+  assert.deepEqual(completion, { challenge: "the-chamber", completedAt: "2026-07-16T15:00:00.000Z", eventGeneration: "event-a" });
 });
 
 test("Signet and Drift expose the same private recovery contract", async () => {

@@ -228,7 +228,7 @@ test("late solvers receive the same retroactive value instead of a speed penalty
   assert.equal(later.rows[0].points, 870);
 });
 
-test("all nine binary challenges accept signed solve events", () => {
+test("all ten binary challenges accept signed solve events", () => {
   assert.deepEqual(BINARY_CHALLENGE_KEYS, [
     "imprint",
     "signet",
@@ -239,6 +239,7 @@ test("all nine binary challenges accept signed solve events", () => {
     "the-broadcast",
     "evidence-room",
     "second-key",
+    "the-chamber",
   ]);
   for (const challenge of BINARY_CHALLENGE_KEYS) {
     assert.equal(createSolveEvent({

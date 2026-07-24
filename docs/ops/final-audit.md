@@ -21,7 +21,7 @@ shared public Devnet deployment cannot prevent one hostile participant from grie
 | Challenge | Participant session, challenge state, proof verification, completion evidence |
 | Chain or replay | Finalized transaction, account transition, or exact SBF execution |
 | Score ingest | Challenge HMAC, participant ID, generation, occurrence time, live window |
-| Leaderboard | Nine binary captures plus Reward Sniper's relative market result |
+| Leaderboard | Ten binary captures plus Reward Sniper's relative market result |
 | Integrity | Minimal, read-only participant-bound observations |
 | Finalization | Closed recovery, complete Reward event, locked configuration, sealed snapshot |
 
@@ -65,6 +65,7 @@ change, and the last stable leaderboard remains available while the final snapsh
 | The Broadcast | Ed25519 representation malleability | eight accepted encodings of one authorization |
 | Evidence Room | uninitialized SPL account race | factory failure, participant initialization, close |
 | Second Key | Token-2022 permanent delegate | pledge and exact delegated removal |
+| The Chamber | CPI-shape check mistaken for authorization | `chamber_open` set on the participant PDA through a participant-deployed caller |
 
 ## Reliability and abuse controls
 
@@ -151,6 +152,7 @@ preserved evidence, an author-led solve defense, two organizers, private notice,
 | The Broadcast | `https://st26-broadcast.up.railway.app` |
 | Evidence Room | `https://st26-evidence.up.railway.app` |
 | Second Key | `https://st26-secondkey.up.railway.app` |
+| The Chamber | _service not yet hosted — vault program already live on devnet; pending Railway deployment and programmed venue cards_ |
 
 AFTER HOURS keeps its existing hostname because immutable on-chain token metadata points to that
 origin. The portal's Google OAuth base URL must remain on its currently allowlisted origin until the

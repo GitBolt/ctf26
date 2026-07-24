@@ -14,6 +14,7 @@ const disclosureEnabled = new Map([
   ["the-broadcast", ["apps/the-broadcast/src/server.mjs"]],
   ["evidence-room", ["apps/evidence-room/src/server.mjs"]],
   ["second-key", ["apps/second-key/src/server.mjs"]],
+  ["the-chamber", ["apps/the-chamber/src/server.mjs"]],
 ]);
 const browserBootSurfaces = new Map([
   ["reward-sniper", ["apps/reward-sniper/web/main.js", "page-ready"]],
@@ -24,6 +25,7 @@ const browserBootSurfaces = new Map([
   ["the-broadcast", ["apps/the-broadcast/web/app.js", "page-ready"]],
   ["evidence-room", ["apps/evidence-room/web/app.js", "app-boot"]],
   ["second-key", ["apps/second-key/web/app.js", "app-boot"]],
+  ["the-chamber", ["apps/the-chamber/web/app.js", "app-boot"]],
 ]);
 
 test("the shared public policy orders silent disclosure, confirmation, neutral refusal, and stop", () => {
