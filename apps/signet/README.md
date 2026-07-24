@@ -2,7 +2,7 @@
 
 SIGNET is a stale-deployment/source-archaeology Solana CTF challenge with an executable CPI authority
 failure. The public brief gives a participant its live vault, opaque build fingerprint, current project
-source repository, starter client, and one objective: move the assigned reserve into the registered participant escrow.
+source repository, starter client, and one objective: move the assigned reserve into its assigned destination.
 It does not tell players that the deployment predates the latest source or that a patch matters.
 
 The organizer-only implementation contains three programs:
@@ -36,11 +36,10 @@ the finalized transaction metadata:
 
 1. the assigned vault program was actually invoked;
 2. the assigned reserve and escrow were writable transaction accounts;
-3. the registered participant wallet signed;
-4. reserve and escrow token accounts use the assigned mint and expected authorities;
-5. reserve loss equals escrow gain in the submitted transaction;
-6. that delta meets the randomized target threshold;
-7. final reserve and escrow balances satisfy the canonical instance bounds.
+3. reserve and destination token accounts use the assigned mint and expected instance authorities;
+4. reserve loss equals destination gain in the submitted transaction;
+5. that delta meets the randomized target threshold;
+6. final reserve and destination balances satisfy the canonical instance bounds.
 
 The browser never receives the private RPC URL, ticket key, session key, instance secret, or flag key.
 
@@ -102,9 +101,9 @@ the JTI is consumed only after admission succeeds. Invalid-ticket floods therefo
 capacity reserved for real participants. The browser still retries temporary `429` launch pressure a
 bounded six times before returning control to the participant.
 
-Production normally stores one target per participant in Redis under
+Production stores one target per participant in Redis under
 `ctf26:signet:<event_generation>:target:<participant_id>`. `SIGNET_TARGETS_JSON` is an optional
-small-event/rehearsal fallback;
+small-event rehearsal fallback;
 when present, it is an object keyed by the ticket's `participant_id`:
 
 ```json
@@ -115,9 +114,9 @@ when present, it is an object keyed by the ticket's `participant_id`:
     "vaultAccount": "<base58 vault PDA>",
     "vaultAuthority": "<base58 authority PDA>",
     "reserveAccount": "<base58 SPL token account>",
-    "escrowAccount": "<base58 participant-owned SPL token account>",
+    "escrowAccount": "<base58 instance destination SPL token account>",
     "mint": "<base58 challenge mint>",
-    "participantWallet": "<base58 registered wallet>",
+    "escrowAuthority": "<base58 instance destination authority>",
     "buildFingerprint": "a47a867fea8ec39e",
     "thresholdRaw": "750000",
     "initialReserveRaw": "1000000",
@@ -154,17 +153,15 @@ Before the first deployment, create dedicated program keypairs in `target/deploy
 the SIGNET operator as its upgrade authority. The fixed and attacker programs are required for local
 regression testing, not for the live player target.
 
-Provision each participant after the vulnerable program is deployed:
+The approved Google login calls SIGNET's authenticated provisioning endpoint with the stable portal
+participant ID. Provisioning derives deterministic accounts, resumes safely after partial failures, and
+publishes the completed target under an atomic Redis lock. Repeated and concurrent logins reuse the same
+target. The target is not bound to a Solana wallet, so players may use or replace any disposable devnet wallet.
 
-Collect a freshly generated, disposable Solana public key from every participant during registration. The
-participant retains the private key; organizers fund that public key with the fixed challenge SOL budget and
-bind it into the target below. Reject personal wallets and duplicate wallet registrations. Run a
-roster preflight before opening SIGNET so every portal `participant_id` has exactly one funded wallet and one
-published target.
+The command below remains available for organizer recovery and rehearsal setup:
 
 ```bash
 PARTICIPANT_ID=participant-17 \
-PARTICIPANT_WALLET=<registered-wallet> \
 SOLANA_RPC_URL=<private-rpc> \
 SOLANA_CLUSTER=devnet \
 OPERATOR_KEYPAIR=.keys/signet-operator.json \
@@ -174,7 +171,7 @@ npm run --silent provision > participant-17-target.json
 ```
 
 Provisioning deterministically randomizes the participant seed, starting reserve, and required recovery,
-creates a participant-owned escrow, initializes the vault/reserve PDAs, seeds the complete challenge supply,
+creates an instance-owned destination, initializes the vault/reserve PDAs, seeds the complete challenge supply,
 and revokes mint authority. Publish one or more emitted target objects into the same Redis instance used
 by the service:
 
@@ -200,7 +197,7 @@ Before opening the event:
 - run `npm test` and `npm run test:onchain` against the exact release commit;
 - confirm the live program hash/fingerprint and target manifest agree;
 - verify mint authority is revoked for every challenge mint;
-- confirm reserve owner is the assigned vault-authority PDA and escrow owner is the participant wallet;
+- confirm the reserve and destination owners match the assigned instance authorities;
 - exercise one sacrificial end-to-end instance, including ticket replay rejection and flag issuance;
 - verify the latest fixed program rejects the same attacker strategy;
 - inspect the generated starter tarball and public browser assets for secrets/private keys;

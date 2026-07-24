@@ -81,6 +81,10 @@ export async function createPlayerTwoServer(options = {}) {
             withinConfiguredField,
             sufficient: chainHealth.capacitySufficient !== false,
           },
+          funding: {
+            payer: chainHealth.payer,
+            requiredBalance: chainHealth.requiredPayerBalance,
+          },
         },
       };
     } catch (error) {

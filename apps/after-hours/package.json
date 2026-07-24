@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.mjs",
     "test": "node --test test/*.test.mjs",
-    "register:discord": "node scripts/register-command.mjs"
+    "register:discord": "node scripts/register-command.mjs",
+    "provision:night": "node scripts/provision-night.mjs"
   },
   "dependencies": {
     "@ctf26/agent-integrity": "file:../../packages/agent-integrity",
@@ -15,6 +16,7 @@
     "@ctf26/request-budget": "file:../../packages/request-budget",
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
     "@metaplex-foundation/umi": "^1.5.1",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.5.1",
     "@solana-program/token": "^0.15.0",
     "@solana/kit": "^7.0.0",
     "bs58": "^6.0.0",
@@ -22,5 +24,10 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "overrides": {
+    "jayson": {
+      "uuid": "11.1.1"
+    }
   }
 }

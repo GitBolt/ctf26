@@ -78,11 +78,14 @@ function healthyFetch(calls = [], options = {}) {
             count: fieldSize,
             participantIdsSha256: crypto.createHash("sha256").update(JSON.stringify([...participantIds].sort())).digest("hex"),
           },
+          funding: { payer: "signet-payer" },
         } : {}),
-        ...(["after-hours.example", "player-two.example", "second-key.example"].includes(url.hostname)
+        ...(["after-hours.example", "player-two.example", "second-key.example", "signet.example"].includes(url.hostname)
           ? { capacity: { expectedParticipants: fieldSize } }
           : {}),
-        ...(url.hostname === "evidence-room.example" ? { chain: { expectedParticipants: fieldSize } } : {}),
+        ...(url.hostname === "evidence-room.example" ? { chain: { expectedParticipants: fieldSize, payer: "evidence-payer" } } : {}),
+        ...(url.hostname === "second-key.example" ? { payer: "second-key-payer" } : {}),
+        ...(url.hostname === "player-two.example" ? { funding: { payer: "player-two-payer" } } : {}),
       });
     }
     return Response.json({ error: "unexpected readiness probe" }, { status: 404 });
@@ -158,6 +161,25 @@ test("portal readiness coalesces concurrent probes and reuses the short cache", 
   assert.equal(calls.length, 20);
 });
 
+test("portal health rejects independently budgeted challenges sharing one payer", async () => {
+  const baseFetch = healthyFetch();
+  await assert.rejects(() => portalHealth({
+    env: healthyEnv(),
+    redisCommand: async () => "PONG",
+    fetchImpl: async (input, options) => {
+      const url = new URL(input);
+      if (url.hostname === "player-two.example" && url.pathname === "/health") {
+        return Response.json({
+          ok: true,
+          capacity: { expectedParticipants: 50 },
+          funding: { payer: "evidence-payer" },
+        });
+      }
+      return baseFetch(input, options);
+    },
+  }), /PLAYER TWO and EVIDENCE ROOM share one on-chain funding payer/);
+});
+
 test("official readiness requires two distinct configured organizers", async () => {
   const env = officialEnv();
   env.CTF_ADMIN_EMAILS = "owner@example.test";
@@ -207,6 +229,8 @@ test("official readiness requires the exact SIGNET target inventory", async () =
         return Response.json({
           ok: true,
           targetInventory: { count: 2, participantIdsSha256: "f".repeat(64) },
+          capacity: { expectedParticipants: 2 },
+          funding: { payer: "signet-payer" },
         });
       }
       return baseFetch(input, options);

@@ -112,13 +112,12 @@ timing, roster, or mechanics drift. Keep `EVENT_END_AT` identical to the portal'
 `scoringConfigHash` from `GET /api/health` into the portal's `REWARD_SNIPER_EVENT_ID` and
 `REWARD_SNIPER_SCORING_CONFIG_HASH` before enabling official leaderboard scoring.
 
-The portal organizer console reads `GET /api/admin/integrity` and updates cases through
-`PATCH /api/admin/integrity/:caseId` using `INTEGRITY_ADMIN_KEY`. Cases contain public contest metadata,
-hashed network identifiers, reason codes, and participant action timelines. They are review signals,
-not automatic sanctions. Reports contain only the active CTF generation and active Reward Sniper market;
-prior market evidence stays in durable state but cannot bleed into the current adjudication view.
-`INTEGRITY_ALERT_WEBHOOK_URL` optionally mirrors new-case alerts to Discord;
-the persisted first-party case remains authoritative.
+The portal organizer console reads passive observations from `GET /api/admin/integrity` using
+`INTEGRITY_ADMIN_KEY`. Observations contain public contest metadata, hashed network identifiers, reason
+codes, and participant action timelines. They never alter access, points, or leaderboard rank. Reports
+contain only the active CTF generation and active Reward Sniper market. Prior market observations stay in
+durable state but cannot bleed into the current event view. `INTEGRITY_ALERT_WEBHOOK_URL` can mirror new
+observations to Discord.
 
 ## Player boundary
 

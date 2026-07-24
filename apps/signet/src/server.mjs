@@ -8,6 +8,7 @@ import {
   handleAgentPolicy,
   handleAgentDisclosure,
   handleSession,
+  handleProvision,
   handleSubmit,
   handleTarget,
   handleUiEvent,
@@ -21,6 +22,7 @@ const API = new Map([
   ["/api/health", handleHealth],
   ["/api/completion", handleCompletion],
   ["/api/session", handleSession],
+  ["/api/internal/provision", handleProvision],
   ["/api/submit", handleSubmit],
   ["/api/target", handleTarget],
   ["/api/ui-event", handleUiEvent],
@@ -76,6 +78,10 @@ export function createSignetServer(options = {}) {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  if (process.env.NODE_ENV === "production" && process.env.SIGNET_TARGETS_JSON && process.env.REDIS_URL) {
+    const { publishTargets } = await import("../scripts/publish-targets.mjs");
+    await publishTargets(JSON.parse(process.env.SIGNET_TARGETS_JSON));
+  }
   const port = Number(process.env.PORT || 4173);
   const host = process.env.HOST || (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
   const server = createSignetServer();

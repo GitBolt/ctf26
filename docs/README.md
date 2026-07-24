@@ -1,21 +1,30 @@
 # CTF26 documentation
 
-The documentation is organized by purpose. Challenge specifications are intentionally separate from
-event strategy, research, operations, and organizer feedback.
+The documentation is organized by purpose. The current event material is separate from retained
+research and historical design context so handoff readers can distinguish the shipped system from
+earlier exploration.
+
+## Current event
+
+CTF26 is an individual event with ten shipped challenges: Reward Sniper, IMPRINT, SIGNET, DRIFT,
+LAST STOP, AFTER HOURS, PLAYER TWO, THE BROADCAST, EVIDENCE ROOM, and SECOND KEY. The shared
+event systems are Google authentication, participant tickets, scoring, the leaderboard, passive
+integrity observations, and the organizer portal. Start with `strategy/event.md`, then use the
+operations documents for the live configuration and runbook.
 
 ## Strategy
 
 - [`strategy/anti-ai.md`](strategy/anti-ai.md): the design doctrine. Read this first.
 - [`strategy/event.md`](strategy/event.md): current event direction and the official challenge slate.
-- [`strategy/knowledge.md`](strategy/knowledge.md): canonical current working memory and decisions.
+- [`strategy/knowledge.md`](strategy/knowledge.md): current operating model plus retained historical reasoning.
 - [`strategy/prospectus.md`](strategy/prospectus.md): historical sponsor-facing prospectus.
 
 ## Research
 
-- [`research/past-ctf.md`](research/past-ctf.md): previous-event learnings and Solana themes.
-- [`research/ai-resistance.md`](research/ai-resistance.md): AI-resistance research and human gates.
+- [`research/past-ctf.md`](research/past-ctf.md): historical previous-event learnings and Solana themes.
+- [`research/ai-resistance.md`](research/ai-resistance.md): retained AI-resistance research and human gates.
 - [`research/challenge-ideas.md`](research/challenge-ideas.md): retained exploration and rejected-format evidence.
-- [`research/reward-sniper.md`](research/reward-sniper.md): Reward Sniper agent-resistance case study.
+- [`research/reward-sniper.md`](research/reward-sniper.md): historical Reward Sniper agent-resistance case study.
 
 ## Operations
 
@@ -23,7 +32,7 @@ event strategy, research, operations, and organizer feedback.
 - [`ops/staging.md`](ops/staging.md): internal deployments, verification, and historical build review.
 - [`ops/playtest.md`](ops/playtest.md): clean-room launch criteria and required evidence.
 - [`ops/integrity.md`](ops/integrity.md): prevention, detection, adjudication, and event-day operations.
-- [`ops/sponsors.md`](ops/sponsors.md): sponsor pipeline and outreach archive.
+- [`ops/sponsors.md`](ops/sponsors.md): historical sponsor pipeline and outreach archive.
 
 ## Challenge specs
 
@@ -39,11 +48,6 @@ The official slate has ten individual specifications:
 - [`challenges/the-broadcast.md`](challenges/the-broadcast.md): THE BROADCAST, wallet-signature cryptography.
 - [`challenges/evidence-room.md`](challenges/evidence-room.md): EVIDENCE ROOM live account-lifecycle challenge.
 - [`challenges/second-key.md`](challenges/second-key.md): Token-2022 collateral custody.
-
-Proposed work remains documented individually so its implementation contract is not lost:
-
-- [`challenges/dress-rehearsal.md`](challenges/dress-rehearsal.md): design draft.
-- [`challenges/war-room.md`](challenges/war-room.md): design draft.
 
 ## Feedback and source material
 

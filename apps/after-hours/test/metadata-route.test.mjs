@@ -36,7 +36,7 @@ test("official NIGHT metadata and icon are served without a checkout page", asyn
     properties: {
       category: "fungible",
       network: "solana-devnet",
-      metadata_uri: "https://after-hours-production-159b.up.railway.app/night.json",
+      metadata_uri: "https://st26-afterhours.up.railway.app/night.json",
     },
   });
   const icon = await fetch(`${origin}/night.svg`);

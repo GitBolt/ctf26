@@ -53,11 +53,6 @@ export async function POST(request) {
     if (target === "freezing") {
       const recoveryEndsAt = new Date(targetConfig.scoringEndAt).valueOf() + targetConfig.recoveryMinutes * 60_000;
       if (Date.now() < recoveryEndsAt) return reply({ error: "the signed score recovery window is still open" }, 409);
-      const pendingFastSolveReviews = (await store.fastSolveReviews())
-        .filter((entry) => entry.deliveryStatus !== "delivered");
-      if (pendingFastSolveReviews.length > 0) {
-        return reply({ error: "deliver every fast-solve review signal before beginning final review" }, 409);
-      }
     }
     const lifecycle = await store.advanceEventLifecycle({
       phase: target,

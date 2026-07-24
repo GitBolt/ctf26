@@ -14,83 +14,6 @@ async function postJson(url, body) {
   return payload;
 }
 
-export function EligibilityControls({ proposals, frozen }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-
-  async function run(action, body) {
-    setBusy(true);
-    setMessage("");
-    try {
-      await postJson("/api/admin/leaderboard/eligibility", { action, ...body });
-      setMessage("Eligibility ledger updated.");
-      router.refresh();
-    } catch (error) {
-      setMessage(error.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function propose(event) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    run("propose", {
-      participantId: form.get("participantId"),
-      status: form.get("status"),
-      reason: form.get("reason"),
-    });
-  }
-
-  return (
-    <div className="admin-action-stack">
-      {!frozen ? (
-        <form className="admin-eligibility-form" onSubmit={propose}>
-          <label>
-            <span>Participant ID</span>
-            <input name="participantId" required autoComplete="off" />
-          </label>
-          <label>
-            <span>Decision</span>
-            <select name="status" defaultValue="held">
-              <option value="held">Hold for review</option>
-              <option value="eligible">Keep eligible</option>
-              <option value="disqualified">Disqualify</option>
-            </select>
-          </label>
-          <label className="admin-reason-field">
-            <span>Reason</span>
-            <input name="reason" required minLength={8} maxLength={500} />
-          </label>
-          <button disabled={busy} type="submit">Propose</button>
-        </form>
-      ) : <p className="admin-inline-note">The eligibility ledger is frozen.</p>}
-
-      {proposals.length > 0 ? (
-        <div className="admin-proposals" aria-label="Pending eligibility proposals">
-          {proposals.map((proposal) => (
-            <article key={proposal.id}>
-              <div>
-                <strong>{proposal.participantId}</strong>
-                <span>{proposal.status}: {proposal.reason}</span>
-                <small>Proposed by {proposal.proposer}</small>
-              </div>
-              {proposal.state === "proposed" && !frozen ? (
-                <div>
-                  <button disabled={busy} onClick={() => run("approve", { proposalId: proposal.id })} type="button">Approve</button>
-                  <button disabled={busy} onClick={() => run("reject", { proposalId: proposal.id })} type="button">Reject</button>
-                </div>
-              ) : <span className="admin-status-chip">{proposal.state}</span>}
-            </article>
-          ))}
-        </div>
-      ) : null}
-      {message ? <p className="admin-action-message" role="status">{message}</p> : null}
-    </div>
-  );
-}
-
 export function FinalizeControl({ enabled }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -124,7 +47,7 @@ const NEXT_PHASE = Object.freeze({ staging: "live", live: "recovery", recovery: 
 const ADVANCE_LABEL = Object.freeze({
   live: "Enable live scoring",
   recovery: "Close new sessions",
-  freezing: "Begin final review",
+  freezing: "Prepare final board",
 });
 
 export function LifecycleControls({ phase, paused, canStartLive = true, startReason = "" }) {
@@ -155,7 +78,7 @@ export function LifecycleControls({ phase, paused, canStartLive = true, startRea
       ? "Enable live scoring for the configured event window?"
       : target === "recovery"
         ? "Close new challenge sessions and enter score recovery?"
-        : "Close score recovery and begin final review?";
+        : "Close score recovery and prepare the final leaderboard?";
     if (window.confirm(prompt)) run({ action: "advance", phase: target });
   }
 

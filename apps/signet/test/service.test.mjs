@@ -6,7 +6,7 @@ import { issueParticipantTicket } from "@ctf26/participant-ticket";
 
 import { checkOnchainSubmission } from "../src/checker.mjs";
 import { encodeBase58 } from "../src/encoding.mjs";
-import { handleAgentPolicy, handleCompletion, handleHealth, handleSession, handleSubmit, handleTarget } from "../src/http-service.mjs";
+import { handleAgentPolicy, handleCompletion, handleHealth, handleProvision, handleSession, handleSubmit, handleTarget } from "../src/http-service.mjs";
 import { createInstancePlan } from "../src/provisioning.mjs";
 import { closeRedis, consumeLaunchJti, enforceSubmissionRateLimit, redisCommand } from "../src/redis.mjs";
 import { publishTargets } from "../scripts/publish-targets.mjs";
@@ -103,12 +103,14 @@ test("target publisher validates the full field before one atomic publish", asyn
   });
   assert.equal(calls.length, 1);
   assert.equal(calls[0][0], "EVAL");
-  assert.equal(calls[0][2], "3");
-  assert.deepEqual(calls[0].slice(3, 6), [
+  assert.equal(calls[0][2], "4");
+  assert.deepEqual(calls[0].slice(3, 7), [
     "ctf26:signet:event-a:target-inventory",
+    "ctf26:signet:event-a:target-participants",
     "ctf26:signet:event-a:target:participant-a",
     "ctf26:signet:event-a:target:participant-b",
   ]);
+  assert.deepEqual(JSON.parse(calls[0].at(-2)), ["participant-a", "participant-b"]);
   assert.deepEqual(JSON.parse(calls[0].at(-1)), inventory);
   assert.equal(Object.hasOwn(JSON.parse(calls[0].at(-1)), "participantIds"), false);
   assert.equal(logs.length, 1);
@@ -204,6 +206,32 @@ test("session endpoint never accepts client-selected rehearsal identities", asyn
   });
   assert.equal(response.statusCode, 400);
   assert.equal(JSON.parse(response.body).error.code, "invalid_request");
+});
+
+test("internal provisioning requires service authentication and uses only the participant id", async () => {
+  const env = { NODE_ENV: "production", CHALLENGE_TICKET_SECRET: SECRET };
+  const unauthorized = mockResponse();
+  await handleProvision(jsonRequest("POST", "/api/internal/provision", { participantId: "participant-a" }), unauthorized, { env });
+  assert.equal(unauthorized.statusCode, 401);
+
+  const request = jsonRequest("POST", "/api/internal/provision", { participantId: "participant-a" });
+  request.headers.authorization = `Bearer ${SECRET}`;
+  const response = mockResponse();
+  let received = null;
+  await handleProvision(request, response, {
+    env,
+    ensureTarget: async (participantId) => {
+      received = participantId;
+      return localPreviewTarget(participantId);
+    },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(received, "participant-a");
+  assert.deepEqual(JSON.parse(response.body), {
+    ok: true,
+    participantId: "participant-a",
+    instanceId: "signet-participant-a",
+  });
 });
 
 test("session endpoint handles the Vercel malformed-JSON body getter as a client error", async () => {
@@ -448,6 +476,14 @@ test("production health checks secrets, Redis, and Solana RPC", async () => {
     response,
     {
       env,
+      capacityProbe: async (provisionedParticipants) => ({
+        sufficient: true,
+        payer: "signet-payer",
+        requiredBalance: 123,
+        expectedParticipants: 40,
+        provisionedParticipants,
+        remainingParticipants: 40 - provisionedParticipants,
+      }),
       fetchImpl: async (_url, options) => {
         const body = JSON.parse(options.body);
         return {
@@ -474,6 +510,13 @@ test("production health checks secrets, Redis, and Solana RPC", async () => {
       count: 2,
       participantIdsSha256: inventory.participantIdsSha256,
     },
+    capacity: {
+      expectedParticipants: 40,
+      provisionedParticipants: 2,
+      remainingParticipants: 38,
+      sufficient: true,
+    },
+    funding: { payer: "signet-payer", requiredBalance: 123 },
   });
 });
 
@@ -492,14 +535,14 @@ test("on-chain checker accepts only the assigned finalized reserve-to-escrow tra
   assert.equal(result.occurredAt, "2027-01-15T08:00:00.000Z");
   assert.match(result.flag, /^CTF26\{signet_[a-f0-9]{24}\}$/);
 
-  const wrongSigner = structuredClone(transaction);
-  wrongSigner.transaction.message.accountKeys[3].signer = false;
+  const readOnlyDestination = structuredClone(transaction);
+  readOnlyDestination.transaction.message.accountKeys[1].writable = false;
   await assert.rejects(
     checkOnchainSubmission(
       { participantId: "participant-checker", target, signature },
-      { env, fetchImpl: rpcFetch(wrongSigner) },
+      { env, fetchImpl: rpcFetch(readOnlyDestination) },
     ),
-    /participant wallet/,
+    /writable token accounts/,
   );
 
   const fundedEscrow = structuredClone(transaction);
@@ -550,7 +593,6 @@ function validTransaction(target) {
           { pubkey: target.reserveAccount, signer: false, writable: true },
           { pubkey: target.escrowAccount, signer: false, writable: true },
           { pubkey: target.programId, signer: false, writable: false },
-          { pubkey: target.participantWallet, signer: true, writable: true },
         ],
       },
     },
@@ -567,7 +609,7 @@ function validTransaction(target) {
         {
           accountIndex: 1,
           mint: target.mint,
-          owner: target.participantWallet,
+          owner: target.escrowAuthority,
           uiTokenAmount: { amount: "0" },
         },
       ],
@@ -581,7 +623,7 @@ function validTransaction(target) {
         {
           accountIndex: 1,
           mint: target.mint,
-          owner: target.participantWallet,
+          owner: target.escrowAuthority,
           uiTokenAmount: { amount: "750000" },
         },
       ],

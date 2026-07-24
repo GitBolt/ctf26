@@ -34,7 +34,6 @@ test("portal budgets accept a 40-participant burst and isolate participant spam"
 test("score ingest and completion recovery remain isolated at 40-person concurrency", async () => {
   const execute = createMemoryBudgetExecutor();
   const participants = Array.from({ length: 40 }, (_, index) => `scorer-${index + 1}`);
-  const eligibility = new Map([["reviewed-player", "eligible"]]);
   const scores = new Map([["existing-player", 100]]);
 
   await Promise.all(participants.flatMap((participantId, index) => [
@@ -55,7 +54,6 @@ test("score ingest and completion recovery remain isolated at 40-person concurre
   await assert.rejects(() => consumePortalRequestBudget("scoreIngest", {
     request: request("198.51.100.200"), participantId: participants[0], env: ENV, execute,
   }), RequestBudgetExceededError);
-  assert.deepEqual([...eligibility], [["reviewed-player", "eligible"]]);
   assert.deepEqual([...scores], [["existing-player", 100]]);
 });
 
@@ -109,16 +107,16 @@ test("completion recovery is charged by downstream fanout", async () => {
   }));
 });
 
-test("40 concurrent duplicate solve deliveries remain idempotent and never touch eligibility", async () => {
+test("40 concurrent duplicate solve deliveries remain idempotent and isolated from legacy review state", async () => {
   const hashes = new Map();
   const touched = [];
   const command = async (parts) => {
     const [verb, key] = parts;
-    if (verb === "EVAL" && String(parts[1]).includes("EXISTS',KEYS[1]")) {
-      const solveKey = parts[6];
-      const participantId = parts[7];
-      const encoded = parts[8];
-      touched.push(solveKey);
+    if (verb === "EVAL" && String(parts[1]).includes("local created=redis.call('HSETNX',KEYS[3]")) {
+      const keys = parts.slice(3, 8);
+      const [participantId, encoded] = parts.slice(8);
+      const solveKey = keys[2];
+      touched.push(...keys);
       const hash = hashes.get(solveKey) || new Map();
       hashes.set(solveKey, hash);
       if (hash.has(participantId)) return 0;
@@ -149,5 +147,5 @@ test("40 concurrent duplicate solve deliveries remain idempotent and never touch
   }).flat());
   assert.equal(results.filter(Boolean).length, 40);
   assert.equal((await store.solves()).length, 40);
-  assert.equal(touched.some((key) => key.includes("eligibility")), false);
+  assert.equal(touched.some((key) => key.includes("participant-adjustment")), false);
 });

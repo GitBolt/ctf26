@@ -11,7 +11,7 @@ import {
 
 export const OFFICIAL_NIGHT_NAME = "After Hours NIGHT";
 export const OFFICIAL_NIGHT_SYMBOL = "NIGHT";
-export const OFFICIAL_NIGHT_URI = "https://after-hours-production-159b.up.railway.app/night.json";
+export const OFFICIAL_NIGHT_URI = "https://st26-afterhours.up.railway.app/night.json";
 
 const metadataProgram = address(MPL_TOKEN_METADATA_PROGRAM_ID);
 const addressEncoder = getAddressEncoder();
@@ -28,10 +28,10 @@ export async function readMetaplexBrand(rpc, mintValue) {
       addressEncoder.encode(mint),
     ],
   });
-  const account = await rpc.call("getAccountInfo", [metadataAddress, {
-    encoding: "base64",
-    commitment: "finalized",
-  }]);
+  const options = { encoding: "base64", commitment: "finalized" };
+  const account = typeof rpc.getAccountInfo === "function"
+    ? await rpc.getAccountInfo(metadataAddress, options).send()
+    : await rpc.call("getAccountInfo", [metadataAddress, options]);
   if (!account?.value || account.value.owner !== metadataProgram) return null;
   const encoded = Array.isArray(account.value.data) ? account.value.data[0] : account.value.data;
   if (typeof encoded !== "string") return null;

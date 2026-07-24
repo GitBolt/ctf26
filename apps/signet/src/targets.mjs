@@ -14,7 +14,7 @@ const REQUIRED_ADDRESS_FIELDS = [
   "reserveAccount",
   "escrowAccount",
   "mint",
-  "participantWallet",
+  "escrowAuthority",
 ];
 
 export class TargetConfigurationError extends Error {
@@ -169,7 +169,7 @@ export function localPreviewTarget(participantId = "participant-local") {
       reserveAccount: deterministicAddress("signet", participantId, "reserve"),
       escrowAccount: deterministicAddress("signet", participantId, "escrow"),
       mint: deterministicAddress("signet", participantId, "mint"),
-      participantWallet: deterministicAddress("signet", participantId, "wallet"),
+      escrowAuthority: deterministicAddress("signet", participantId, "vault-authority"),
       buildFingerprint: "a47a867fea8ec39e",
       thresholdRaw: "750000",
       initialReserveRaw: "1000000",
@@ -232,7 +232,7 @@ export function publicTarget(target, state, env = process.env) {
     reserveAccount: target.reserveAccount,
     escrowAccount: target.escrowAccount,
     mint: target.mint,
-    participantWallet: target.participantWallet,
+    escrowAuthority: target.escrowAuthority,
     buildFingerprint: target.buildFingerprint,
     thresholdRaw: target.thresholdRaw,
     initialReserveRaw: target.initialReserveRaw,

@@ -93,7 +93,7 @@ test("Reward Sniper accepts 40 simultaneous participants and isolates duplicate 
   assert.equal(new Set(scoreboard.body.map((row) => row.participantId)).size, 40);
 });
 
-test("integrity ingest freeze survives restart, review seals separately, and staging reset clears both", async () => {
+test("integrity ingest freeze survives restart, evidence seals separately, and staging reset clears both", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "reward-freeze-load-"));
   const stateFile = path.join(directory, "state.json");
   let app;
@@ -159,13 +159,6 @@ test("integrity ingest freeze survives restart, review seals separately, and sta
     });
     assert.equal(rejected.status, 409);
 
-    const reviewed = await request(baseUrl, `/api/admin/integrity/${suspicion.body.caseId}`, {
-      method: "PATCH",
-      headers: { authorization: `Bearer ${ADMIN_KEY}`, "x-ctf-organizer": "reviewer@example.test" },
-      body: { status: "cleared", note: "Reviewed after ingest was frozen." },
-    });
-    assert.equal(reviewed.status, 200);
-
     const stableReport = await request(baseUrl, "/api/admin/integrity", {
       headers: { authorization: `Bearer ${ADMIN_KEY}` },
     });
@@ -179,12 +172,12 @@ test("integrity ingest freeze survives restart, review seals separately, and sta
       },
     });
     assert.equal(sealed.status, 201);
-    const rejectedReview = await request(baseUrl, `/api/admin/integrity/${suspicion.body.caseId}`, {
+    const markingAttempt = await request(baseUrl, `/api/admin/integrity/${suspicion.body.caseId}`, {
       method: "PATCH",
       headers: { authorization: `Bearer ${ADMIN_KEY}`, "x-ctf-organizer": "reviewer@example.test" },
       body: { status: "reviewing", note: "This must not change sealed evidence." },
     });
-    assert.equal(rejectedReview.status, 409);
+    assert.equal(markingAttempt.status, 404);
 
     const reset = await request(baseUrl, "/api/admin/event/reset", {
       method: "POST",

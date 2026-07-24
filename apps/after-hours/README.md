@@ -249,7 +249,7 @@ Launches and Discord commands have participant-scoped rate limits. Payment recon
 
 Production readiness also verifies event capacity rather than only checking that the treasury is non-empty. Set `AFTER_HOURS_EXPECTED_PARTICIPANTS` to the final individual registration capacity and `AFTER_HOURS_MIN_TREASURY_LAMPORTS` to the organizer's transaction-fee reserve. The generation-scoped store counts each participant's completed NIGHT allotment once, and `/health` requires enough official NIGHT for every remaining configured allotment plus the SOL reserve. The response publishes only capacity booleans and aggregate counts, never treasury addresses or balances.
 
-The served metadata uses `AFTER_HOURS_PUBLIC_ORIGIN` for its image and external link. The immutable deployed NIGHT metadata account already points to the historical `OFFICIAL_NIGHT_URI`, so that URI must remain available as a compatibility alias even when the public deployment receives a shorter domain.
+The served metadata uses `AFTER_HOURS_PUBLIC_ORIGIN` for its image and external link. `OFFICIAL_NIGHT_URI` is the permanent metadata URL embedded in each immutable NIGHT mint. If that hostname changes on devnet, provision a replacement fixed-supply mint with `npm run provision:night`, update `AFTER_HOURS_NIGHT_MINT`, and retain the old mint only as historical test data.
 
 ## Deployment
 

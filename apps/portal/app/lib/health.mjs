@@ -167,7 +167,7 @@ async function probeRewardScoreboard(baseUrl, expectedEventId, expectedGeneratio
 
 function expectedCapacityFor(challengeKey, body) {
   if (challengeKey === "evidence-room") return body?.chain?.expectedParticipants;
-  if (new Set(["after-hours", "player-two", "second-key"]).has(challengeKey)) {
+  if (new Set(["after-hours", "player-two", "second-key", "signet"]).has(challengeKey)) {
     return body?.capacity?.expectedParticipants;
   }
   return null;
@@ -198,6 +198,26 @@ function assertOfficialFieldCoverage(scoring, dependencies, healthResults) {
     || signetInventory.participantIdsSha256 !== expectedSignetDigest
   ) {
     throw new Error("SIGNET target inventory does not match the checked-in individual field");
+  }
+}
+
+function assertIndependentOnChainFunding(dependencies, healthResults) {
+  const fundedPayers = new Map();
+  for (const [index, { challenge }] of dependencies.entries()) {
+    const body = healthResults[index];
+    const payer = challenge.key === "evidence-room"
+      ? body?.chain?.payer
+      : challenge.key === "second-key"
+        ? body?.payer
+        : challenge.key === "player-two" || challenge.key === "signet"
+          ? body?.funding?.payer
+          : null;
+    if (!payer) continue;
+    const previous = fundedPayers.get(payer);
+    if (previous) {
+      throw new Error(`${previous} and ${challenge.name} share one on-chain funding payer`);
+    }
+    fundedPayers.set(payer, challenge.name);
   }
 }
 
@@ -296,6 +316,7 @@ export async function portalHealth(options = {}) {
     ),
   ]);
   if (String(pong).toUpperCase() !== "PONG") throw new Error("Redis health check failed");
+  assertIndependentOnChainFunding(dependencies, healthResults);
   assertOfficialFieldCoverage(scoring, dependencies, healthResults);
 
   const rewardHealth = healthResults[CHALLENGES.findIndex((challenge) => challenge.key === "reward-sniper")];

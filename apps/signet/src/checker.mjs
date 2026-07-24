@@ -93,7 +93,7 @@ export async function readTargetState(target, options = {}) {
     reserve.mint !== target.mint ||
     escrow.mint !== target.mint ||
     reserve.owner !== target.vaultAuthority ||
-    escrow.owner !== target.participantWallet
+    escrow.owner !== target.escrowAuthority
   ) {
     throw new RpcError("The assigned target accounts no longer match the instance manifest.");
   }
@@ -178,12 +178,11 @@ export async function checkOnchainSubmission(
   const reserveIndex = indexFor(target.reserveAccount);
   const escrowIndex = indexFor(target.escrowAccount);
   const programIndex = indexFor(target.programId);
-  const participantWalletIndex = indexFor(target.participantWallet);
-  if (reserveIndex < 0 || escrowIndex < 0 || programIndex < 0 || participantWalletIndex < 0) {
+  if (reserveIndex < 0 || escrowIndex < 0 || programIndex < 0) {
     throw new SubmissionError("wrong_target", "The transaction does not operate on every assigned target account.");
   }
-  if (!keys[reserveIndex].writable || !keys[escrowIndex].writable || !keys[participantWalletIndex].signer) {
-    throw new SubmissionError("wrong_authority", "The assigned participant wallet and writable token accounts were not used correctly.");
+  if (!keys[reserveIndex].writable || !keys[escrowIndex].writable) {
+    throw new SubmissionError("wrong_authority", "The assigned writable token accounts were not used correctly.");
   }
 
   const invokeLine = `Program ${target.programId} invoke [`;
@@ -198,8 +197,8 @@ export async function checkOnchainSubmission(
   if (reservePre.owner !== target.vaultAuthority || reservePost.owner !== target.vaultAuthority) {
     throw new SubmissionError("wrong_reserve", "The reserve authority does not match this instance.");
   }
-  if (escrowPre.owner !== target.participantWallet || escrowPost.owner !== target.participantWallet) {
-    throw new SubmissionError("wrong_escrow", "The destination is not the registered participant escrow.");
+  if (escrowPre.owner !== target.escrowAuthority || escrowPost.owner !== target.escrowAuthority) {
+    throw new SubmissionError("wrong_escrow", "The destination authority does not match this instance.");
   }
 
   const reserveDelta = reservePre.amount - reservePost.amount;
@@ -215,7 +214,7 @@ export async function checkOnchainSubmission(
   ) {
     throw new SubmissionError(
       "threshold_not_met",
-      "The assigned reserve has not moved far enough into the registered participant escrow.",
+      "The assigned reserve has not moved far enough into the assigned destination.",
     );
   }
 

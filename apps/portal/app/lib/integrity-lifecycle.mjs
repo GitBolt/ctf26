@@ -8,7 +8,5 @@ export async function assertIntegrityWriteAllowed(options = {}) {
   if (config.scoringMode === "freezing" || config.scoringMode === "frozen") {
     throw new Error("integrity review is frozen");
   }
-  const ledger = await store.eligibilityLedger();
-  if (ledger.frozen) throw new Error("integrity review is frozen");
   return config;
 }

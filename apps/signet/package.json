@@ -25,12 +25,18 @@
     "@ctf26/leaderboard": "file:../../packages/leaderboard",
     "@ctf26/participant-ticket": "file:../../packages/participant-ticket",
     "@ctf26/request-budget": "file:../../packages/request-budget",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.98.4",
     "redis": "^6.1.0"
   },
   "devDependencies": {
     "@coral-xyz/anchor": "^0.32.1",
-    "@solana/spl-token": "^0.4.14",
     "chai": "^4.5.0",
     "mocha": "^11.7.5"
+  },
+  "overrides": {
+    "jayson": {
+      "uuid": "11.1.1"
+    }
   }
 }

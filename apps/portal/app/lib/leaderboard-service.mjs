@@ -142,41 +142,47 @@ async function livePerformance({ env, fetchImpl, store, config }) {
 
 async function calculateSnapshot({ env, store, fetchImpl, config }) {
   if (typeof store.assertEventConfig === "function") await store.assertEventConfig(config.configHash);
-  const [profiles, solves, performance, eligibilityLedger] = await Promise.all([
-    store.profiles(),
-    store.solves(),
-    livePerformance({ env, fetchImpl, store, config }),
-    typeof store.eligibilityLedger === "function"
-      ? store.eligibilityLedger()
-      : Promise.resolve(typeof store.eligibilityDecisions === "function" ? store.eligibilityDecisions() : [])
-        .then((decisions) => ({ revision: 0, frozen: false, freeze: null, decisions })),
-  ]);
-  const eligibilityDecisions = eligibilityLedger.decisions;
+  const readRevision = typeof store.snapshotRevision === "function"
+    ? () => store.snapshotRevision()
+    : async () => 0;
+  let inputs = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const revisionBefore = await readRevision();
+    const [profiles, solves, performance] = await Promise.all([
+      store.profiles(),
+      store.solves(),
+      livePerformance({ env, fetchImpl, store, config }),
+    ]);
+    const revisionAfter = await readRevision();
+    if (revisionBefore === revisionAfter) {
+      inputs = { profiles, solves, performance, revision: revisionAfter };
+      break;
+    }
+  }
+  if (!inputs) throw new Error("leaderboard inputs changed while the snapshot was being calculated");
+  const { profiles, solves, performance, revision } = inputs;
   const checkedIn = new Set(config.checkedInParticipantIds);
-  const disqualified = new Set(eligibilityDecisions
-    .filter((decision) => decision?.state === "approved" && decision?.status === "disqualified")
-    .map((decision) => String(decision.participantId)));
   const officialScoring = config.scoringMode !== "staging";
-  const eligibleProfiles = officialScoring
-    ? profiles.filter((profile) => checkedIn.has(profile.participantId) && !disqualified.has(profile.participantId))
-    : profiles.filter((profile) => !disqualified.has(profile.participantId));
-  const eligibleSolves = officialScoring
-    ? solves.filter((solve) => checkedIn.has(solve.participantId) && !disqualified.has(solve.participantId))
-    : solves.filter((solve) => !disqualified.has(solve.participantId));
-  const eligiblePerformance = officialScoring
-    ? performance.rows.filter((row) => checkedIn.has(row.participantId) && !disqualified.has(row.participantId))
-    : performance.rows.filter((row) => !disqualified.has(row.participantId));
+  const scoringProfiles = officialScoring
+    ? profiles.filter((profile) => checkedIn.has(profile.participantId))
+    : profiles;
+  const scoringSolves = officialScoring
+    ? solves.filter((solve) => checkedIn.has(solve.participantId))
+    : solves;
+  const scoringPerformance = officialScoring
+    ? performance.rows.filter((row) => checkedIn.has(row.participantId))
+    : performance.rows;
   const observedScoringParticipants = new Set([
-    ...eligibleSolves.map((solve) => solve.participantId),
-    ...eligiblePerformance.map((row) => row.participantId),
+    ...scoringSolves.map((solve) => solve.participantId),
+    ...scoringPerformance.map((row) => row.participantId),
   ]).size;
   const effectiveFieldSize = officialScoring
     ? config.fieldSize
     : Math.max(config.fieldSize, observedScoringParticipants);
   const calculated = calculateLeaderboard({
-    profiles: eligibleProfiles,
-    solves: eligibleSolves,
-    performance: eligiblePerformance,
+    profiles: scoringProfiles,
+    solves: scoringSolves,
+    performance: scoringPerformance,
     fieldSize: effectiveFieldSize,
     prizePool: config.prizePool,
     minimumAward: config.minimumAward,
@@ -194,14 +200,7 @@ async function calculateSnapshot({ env, store, fetchImpl, config }) {
     eventGeneration: config.eventGeneration,
     configHash: config.configHash,
     scoringSchemaVersion: config.scoringSchemaVersion,
-    eligibilityRevision: eligibilityLedger.revision,
-    eligibility: Object.freeze({
-      disqualifiedParticipantIds: Object.freeze([...disqualified].sort()),
-      decisionCount: eligibilityDecisions.length,
-      revision: eligibilityLedger.revision,
-      frozen: eligibilityLedger.frozen === true,
-      frozenAt: eligibilityLedger.freeze?.acquiredAt || null,
-    }),
+    snapshotRevision: revision,
     performanceSource: Object.freeze({
       available: performance.available,
       stale: performance.stale,
@@ -232,7 +231,7 @@ export async function leaderboardSnapshot(options = {}) {
   if (config.scoringMode === "freezing" || config.scoringMode === "frozen") {
     const final = await store.finalPublicSnapshot();
     if (final) {
-      if (final.configHash !== config.configHash || !Number.isSafeInteger(final.eligibilityRevision)) {
+      if (final.configHash !== config.configHash || !Number.isSafeInteger(final.snapshotRevision)) {
         throw new Error("final leaderboard configuration mismatch");
       }
       return final;
@@ -240,7 +239,7 @@ export async function leaderboardSnapshot(options = {}) {
     if (config.scoringMode === "freezing") {
       const latest = await store.latestPublicSnapshot();
       if (latest) {
-        if (latest.configHash !== config.configHash || !Number.isSafeInteger(latest.eligibilityRevision)) {
+        if (latest.configHash !== config.configHash || !Number.isSafeInteger(latest.snapshotRevision)) {
           throw new Error("freezing leaderboard configuration mismatch");
         }
         return Object.freeze({ ...latest, scoringMode: "freezing", sharedCacheStale: true });
@@ -251,7 +250,7 @@ export async function leaderboardSnapshot(options = {}) {
   }
 
   const fresh = await store.freshPublicSnapshot();
-  if (fresh?.configHash === config.configHash && Number.isSafeInteger(fresh.eligibilityRevision)) return fresh;
+  if (fresh?.configHash === config.configHash && Number.isSafeInteger(fresh.snapshotRevision)) return fresh;
 
   const lockToken = crypto.randomUUID();
   if (await store.acquirePublicSnapshotRefresh(lockToken)) {
@@ -267,10 +266,10 @@ export async function leaderboardSnapshot(options = {}) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 100));
     const retry = await store.freshPublicSnapshot();
-    if (retry?.configHash === config.configHash && Number.isSafeInteger(retry.eligibilityRevision)) return retry;
+    if (retry?.configHash === config.configHash && Number.isSafeInteger(retry.snapshotRevision)) return retry;
   }
   const latest = await store.latestPublicSnapshot();
-  if (latest?.configHash === config.configHash && Number.isSafeInteger(latest.eligibilityRevision)) {
+  if (latest?.configHash === config.configHash && Number.isSafeInteger(latest.snapshotRevision)) {
     return Object.freeze({ ...latest, sharedCacheStale: true });
   }
   throw new Error("leaderboard snapshot refresh is already in progress");

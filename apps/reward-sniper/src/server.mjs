@@ -43,7 +43,6 @@ const SESSION_COOKIE = "reward_sniper_session";
 const MAX_BODY_BYTES = 16 * 1024;
 const INTEGRITY_CASE_LIMIT = 1_000;
 const INTEGRITY_TIMELINE_LIMIT = 200;
-const INTEGRITY_STATUSES = new Set(["open", "reviewing", "cleared", "confirmed"]);
 const INTEGRITY_CHALLENGES = new Set(["imprint", "signet", "drift", "last-stop", "after-hours", "player-two", "the-broadcast", "evidence-room", "second-key"]);
 const STATIC_FILES = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
@@ -894,34 +893,6 @@ export function createRewardSniperServer(options = {}) {
       return;
     }
 
-    const caseMatch = url.pathname.match(/^\/api\/admin\/integrity\/([^/]+)$/);
-    if (request.method === "PATCH" && caseMatch) {
-      ensureWritable(stateFile, persistenceError);
-      authenticateIntegrityAdmin(request, integrityAdminKey);
-      enforceRateLimits(request, rateLimits, [
-        { scope: "global:integrity-admin-write", limit: 120 },
-        { scope: "ip:integrity-admin-write", limit: 60 },
-      ], 60_000);
-      const body = await readJson(request);
-      if (integrityReviewFreeze) {
-        throw new HttpError(409, "integrity review is sealed for finalization");
-      }
-      const integrityCase = integrityCases.find((candidate) => candidate.id === caseMatch[1] && isActiveIntegrityRecord(candidate));
-      if (!integrityCase) throw new HttpError(404, "integrity case not found");
-      const status = String(body.status ?? "");
-      if (!INTEGRITY_STATUSES.has(status)) throw new HttpError(400, "invalid integrity case status");
-      const organizer = String(request.headers["x-ctf-organizer"] ?? "organizer").slice(0, 160);
-      const note = String(body.note ?? "").trim().slice(0, 2_000);
-      integrityCase.status = status;
-      integrityCase.updatedAt = Date.now();
-      integrityCase.reviewHistory ??= [];
-      integrityCase.reviewHistory.push({ at: integrityCase.updatedAt, organizer, status, note });
-      integrityCase.reviewHistory = integrityCase.reviewHistory.slice(-100);
-      await persistState();
-      sendJson(response, 200, { case: structuredClone(integrityCase) });
-      return;
-    }
-
     if (request.method === "POST" && url.pathname === "/api/admin/event/reset") {
       ensureWritable(stateFile, persistenceError);
       authenticateIntegrityAdmin(request, integrityAdminKey);
@@ -1594,14 +1565,13 @@ async function mirrorIntegrityAlert(webhookUrl, integrityCase) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      content: `CTF26 integrity review opened: ${integrityCase.challenge} · ${integrityCase.confidence} confidence`,
+      content: `CTF26 integrity observation: ${integrityCase.challenge} · ${integrityCase.confidence} confidence`,
       embeds: [{
-        title: `${integrityCase.challenge} suspicion recorded`,
+        title: `${integrityCase.challenge} observation recorded`,
         description: integrityCase.summary,
         fields: [
           { name: "participant", value: integrityCase.email || "Email unavailable", inline: false },
           { name: "reason", value: integrityCase.reasonCode, inline: false },
-          { name: "status", value: integrityCase.status, inline: true },
           { name: "event", value: integrityCase.eventId, inline: false },
         ],
         footer: { text: "Review signal only — no automatic gameplay or enforcement action" },

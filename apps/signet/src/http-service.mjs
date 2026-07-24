@@ -20,6 +20,7 @@ import {
   sessionCookie,
 } from "./session.mjs";
 import { loadTargetForParticipant, loadTargetInventory, publicTarget } from "./targets.mjs";
+import { ensureParticipantTarget, participantProvisionCapacity } from "./auto-provision.mjs";
 import { forwardDisclosure, forwardIntegrityEvent, policyFor, publicPolicyFor, verifyMarker } from "@ctf26/agent-integrity";
 import { eventGeneration, reportSolveEventBestEffort } from "@ctf26/leaderboard";
 import { trustedClientAddress } from "@ctf26/request-budget";
@@ -184,7 +185,9 @@ export async function handleTarget(request, response, options = {}) {
     if (!lease) throw publicError(429, "checker_busy", "A checker operation is already running or capacity is full.", 2);
     try {
       await recordEvent(identity, "target-read", "challenge-action", request, options);
-      const target = await loadTargetForParticipant(identity.participantId, { env, fetchImpl: options.fetchImpl || fetch });
+      const target = env.NODE_ENV === "production" && !env.SIGNET_TARGETS_JSON
+        ? await (options.ensureTarget || ensureParticipantTarget)(identity.participantId, { env, fetchImpl: options.fetchImpl || fetch })
+        : await loadTargetForParticipant(identity.participantId, { env, fetchImpl: options.fetchImpl || fetch });
       let state;
       try {
         state = await readTargetState(target, { env, fetchImpl: options.fetchImpl || fetch });
@@ -199,6 +202,27 @@ export async function handleTarget(request, response, options = {}) {
     } finally {
       await (options.releaseLease || releaseSubmissionLease)(lease, { env });
     }
+  });
+}
+
+export async function handleProvision(request, response, options = {}) {
+  return withErrors(response, async () => {
+    requireMethod(request, "POST");
+    const env = options.env || process.env;
+    if (!bearerAuthorized(request, env.CHALLENGE_TICKET_SECRET)) {
+      throw publicError(401, "not_authorized", "Not authorized.");
+    }
+    const body = await requestBody(request);
+    requireExactFields(body, ["participantId"], "Provisioning request");
+    const participantId = String(body.participantId || "");
+    if (!PARTICIPANT_ID_PATTERN.test(participantId)) {
+      throw publicError(400, "invalid_participant", "Invalid participant ID.");
+    }
+    const target = await (options.ensureTarget || ensureParticipantTarget)(participantId, {
+      env,
+      fetchImpl: options.fetchImpl || fetch,
+    });
+    jsonResponse(response, 200, { ok: true, participantId, instanceId: target.instanceId });
   });
 }
 
@@ -299,12 +323,17 @@ export async function handleHealth(request, response, options = {}) {
     const fetchImpl = options.fetchImpl || fetch;
     const cacheMs = Number(env.SIGNET_HEALTH_CACHE_MS || 15_000);
     if (!Number.isSafeInteger(cacheMs) || cacheMs < 1 || cacheMs > 60_000) throw new Error("SIGNET_HEALTH_CACHE_MS is invalid");
-    const [redisHealth, , targetInventory] = await cachedHealthProbe(env, cacheMs, () => Promise.all([
-      redisCommand(["PING"], { env, fetchImpl }),
-      checkRpcHealth({ env, fetchImpl }),
-      loadTargetInventory({ env, fetchImpl }),
-    ]));
+    const [redisHealth, , targetInventory, capacity] = await cachedHealthProbe(env, cacheMs, async () => {
+      const [redisResult, rpcResult, inventory] = await Promise.all([
+        redisCommand(["PING"], { env, fetchImpl }),
+        checkRpcHealth({ env, fetchImpl }),
+        loadTargetInventory({ env, fetchImpl }),
+      ]);
+      const capacityResult = await (options.capacityProbe || participantProvisionCapacity)(inventory.count, { env });
+      return [redisResult, rpcResult, inventory, capacityResult];
+    });
     if (redisHealth !== "PONG") throw new Error("replay store health check failed");
+    if (!capacity.sufficient) throw new Error("SIGNET operator cannot provision the configured field");
     jsonResponse(response, 200, {
       ok: true,
       service: "signet",
@@ -313,6 +342,16 @@ export async function handleHealth(request, response, options = {}) {
       targetInventory: {
         count: targetInventory.count,
         participantIdsSha256: targetInventory.participantIdsSha256,
+      },
+      capacity: {
+        expectedParticipants: capacity.expectedParticipants,
+        provisionedParticipants: capacity.provisionedParticipants,
+        remainingParticipants: capacity.remainingParticipants,
+        sufficient: capacity.sufficient,
+      },
+      funding: {
+        payer: capacity.payer,
+        requiredBalance: capacity.requiredBalance,
       },
     });
   });

@@ -14,7 +14,7 @@ test("Reward Sniper briefing ZIP is complete and contains no expiring participan
     "reward-sniper-player/sdk.mjs",
   ]);
   const guide = files.get("reward-sniper-player/README.md").toString("utf8");
-  assert.match(guide, /https:\/\/stctf26\.vercel\.app\/api\/launch\/reward-sniper/);
+  assert.match(guide, /https:\/\/ctf26-eta\.vercel\.app\/api\/launch\/reward-sniper/);
   assert.doesNotMatch(guide, /fresh launch ticket|short-lived launch ticket|embedded credential/i);
   assert.doesNotMatch(guide, /[?&]ticket=|v1\.eyJ/);
   const sdk = files.get("reward-sniper-player/sdk.mjs").toString("utf8");

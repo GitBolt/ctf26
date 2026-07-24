@@ -50,7 +50,15 @@ const fakeChain = () => {
     async inspectPass(address) { return passes.get(address) || { found: false, address }; },
     async openJackpot() { jackpotCalls += 1; jackpotOpened = true; return { signature: "jackpot-signature", explorerUrl: "https://explorer.solana.com/tx/jackpot-signature?cluster=devnet" }; },
     async jackpotState() { return { opened: jackpotOpened, signature: jackpotOpened ? "jackpot-signature" : null, openedAt: jackpotOpened ? 1_750_000_000_000 : null }; },
-    async health() { return { ok: true, programAvailable: true, capacitySufficient: true }; },
+    async health() {
+      return {
+        ok: true,
+        programAvailable: true,
+        capacitySufficient: true,
+        payer: "player-two-payer",
+        requiredPayerBalance: 100,
+      };
+    },
     jackpotCalls() { return jackpotCalls; },
   };
   return chain;
@@ -232,7 +240,13 @@ test("health degrades when remaining participant rent capacity is insufficient",
   const chain = fakeChain();
   chain.health = async (input) => {
     healthInput = input;
-    return { ok: false, programAvailable: true, capacitySufficient: false };
+    return {
+      ok: false,
+      programAvailable: true,
+      capacitySufficient: false,
+      payer: "player-two-payer",
+      requiredPayerBalance: 100,
+    };
   };
   const service = await createPlayerTwoServer({
     allowDev: true,
@@ -256,6 +270,7 @@ test("health degrades when remaining participant rent capacity is insufficient",
     withinConfiguredField: true,
     sufficient: false,
   });
+  assert.deepEqual(body.funding, { payer: "player-two-payer", requiredBalance: 100 });
   assert.equal(JSON.stringify(body).includes("payerBalance"), false);
 });
 

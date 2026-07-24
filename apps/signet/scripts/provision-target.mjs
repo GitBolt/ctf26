@@ -16,7 +16,6 @@ import { createInstancePlan } from "../src/provisioning.mjs";
 
 const { Keypair, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } = anchor.web3;
 const participantId = required("PARTICIPANT_ID");
-const participantWallet = new PublicKey(required("PARTICIPANT_WALLET"));
 const rpcUrl = required("SOLANA_RPC_URL");
 const operatorPath = resolveKeypairPath(required("OPERATOR_KEYPAIR"));
 const programId = new PublicKey(required("VAULT_PROGRAM_ID"));
@@ -52,7 +51,10 @@ const [reserve] = PublicKey.findProgramAddressSync(
 );
 
 const mint = await createMint(connection, operator, operator.publicKey, null, 0);
-const escrow = await getOrCreateAssociatedTokenAccount(connection, operator, mint, participantWallet);
+// The destination belongs to the instance PDA, not to a participant wallet.
+// Participants can therefore use any disposable devnet fee payer and replace it
+// at any time without changing their assignment.
+const escrow = await getOrCreateAssociatedTokenAccount(connection, operator, mint, vaultAuthority, true);
 const pinnedStrategyProgram = SystemProgram.programId;
 
 const initializeSignature = await program.methods
@@ -86,7 +88,7 @@ const target = {
   reserveAccount: reserve.toBase58(),
   escrowAccount: escrow.address.toBase58(),
   mint: mint.toBase58(),
-  participantWallet: participantWallet.toBase58(),
+  escrowAuthority: vaultAuthority.toBase58(),
   buildFingerprint,
   thresholdRaw: plan.thresholdRaw.toString(),
   initialReserveRaw: plan.reserveRaw.toString(),

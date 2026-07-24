@@ -27,16 +27,44 @@ function memoryRedis() {
       hash.set(field, value);
       return 1;
     }
-    if (verb === "EVAL" && String(command[1]).includes("EXISTS',KEYS[1]")) {
-      const blockedKeys = command.slice(3, 6);
-      const solveKey = command[6];
-      const participantId = command[7];
-      const encoded = command[8];
-      if (blockedKeys.some((blockedKey) => strings.has(blockedKey))) return -1;
+    if (verb === "INCR") {
+      const next = Number(strings.get(key) || 0) + 1;
+      strings.set(key, String(next));
+      return next;
+    }
+    if (verb === "EVAL" && String(command[1]).includes("local created=redis.call('HSETNX',KEYS[3]")) {
+      const keys = command.slice(3, 8);
+      const [participantId, encoded] = command.slice(8);
+      if (keys.slice(0, 2).some((blockedKey) => strings.has(blockedKey))) return -1;
+      const solveKey = keys[2];
       const hash = hashes.get(solveKey) || new Map();
       hashes.set(solveKey, hash);
       if (hash.has(participantId)) return 0;
       hash.set(participantId, encoded);
+      const next = Number(strings.get(keys[3]) || 0) + 1;
+      strings.set(keys[3], String(next));
+      strings.delete(keys[4]);
+      return 1;
+    }
+    if (verb === "EVAL" && String(command[1]).includes("return redis.call('HSETNX',KEYS[3]")) {
+      const keys = command.slice(3, 6);
+      const [fieldName, encoded] = command.slice(6);
+      if (keys.slice(0, 2).some((blockedKey) => strings.has(blockedKey))) return -1;
+      const hash = hashes.get(keys[2]) || new Map();
+      hashes.set(keys[2], hash);
+      if (hash.has(fieldName)) return 0;
+      hash.set(fieldName, encoded);
+      return 1;
+    }
+    if (verb === "EVAL" && String(command[1]).includes("redis.call('HSET',KEYS[1],ARGV[1],ARGV[2])")) {
+      const keys = command.slice(3, 6);
+      const [fieldName, encoded] = command.slice(6);
+      const hash = hashes.get(keys[0]) || new Map();
+      hash.set(fieldName, encoded);
+      hashes.set(keys[0], hash);
+      const next = Number(strings.get(keys[1]) || 0) + 1;
+      strings.set(keys[1], String(next));
+      strings.delete(keys[2]);
       return 1;
     }
     if (verb === "HGETALL") return [...(hashes.get(key) || new Map()).entries()].flat();
@@ -196,13 +224,13 @@ test("solve storage is idempotent per challenge and participant", async () => {
   ]);
 });
 
-test("solve storage closes atomically when finalization acquires its freeze", async () => {
+test("solve storage closes atomically while finalization holds its lock", async () => {
   const command = memoryRedis();
   const store = createLeaderboardStore({ command });
   await command([
     "SET",
-    "ctf26:leaderboard:v2:eligibility-freeze",
-    JSON.stringify({ token: "finalization" }),
+    "ctf26:leaderboard:v2:finalization-lock",
+    "finalization",
   ]);
   await assert.rejects(() => store.recordSolve({
     challenge: "imprint",
@@ -438,7 +466,7 @@ test("observed scoring participants expand a stale field size instead of taking 
   assert.equal(snapshot.challengeValues.imprint.solveCount, 3);
 });
 
-test("an approved disqualification removes the participant before rank and payout calculation", async () => {
+test("all checked-in scorers remain in the ranking and share the configured pool", async () => {
   const snapshot = await leaderboardSnapshot({
     env: { LEADERBOARD_FIELD_SIZE: "2", LEADERBOARD_REGISTERED_COUNT: "2", LEADERBOARD_PRIZE_POOL_USD: "4000" },
     store: {
@@ -450,11 +478,9 @@ test("an approved disqualification removes the participant before rank and payou
         { challenge: "imprint", participantId: "alpha" },
         { challenge: "imprint", participantId: "bravo" },
       ],
-      eligibilityDecisions: async () => [{ participantId: "alpha", status: "disqualified", state: "approved" }],
       cachedPerformance: async () => null,
     },
   });
-  assert.deepEqual(snapshot.rows.map((row) => row.participantId), ["bravo"]);
-  assert.deepEqual(snapshot.eligibility.disqualifiedParticipantIds, ["alpha"]);
-  assert.equal(snapshot.rows[0].projectedPrizeCents, 400_000);
+  assert.deepEqual(snapshot.rows.map((row) => row.participantId), ["alpha", "bravo"]);
+  assert.deepEqual(snapshot.rows.map((row) => row.projectedPrizeCents), [200_000, 200_000]);
 });

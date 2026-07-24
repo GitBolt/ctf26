@@ -234,6 +234,7 @@ export function createDevnetChain(env = process.env) {
         ok: programAvailable && capacity.capacitySufficient,
         network: "devnet",
         programId: programId.toBase58(),
+        payer: payer.publicKey.toBase58(),
         programAvailable,
         capacitySufficient: capacity.capacitySufficient,
         payerBalance: balance,

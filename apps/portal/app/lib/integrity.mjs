@@ -67,15 +67,6 @@ export function sealRewardIntegrityReview(config, organizer, review) {
   });
 }
 
-export function updateRewardIntegrityCase(caseId, update, organizer) {
-  if (!/^rsic_[A-Za-z0-9_-]{8,64}$/.test(caseId)) throw new Error("invalid integrity case ID");
-  return request(`/api/admin/integrity/${encodeURIComponent(caseId)}`, {
-    method: "PATCH",
-    headers: { "x-ctf-organizer": organizer },
-    body: JSON.stringify(update),
-  });
-}
-
 export function resetRewardSniperEvent(eventId, organizer) {
   if (!/^[A-Za-z0-9_-]{8,80}$/.test(eventId)) throw new Error("invalid Reward Sniper event ID");
   return request("/api/admin/event/reset", {

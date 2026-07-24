@@ -3944,7 +3944,7 @@ button {
 
 .organizer-status-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 10px;
 }
@@ -4019,8 +4019,7 @@ button {
   letter-spacing: -.025em;
 }
 
-.organizer-chip,
-.admin-status-chip {
+.organizer-chip {
   min-height: 25px;
   display: inline-flex;
   align-items: center;
@@ -4079,8 +4078,7 @@ button {
   white-space: nowrap;
 }
 
-.organizer-panel-note,
-.admin-inline-note {
+.organizer-panel-note {
   margin-top: 12px;
   color: var(--muted);
   font-size: 11px;
@@ -4096,10 +4094,7 @@ button {
 
 .admin-finalize-control button,
 .admin-lifecycle-control button,
-.organizer-reset button,
-.organizer-sync-warning button,
-.admin-eligibility-form button,
-.admin-proposals button {
+.organizer-reset button {
   min-height: 40px;
   padding: 8px 13px;
   border: 1px solid var(--border-strong);
@@ -4110,8 +4105,7 @@ button {
 }
 
 .admin-finalize-control button:not(:disabled),
-.admin-lifecycle-control button:first-child:not(:disabled),
-.admin-eligibility-form button {
+.admin-lifecycle-control button:first-child:not(:disabled) {
   color: var(--page);
   border-color: var(--accent);
   background: var(--accent);
@@ -4124,8 +4118,7 @@ button {
 }
 
 .admin-finalize-control p,
-.admin-lifecycle-control p,
-.admin-action-message {
+.admin-lifecycle-control p {
   color: var(--muted);
   font-size: 10px;
 }
@@ -4153,22 +4146,18 @@ button {
   margin-top: 12px;
 }
 
-.organizer-reset label,
-.admin-eligibility-form label {
+.organizer-reset label {
   display: grid;
   gap: 4px;
 }
 
-.organizer-reset label span,
-.admin-eligibility-form label span {
+.organizer-reset label span {
   color: var(--meta);
   font-size: 9px;
   font-weight: 700;
 }
 
-.organizer-reset input,
-.admin-eligibility-form input,
-.admin-eligibility-form select {
+.organizer-reset input {
   width: 100%;
   min-height: 40px;
   padding: 8px 10px;
@@ -4200,123 +4189,100 @@ button {
   font-weight: 650;
 }
 
-.organizer-sync-warning {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 10px;
-  padding: 11px 12px;
-  border: 1px solid rgb(226 189 122 / 24%);
-  border-radius: 8px;
-  color: #e2bd7a;
-  background: rgb(226 189 122 / 6%);
-}
-
-.organizer-sync-warning strong,
-.organizer-sync-warning span {
-  display: block;
-  font-size: 11px;
-}
-
-.organizer-sync-warning span {
-  margin-top: 2px;
+.organizer-section-intro {
+  max-width: 72ch;
+  margin: -4px 0 12px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
+  line-height: 1.55;
 }
 
-.organizer-decisions {
+.integrity-observations {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.organizer-decisions article,
-.admin-proposals article {
-  padding: 10px 11px;
+  gap: 1px;
+  overflow: clip;
   border: 1px solid var(--border);
   border-radius: 8px;
+  background: var(--border);
+}
+
+.integrity-observation {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(160px, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 10px 12px;
   background: var(--surface-raised);
 }
 
-.organizer-decisions strong,
-.organizer-decisions span,
-.organizer-decisions small,
-.admin-proposals strong,
-.admin-proposals span,
-.admin-proposals small {
+.integrity-observation > div {
+  min-width: 0;
+}
+
+.integrity-observation > div strong,
+.integrity-observation > div span {
   display: block;
 }
 
-.organizer-decisions strong,
-.admin-proposals strong {
+.integrity-observation > div strong {
+  overflow: hidden;
   color: var(--ink-soft);
   font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.organizer-decisions span,
-.admin-proposals span {
+.integrity-observation > div span {
   margin-top: 2px;
-  color: var(--accent);
-  font-size: 10px;
-}
-
-.organizer-decisions p {
-  margin-top: 5px;
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.organizer-decisions small,
-.admin-proposals small {
-  margin-top: 5px;
   color: var(--meta);
   font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
 }
 
-.admin-action-stack {
-  margin-top: 12px;
+.integrity-observation > strong {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.admin-eligibility-form {
-  display: grid;
-  grid-template-columns: minmax(140px, .7fr) minmax(130px, .5fr) minmax(220px, 1.2fr) auto;
-  align-items: end;
-  gap: 8px;
+.integrity-observation > time {
+  color: var(--meta);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.admin-proposals {
-  display: grid;
-  gap: 7px;
-  margin-top: 10px;
-}
-
-.admin-proposals article {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.admin-proposals article > div:last-child {
-  display: flex;
-  gap: 5px;
-}
-
-.admin-proposals button {
-  min-height: 36px;
-  padding: 6px 10px;
-}
-
-.admin-action-message {
-  margin-top: 8px;
+.integrity-observation > .signal {
+  flex: 0 0 auto;
+  min-height: 22px;
+  padding: 2px 7px;
+  font-size: 9px;
 }
 
 @media (max-width: 900px) {
   .organizer-header,
   .organizer-two-column {
     grid-template-columns: 1fr;
+  }
+
+  .integrity-observation {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .integrity-observation > strong,
+  .integrity-observation > time {
+    grid-column: 1;
+  }
+
+  .integrity-observation > .signal {
+    grid-column: 2;
+    grid-row: 1;
   }
 
   .organizer-header {
@@ -4327,9 +4293,10 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .admin-eligibility-form {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .integrity-observations {
+    grid-template-columns: 1fr;
   }
+
 }
 
 @media (max-width: 620px) {
@@ -4338,9 +4305,7 @@ button {
   }
 
   .organizer-status-grid,
-  .organizer-facts,
-  .organizer-decisions,
-  .admin-eligibility-form {
+  .organizer-facts {
     grid-template-columns: 1fr;
   }
 
@@ -4349,7 +4314,6 @@ button {
   }
 
   .organizer-sync-warning,
-  .admin-proposals article,
   .admin-finalize-control {
     align-items: stretch;
     flex-direction: column;

@@ -6,9 +6,12 @@ import { redisCommand, signetRedisKey } from "../src/redis.mjs";
 import { createTargetInventory, validateTargetMap } from "../src/targets.mjs";
 
 const PUBLISH_SCRIPT = [
-  "for i=2,#KEYS do redis.call('SET',KEYS[i],ARGV[i-1]); end;",
+  "redis.call('DEL',KEYS[2]);",
+  "local ids=cjson.decode(ARGV[#ARGV-1]);",
+  "for _,id in ipairs(ids) do redis.call('SADD',KEYS[2],id); end;",
+  "for i=3,#KEYS do redis.call('SET',KEYS[i],ARGV[i-2]); end;",
   "redis.call('SET',KEYS[1],ARGV[#ARGV]);",
-  "return #KEYS-1",
+  "return #KEYS-2",
 ].join(" ");
 
 export async function publishTargets(targets, {
@@ -20,15 +23,18 @@ export async function publishTargets(targets, {
   const entries = validateTargetMap(targets, { allowPreview: false });
   const inventory = createTargetInventory(entries.map(([participantId]) => participantId), { env });
   const inventoryKey = signetRedisKey("target-inventory", undefined, env);
+  const participantsKey = signetRedisKey("target-participants", undefined, env);
   const targetKeys = entries.map(([participantId]) => signetRedisKey("target", participantId, env));
   const targetValues = entries.map(([, target]) => JSON.stringify(target));
   const result = Number(await redisCommandImpl([
     "EVAL",
     PUBLISH_SCRIPT,
-    String(1 + targetKeys.length),
+    String(2 + targetKeys.length),
     inventoryKey,
+    participantsKey,
     ...targetKeys,
     ...targetValues,
+    JSON.stringify(entries.map(([participantId]) => participantId)),
     JSON.stringify(inventory),
   ], { env }));
   if (result !== entries.length) throw new Error("target inventory publish did not complete atomically");

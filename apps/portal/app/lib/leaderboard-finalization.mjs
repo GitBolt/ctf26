@@ -24,7 +24,7 @@ export function activeIntegrityCases(report, config) {
   });
 }
 
-export function integrityReviewSeal(report, config, disqualifiedParticipantIds = []) {
+export function integrityReviewSeal(report, config) {
   if (String(report?.event?.eventId || "") !== config.rewardEventId) {
     throw new Error("integrity review belongs to another Reward Sniper event");
   }
@@ -35,15 +35,7 @@ export function integrityReviewSeal(report, config, disqualifiedParticipantIds =
   if (!Number.isFinite(generatedAt) || generatedAt <= 0) {
     throw new Error("integrity review timestamp is invalid");
   }
-  const disqualified = new Set(disqualifiedParticipantIds.map(String));
   const cases = activeIntegrityCases(report, config);
-  const unresolved = cases.filter((entry) => (
-    entry?.status === "open"
-    || entry?.status === "reviewing"
-    || (entry?.status === "confirmed" && !disqualified.has(String(entry?.participantId || "")))
-  ));
-  if (unresolved.length > 0) throw new Error("resolve every active-event integrity case before finalization");
-
   const normalized = cases.map(normalizedCase).sort((left, right) => (
     left.id.localeCompare(right.id)
     || left.challenge.localeCompare(right.challenge)

@@ -541,7 +541,7 @@ test("personalized agent canaries open reviewable cases without changing gamepla
   assert.equal(report.body.cases[0].evidence[0].request.userAgent, "unknown");
   assert.equal(Object.hasOwn(report.body.cases[0].evidence[0].request, "ip"), false);
 
-  const reviewed = await request(baseUrl, `/api/admin/integrity/${disclosure.body.caseId}`, {
+  const markingAttempt = await request(baseUrl, `/api/admin/integrity/${disclosure.body.caseId}`, {
     method: "PATCH",
     headers: {
       authorization: `Bearer ${INTEGRITY_KEY}`,
@@ -549,9 +549,7 @@ test("personalized agent canaries open reviewable cases without changing gamepla
     },
     body: { status: "reviewing", note: "Ask for a live solve defense." },
   });
-  assert.equal(reviewed.status, 200);
-  assert.equal(reviewed.body.case.status, "reviewing");
-  assert.equal(reviewed.body.case.reviewHistory[0].organizer, "organizer@example.test");
+  assert.equal(markingAttempt.status, 404);
 });
 
 test("central integrity ingest accepts every disclosure-enabled companion challenge", async (context) => {

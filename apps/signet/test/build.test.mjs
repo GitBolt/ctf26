@@ -25,7 +25,7 @@ test("player interface contains the required accessible surfaces", () => {
   assert.match(html, /href="https:\/\/github\.com\/GitBolt\/signet"/);
   assert.match(html, /id="source-repository"[^>]+target="_blank"[^>]+rel="noreferrer"/);
   assert.match(html, /id="starter-download"[^>]+href="\/signet-starter\.tar\.gz"[^>]+download/);
-  assert.match(html, /Move the assigned reserve into the registered participant escrow/);
+  assert.match(html, /Move the assigned reserve into its destination/);
 });
 
 test("public challenge brief does not signpost the earned source-archaeology realization", () => {

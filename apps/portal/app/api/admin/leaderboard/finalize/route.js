@@ -63,66 +63,36 @@ export async function POST(request) {
         error: `${missingAcknowledgments.length} checked-in participant${missingAcknowledgments.length === 1 ? " has" : "s have"} not acknowledged the current rules`,
       }, { status: 409 });
     }
-    // Close signal intake first. If review is incomplete, eligibility remains
-    // writable and the next finalization attempt resumes from this durable phase.
+    // Close signal intake so the final snapshot can preserve one stable,
+    // read-only evidence digest without making integrity data part of scoring.
     await freezeRewardIntegrityIngest(config, user.email);
     const lockToken = crypto.randomUUID();
     await store.acquireFinalizationLock(lockToken, 300);
     try {
-      const [stableSnapshot, integrity, fastSolveReviews, proposals, eligibility] = await Promise.all([
+      const [stableSnapshot, integrity] = await Promise.all([
         leaderboardSnapshot({ store, config, skipSharedCache: true }),
         rewardIntegrityReport(),
-        store.fastSolveReviews(),
-        store.eligibilityProposals(),
-        store.eligibilityLedger(),
       ]);
-      const pendingFastSolveReviews = fastSolveReviews.filter((entry) => entry.deliveryStatus !== "delivered");
-      if (pendingFastSolveReviews.length > 0) {
-        return NextResponse.json({
-          error: `${pendingFastSolveReviews.length} fast-solve review signal${pendingFastSolveReviews.length === 1 ? " is" : "s are"} still waiting for delivery`,
-        }, { status: 409 });
-      }
-      if (proposals.some((entry) => entry.state === "proposed")) {
-        return NextResponse.json({ error: "approve or reject every eligibility proposal before finalization" }, { status: 409 });
-      }
-      if (eligibility.decisions.some((entry) => entry.state === "approved" && entry.status === "held")) {
-        return NextResponse.json({ error: "resolve every eligibility hold before finalization" }, { status: 409 });
-      }
       assertAuthoritativeRewardSource(stableSnapshot, config);
       assertIntegrityIngestFrozen(integrity, config);
-      const integrityReview = integrityReviewSeal(
-        integrity,
-        config,
-        stableSnapshot.eligibility.disqualifiedParticipantIds,
-      );
+      const integrityReview = integrityReviewSeal(integrity, config);
 
-      // Reward seals the case digest before the portal freezes eligibility. The
-      // Redis finalization lock blocks concurrent eligibility mutations, while
-      // Reward rejects the seal if an already-running case review changed it.
+      // Reward seals the observation digest while the Redis finalization lock
+      // blocks late score writes. Observations never remove a participant.
       await sealRewardIntegrityReview(config, user.email, integrityReview);
-      const freeze = await store.acquireEligibilityFreeze({
-        configHash: config.configHash,
-        eventGeneration: config.eventGeneration,
-        rewardEventId: config.rewardEventId,
-        organizer: user.email,
-      });
       const snapshot = await leaderboardSnapshot({ store, config, skipSharedCache: true });
       assertAuthoritativeRewardSource(snapshot, config);
-      if (snapshot.eligibilityRevision !== freeze.revision || snapshot.eligibility?.frozen !== true) {
-        throw new Error("eligibility changed while the final leaderboard was being calculated");
-      }
 
       const sealedIntegrity = await rewardIntegrityReport();
-      const sealedReview = integrityReviewSeal(sealedIntegrity, config, snapshot.eligibility.disqualifiedParticipantIds);
+      const sealedReview = integrityReviewSeal(sealedIntegrity, config);
       if (sealedReview.digest !== integrityReview.digest || sealedReview.activeCaseCount !== integrityReview.activeCaseCount) {
         throw new Error("integrity review changed before the final leaderboard could be sealed");
       }
       assertIntegrityReviewFrozen(sealedIntegrity, config, sealedReview);
       const final = await store.sealFinalPublicSnapshot({
         ...snapshot,
-        eligibilityFrozenAt: freeze.acquiredAt,
-        integrityReview: sealedReview,
-      }, { freezeToken: freeze.token });
+        integrityEvidence: sealedReview,
+      }, { finalizationToken: lockToken });
       await store.advanceEventLifecycle({
         phase: "frozen",
         configHash: config.configHash,
@@ -133,7 +103,7 @@ export async function POST(request) {
         finalizedAt: final.finalizedAt,
         eventGeneration: final.eventGeneration,
         configHash: final.configHash,
-        eligibilityRevision: final.eligibilityRevision,
+        snapshotRevision: final.snapshotRevision,
       }, { headers: { "cache-control": "no-store", "referrer-policy": "no-referrer" } });
     } finally {
       await store.releaseFinalizationLock(lockToken).catch(() => null);

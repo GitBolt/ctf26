@@ -9,13 +9,13 @@ release manifest. Never copy secret values, ignored keypairs, or `.keys/` conten
 
 | Surface | URL | Verified state |
 | --- | --- | --- |
-| Central portal | `https://stctf26.vercel.app` | Unified individual portal, leaderboard, and organizer console |
+| Central portal | `https://ctf26-eta.vercel.app` | Unified individual portal, leaderboard, and organizer console |
 | Reward Sniper | `https://st26-reward.up.railway.app/` | **Challenge complete**; bounded market and immutable event cutoff |
 | IMPRINT | `https://st26-imprint.vercel.app` | **Challenge complete**; passkey console and participant inventory health |
 | SIGNET | `https://st26-signet.up.railway.app/` | Repository, live checker, and generation-bound target inventory |
 | DRIFT | `https://st26-drift.up.railway.app/` | Exact native SBF replay service with Redis replay protection |
 | LAST STOP | `https://st26-laststop.up.railway.app/` | Hosted SSH journey with TCP-safe global and per-code budgets |
-| AFTER HOURS | `https://after-hours-production-159b.up.railway.app/` | Discord checkout service and Solana payment verifier live |
+| AFTER HOURS | `https://st26-afterhours.up.railway.app/` | Discord checkout service and Solana payment verifier live |
 | PLAYER TWO | `https://st26-player2.up.railway.app/` | Devnet credential-lifecycle cabinet and native verifier |
 | THE BROADCAST | `https://st26-broadcast.up.railway.app/` | Wallet-signature protocol and completion verifier |
 | EVIDENCE ROOM | `https://st26-evidence.up.railway.app/` | Account-lifecycle service with Redis and payer-capacity health |
@@ -27,13 +27,13 @@ The short Vercel aliases are public, but the portal must keep its currently allo
 base URL until the new callback is added and tested in Google Cloud.
 
 The active event model is individual-only. The portal has one organizer dashboard for lifecycle,
-leaderboard finalization, eligibility, and integrity review. A solve under five minutes opens a
-review-only ticket without changing visibility, score, rank, or eligibility. The final concurrency
+leaderboard finalization and read-only integrity telemetry. A solve under five minutes records a
+passive timing observation without changing visibility, score, rank, or access. The final concurrency
 simulation passed 23 of 23 tests with 40 concurrent participant sessions across every
-service plus invalid and repeated traffic. Score freeze and integrity intake or review sealing are
-separate atomic controls, and neither an integrity signal nor a review ticket changes score by itself.
+service plus invalid and repeated traffic. Score freeze and integrity intake sealing are separate
+atomic controls, and integrity observations never change scores or block finalization.
 Lifecycle changes are durable, one-way organizer actions. Deployments cannot silently advance or roll
-back the event, and finalization locks solve intake, fast-solve review intake, and eligibility together.
+back the event, and finalization atomically locks solve intake before sealing the public snapshot.
 
 The portal route slug and cryptographic ticket audience are intentionally separate. In particular,
 `/api/launch/signet` issues an `aud=signet` ticket. Regression tests cover every catalogue mapping.
@@ -150,8 +150,8 @@ The following work cannot be safely guessed or automated from this repository:
 > another one.
 
 1. **Google OAuth:** production credentials are configured. Add and verify
-   `https://stctf26.vercel.app/api/auth/google/callback` before changing the portal base URL. Until
-   then, keep `https://ctf26-eta.vercel.app/api/auth/google/callback` registered and complete a real
+   the final custom-domain callback before changing the portal base URL. Until then, keep
+   `https://ctf26-eta.vercel.app/api/auth/google/callback` registered and complete a real
    browser sign-in and sign-out rehearsal with the final roster.
 2. **Approved Google accounts:** set `PARTICIPANT_ROSTER_JSON` with the final approved emails and display
    names. Participant IDs are derived by the portal. Keep `ALLOW_OPEN_REGISTRATION=false` for the event.
@@ -200,8 +200,9 @@ The following work cannot be safely guessed or automated from this repository:
     data from evidence exports.
 15. **Solve-defense packets:** each author provides expected milestones, legitimate alternate paths,
     three adaptive questions, and one safe parameterized reproduction variant.
-16. **Adjudication rehearsal:** dry-run a false positive, high-confidence case, mixed-compliance participant,
-    and appeal. Confirm evidence preservation and reversible scoreboard holds/corrections.
+16. **Manual integrity rehearsal:** dry-run a false positive, high-confidence observation,
+    mixed-compliance participant, and appeal outside the live leaderboard. Confirm evidence preservation
+    and a documented post-event correction process.
 
 ## Repeatable checks
 
@@ -220,12 +221,12 @@ git diff --check
 Public health checks:
 
 ```bash
-curl -fsS https://stctf26.vercel.app/api/health
+curl -fsS https://ctf26-eta.vercel.app/api/health
 curl -fsS https://st26-reward.up.railway.app/api/health
 curl -fsS https://st26-signet.up.railway.app/api/health
 curl -fsS https://st26-drift.up.railway.app/health
 curl -fsS https://st26-laststop.up.railway.app/health
-curl -fsS https://after-hours-production-159b.up.railway.app/health
+curl -fsS https://st26-afterhours.up.railway.app/health
 curl -fsS https://st26-player2.up.railway.app/health
 curl -fsS https://st26-broadcast.up.railway.app/health
 curl -fsS https://st26-evidence.up.railway.app/health

@@ -1,5 +1,3 @@
-import crypto from "node:crypto";
-
 import { ALL_CHALLENGE_KEYS, BINARY_CHALLENGE_KEYS } from "@ctf26/leaderboard";
 
 import { LeaderboardStorageError, leaderboardRedisCommand } from "./leaderboard-redis.mjs";
@@ -67,37 +65,6 @@ function parseLifecycle(value) {
   }
 }
 
-function parseEligibilityLedger(value) {
-  if (!Array.isArray(value) || value.length < 2) {
-    throw new LeaderboardStorageError("Stored eligibility ledger is malformed");
-  }
-  const revision = Number(value[0]);
-  if (!Number.isSafeInteger(revision) || revision < 0) {
-    throw new LeaderboardStorageError("Stored eligibility revision is malformed");
-  }
-  let freeze = null;
-  let decisions;
-  try {
-    freeze = value[1] ? JSON.parse(String(value[1])) : null;
-    decisions = value.slice(2).map((encoded) => JSON.parse(String(encoded)));
-  } catch {
-    throw new LeaderboardStorageError("Stored eligibility ledger is malformed");
-  }
-  if (
-    (freeze !== null && (!freeze || typeof freeze !== "object" || Array.isArray(freeze)))
-    || !Array.isArray(decisions)
-    || decisions.some((decision) => !decision || typeof decision !== "object" || Array.isArray(decision))
-  ) {
-    throw new LeaderboardStorageError("Stored eligibility ledger is malformed");
-  }
-  return Object.freeze({
-    revision,
-    frozen: freeze !== null,
-    freeze: freeze ? Object.freeze(freeze) : null,
-    decisions: Object.freeze(decisions),
-  });
-}
-
 function parseScriptResult(result, messages, fallback) {
   const [code, encoded] = Array.isArray(result) ? result : [];
   if (code !== "ok" && code !== "existing") {
@@ -119,22 +86,6 @@ export function createLeaderboardStore(options = {}) {
   }
   const prefix = generation ? `${KEY_PREFIX}:${generation}` : KEY_PREFIX;
   const key = (suffix) => `${prefix}:${suffix}`;
-  // Redis owns the eligibility freeze. Keeping this check at the storage
-  // boundary allows organizers to resolve a stable case set after integrity
-  // intake closes but before the final eligibility snapshot is acquired.
-  const assertEligibilityLifecycleWritable = () => {};
-  const readEligibilityLedger = async () => {
-    const script = [
-      "local result={redis.call('GET',KEYS[2]) or '0',redis.call('GET',KEYS[3]) or ''};",
-      "for _,raw in ipairs(redis.call('HVALS',KEYS[1])) do table.insert(result,raw) end;",
-      "return result;",
-    ].join(" ");
-    return parseEligibilityLedger(await command([
-      "EVAL", script, "3",
-      key("eligibility-decisions"), key("eligibility-revision"), key("eligibility-freeze"),
-    ]));
-  };
-
   return Object.freeze({
     async assertEventConfig(configHash) {
       if (!/^[0-9a-f]{64}$/.test(String(configHash || ""))) throw new Error("leaderboard config hash is invalid");
@@ -337,10 +288,9 @@ export function createLeaderboardStore(options = {}) {
       const reviewKey = key("integrity-fast-solves");
       const result = Number(await command([
         "EVAL",
-        "if redis.call('EXISTS',KEYS[1])==1 or redis.call('EXISTS',KEYS[2])==1 or redis.call('EXISTS',KEYS[3])==1 then return -1 end; return redis.call('HSETNX',KEYS[4],ARGV[1],ARGV[2])",
-        "4",
+        "if redis.call('EXISTS',KEYS[1])==1 or redis.call('EXISTS',KEYS[2])==1 then return -1 end; return redis.call('HSETNX',KEYS[3],ARGV[1],ARGV[2])",
+        "3",
         key("finalization-lock"),
-        key("eligibility-freeze"),
         key("public-snapshot:final"),
         reviewKey,
         field,
@@ -391,17 +341,17 @@ export function createLeaderboardStore(options = {}) {
     async recordSolve(event) {
       const result = await command([
         "EVAL",
-        "if redis.call('EXISTS',KEYS[1])==1 or redis.call('EXISTS',KEYS[2])==1 or redis.call('EXISTS',KEYS[3])==1 then return -1 end; return redis.call('HSETNX',KEYS[4],ARGV[1],ARGV[2])",
-        "4",
+        "if redis.call('EXISTS',KEYS[1])==1 or redis.call('EXISTS',KEYS[2])==1 then return -1 end; local created=redis.call('HSETNX',KEYS[3],ARGV[1],ARGV[2]); if created==1 then redis.call('INCR',KEYS[4]); redis.call('DEL',KEYS[5]); end; return created",
+        "5",
         key("finalization-lock"),
-        key("eligibility-freeze"),
         key("public-snapshot:final"),
         key(`solves:${event.challenge}`),
+        key("snapshot-revision"),
+        key("public-snapshot:fresh"),
         event.participantId,
         JSON.stringify(event),
       ]);
       if (Number(result) === -1) throw new LeaderboardStorageError("score ingest is frozen");
-      if (Number(result) === 1) await command(["DEL", key("public-snapshot:fresh")]);
       return Number(result) === 1;
     },
 
@@ -414,8 +364,13 @@ export function createLeaderboardStore(options = {}) {
         displayName,
         updatedAt: new Date().toISOString(),
       };
-      await command(["HSET", key("profiles"), participantId, JSON.stringify(profile)]);
-      await command(["DEL", key("public-snapshot:fresh")]);
+      await command([
+        "EVAL",
+        "redis.call('HSET',KEYS[1],ARGV[1],ARGV[2]); redis.call('INCR',KEYS[2]); redis.call('DEL',KEYS[3]); return 1",
+        "3",
+        key("profiles"), key("snapshot-revision"), key("public-snapshot:fresh"),
+        participantId, JSON.stringify(profile),
+      ]);
       return profile;
     },
 
@@ -439,111 +394,6 @@ export function createLeaderboardStore(options = {}) {
       return parseRecords(await command(["HGETALL", key("rules-acknowledgments")]));
     },
 
-    async proposeEligibilityDecision({ participantId, status, reason, organizer }) {
-      assertEligibilityLifecycleWritable();
-      if (!PARTICIPANT_ID_PATTERN.test(String(participantId || ""))) throw new Error("invalid participant ID");
-      if (!new Set(["eligible", "held", "disqualified"]).has(status)) throw new Error("invalid eligibility status");
-      const normalizedReason = String(reason || "").trim();
-      if (normalizedReason.length < 8 || normalizedReason.length > 500) throw new Error("eligibility reason must contain 8 to 500 characters");
-      const proposer = String(organizer || "").trim().toLowerCase();
-      if (!proposer.includes("@")) throw new Error("invalid organizer identity");
-      const proposal = {
-        id: `elig_${crypto.randomUUID().replaceAll("-", "")}`,
-        participantId: String(participantId),
-        status,
-        reason: normalizedReason,
-        proposer,
-        proposedAt: new Date().toISOString(),
-        state: "proposed",
-      };
-      const script = [
-        "if redis.call('EXISTS',KEYS[1])==1 then return {'frozen'} end; if redis.call('EXISTS',KEYS[6])==1 then return {'finalizing'} end;",
-        "if redis.call('HSETNX',KEYS[2],ARGV[1],ARGV[2])~=1 then return {'duplicate'} end;",
-        "redis.call('INCR',KEYS[3]); redis.call('DEL',KEYS[4]); redis.call('DEL',KEYS[5]);",
-        "return {'ok',ARGV[2]};",
-      ].join(" ");
-      const result = await command([
-        "EVAL", script, "6",
-        key("eligibility-freeze"), key("eligibility-proposals"), key("eligibility-revision"), key("public-snapshot:fresh"), key("public-snapshot:latest"), key("finalization-lock"),
-        proposal.id, JSON.stringify(proposal),
-      ]);
-      parseScriptResult(result, {
-        frozen: "eligibility ledger is frozen",
-        finalizing: "final leaderboard sealing is in progress",
-        duplicate: "eligibility proposal could not be recorded",
-      }, "eligibility proposal could not be recorded");
-      return proposal;
-    },
-
-    async approveEligibilityDecision(proposalId, organizer) {
-      assertEligibilityLifecycleWritable();
-      if (!/^elig_[0-9a-f]{32}$/.test(String(proposalId || ""))) throw new Error("invalid eligibility proposal ID");
-      const approver = String(organizer || "").trim().toLowerCase();
-      if (!approver.includes("@")) throw new Error("invalid organizer identity");
-      const script = [
-        "if redis.call('EXISTS',KEYS[1])==1 then return {'frozen'} end; if redis.call('EXISTS',KEYS[8])==1 then return {'finalizing'} end;",
-        "local raw=redis.call('HGET',KEYS[2],ARGV[1]); if not raw then return {'missing'} end;",
-        "local p=cjson.decode(raw); if p.state~='proposed' then return {'closed'} end;",
-        "if p.proposer==ARGV[2] then return {'same-organizer'} end;",
-        "p.state='approved'; p.approver=ARGV[2]; p.approvedAt=ARGV[3];",
-        "local encoded=cjson.encode(p); redis.call('HSET',KEYS[2],ARGV[1],encoded);",
-        "redis.call('HSET',KEYS[3],p.participantId,encoded); redis.call('RPUSH',KEYS[4],encoded); redis.call('LTRIM',KEYS[4],-1000,-1);",
-        "redis.call('INCR',KEYS[5]); redis.call('DEL',KEYS[6]); redis.call('DEL',KEYS[7]); return {'ok',encoded};",
-      ].join(" ");
-      const result = await command([
-        "EVAL", script, "8",
-        key("eligibility-freeze"), key("eligibility-proposals"), key("eligibility-decisions"), key("eligibility-audit"), key("eligibility-revision"), key("public-snapshot:fresh"), key("public-snapshot:latest"), key("finalization-lock"),
-        String(proposalId), approver, new Date().toISOString(),
-      ]);
-      return parseScriptResult(result, {
-        frozen: "eligibility ledger is frozen",
-        finalizing: "final leaderboard sealing is in progress",
-        missing: "eligibility proposal was not found",
-        closed: "eligibility proposal is already closed",
-        "same-organizer": "a second organizer must approve the decision",
-      }, "eligibility proposal could not be approved");
-    },
-
-    async rejectEligibilityProposal(proposalId, organizer) {
-      assertEligibilityLifecycleWritable();
-      if (!/^elig_[0-9a-f]{32}$/.test(String(proposalId || ""))) throw new Error("invalid eligibility proposal ID");
-      const reviewer = String(organizer || "").trim().toLowerCase();
-      if (!reviewer.includes("@")) throw new Error("invalid organizer identity");
-      const script = [
-        "if redis.call('EXISTS',KEYS[1])==1 then return {'frozen'} end; if redis.call('EXISTS',KEYS[7])==1 then return {'finalizing'} end;",
-        "local raw=redis.call('HGET',KEYS[2],ARGV[1]); if not raw then return {'missing'} end;",
-        "local p=cjson.decode(raw); if p.state~='proposed' then return {'closed'} end;",
-        "if p.proposer==ARGV[2] then return {'same-organizer'} end;",
-        "p.state='rejected'; p.reviewer=ARGV[2]; p.reviewedAt=ARGV[3];",
-        "local encoded=cjson.encode(p); redis.call('HSET',KEYS[2],ARGV[1],encoded); redis.call('RPUSH',KEYS[3],encoded); redis.call('LTRIM',KEYS[3],-1000,-1);",
-        "redis.call('INCR',KEYS[4]); redis.call('DEL',KEYS[5]); redis.call('DEL',KEYS[6]); return {'ok',encoded};",
-      ].join(" ");
-      const result = await command([
-        "EVAL", script, "7",
-        key("eligibility-freeze"), key("eligibility-proposals"), key("eligibility-audit"), key("eligibility-revision"), key("public-snapshot:fresh"), key("public-snapshot:latest"), key("finalization-lock"),
-        String(proposalId), reviewer, new Date().toISOString(),
-      ]);
-      return parseScriptResult(result, {
-        frozen: "eligibility ledger is frozen",
-        finalizing: "final leaderboard sealing is in progress",
-        missing: "eligibility proposal was not found",
-        closed: "eligibility proposal is already closed",
-        "same-organizer": "a second organizer must reject the proposal",
-      }, "eligibility proposal could not be rejected");
-    },
-
-    async eligibilityDecisions() {
-      return (await readEligibilityLedger()).decisions;
-    },
-
-    async eligibilityProposals() {
-      return parseRecords(await command(["HGETALL", key("eligibility-proposals")]));
-    },
-
-    async eligibilityLedger() {
-      return readEligibilityLedger();
-    },
-
     async acquireFinalizationLock(token, ttlSeconds = 120) {
       if (!/^[0-9a-f-]{36}$/.test(String(token || ""))) throw new Error("finalization lock token is invalid");
       if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds < 30 || ttlSeconds > 300) {
@@ -564,54 +414,6 @@ export function createLeaderboardStore(options = {}) {
         key("finalization-lock"),
         String(token || ""),
       ]);
-    },
-
-    async assertIntegrityReviewWritable() {
-      const blocked = Number(await command([
-        "EVAL",
-        "if redis.call('EXISTS',KEYS[1])==1 or redis.call('EXISTS',KEYS[2])==1 then return 1 else return 0 end",
-        "2",
-        key("finalization-lock"),
-        key("eligibility-freeze"),
-      ]));
-      if (blocked) throw new LeaderboardStorageError("integrity review is frozen for finalization");
-      return true;
-    },
-
-    async acquireEligibilityFreeze(metadata = {}) {
-      const configHash = String(metadata.configHash || "");
-      const eventGeneration = String(metadata.eventGeneration || "");
-      const rewardEventId = String(metadata.rewardEventId || "");
-      const organizer = String(metadata.organizer || "").trim().toLowerCase();
-      if (!/^[0-9a-f]{64}$/.test(configHash)) throw new Error("leaderboard config hash is invalid");
-      if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(eventGeneration)) throw new Error("event generation is invalid");
-      if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(rewardEventId)) throw new Error("Reward Sniper event ID is invalid");
-      if (!organizer.includes("@")) throw new Error("invalid organizer identity");
-      const freeze = {
-        token: crypto.randomUUID(),
-        configHash,
-        eventGeneration,
-        rewardEventId,
-        organizer,
-        acquiredAt: new Date().toISOString(),
-      };
-      const script = [
-        "local existing=redis.call('GET',KEYS[1]);",
-        "if existing then local f=cjson.decode(existing); if f.configHash~=ARGV[2] or f.eventGeneration~=ARGV[3] or f.rewardEventId~=ARGV[4] then return {'mismatch'} end; return {'existing',existing} end;",
-        "for _,raw in ipairs(redis.call('HVALS',KEYS[2])) do local p=cjson.decode(raw); if p.state=='proposed' then return {'open-proposals'} end end;",
-        "for _,raw in ipairs(redis.call('HVALS',KEYS[3])) do local d=cjson.decode(raw); if d.state=='approved' and d.status=='held' then return {'held'} end end;",
-        "local f={token=ARGV[1],configHash=ARGV[2],eventGeneration=ARGV[3],rewardEventId=ARGV[4],organizer=ARGV[5],acquiredAt=ARGV[6],revision=tonumber(redis.call('GET',KEYS[4]) or '0')};",
-        "local encoded=cjson.encode(f); redis.call('SET',KEYS[1],encoded); return {'ok',encoded};",
-      ].join(" ");
-      return Object.freeze(parseScriptResult(await command([
-        "EVAL", script, "4",
-        key("eligibility-freeze"), key("eligibility-proposals"), key("eligibility-decisions"), key("eligibility-revision"),
-        freeze.token, configHash, eventGeneration, rewardEventId, organizer, freeze.acquiredAt,
-      ]), {
-        mismatch: "eligibility ledger is frozen for another event configuration",
-        "open-proposals": "approve or reject every eligibility proposal before finalization",
-        held: "resolve every eligibility hold before finalization",
-      }, "eligibility ledger could not be frozen"));
     },
 
     async solves() {
@@ -646,6 +448,14 @@ export function createLeaderboardStore(options = {}) {
       }
     },
 
+    async snapshotRevision() {
+      const revision = Number((await command(["GET", key("snapshot-revision")])) || 0);
+      if (!Number.isSafeInteger(revision) || revision < 0) {
+        throw new LeaderboardStorageError("Stored leaderboard snapshot revision is malformed");
+      }
+      return revision;
+    },
+
     async freshPublicSnapshot() {
       return parseSnapshot(await command(["GET", key("public-snapshot:fresh")]));
     },
@@ -677,15 +487,15 @@ export function createLeaderboardStore(options = {}) {
 
     async cachePublicSnapshot(snapshot) {
       const encoded = JSON.stringify(snapshot);
-      const revision = Number(snapshot?.eligibilityRevision);
-      if (!Number.isSafeInteger(revision) || revision < 0) throw new Error("snapshot eligibility revision is invalid");
+      const revision = Number(snapshot?.snapshotRevision);
+      if (!Number.isSafeInteger(revision) || revision < 0) throw new Error("snapshot revision is invalid");
       const cached = await command([
         "EVAL",
         "if tonumber(redis.call('GET',KEYS[1]) or '0')~=tonumber(ARGV[1]) then return 0 end; redis.call('SET',KEYS[2],ARGV[2],'EX',4); redis.call('SET',KEYS[3],ARGV[2],'EX',86400); return 1",
-        "3", key("eligibility-revision"), key("public-snapshot:fresh"), key("public-snapshot:latest"),
+        "3", key("snapshot-revision"), key("public-snapshot:fresh"), key("public-snapshot:latest"),
         String(revision), encoded,
       ]);
-      if (Number(cached) !== 1) throw new LeaderboardStorageError("Eligibility changed while the public leaderboard was being calculated");
+      if (Number(cached) !== 1) throw new LeaderboardStorageError("Scores changed while the public leaderboard was being calculated");
       return snapshot;
     },
 
@@ -694,37 +504,35 @@ export function createLeaderboardStore(options = {}) {
     },
 
     async sealFinalPublicSnapshot(snapshot, options = {}) {
-      const revision = Number(snapshot?.eligibilityRevision);
-      const freezeToken = String(options.freezeToken || "");
-      if (!Number.isSafeInteger(revision) || revision < 0) throw new Error("snapshot eligibility revision is invalid");
-      if (!freezeToken) throw new Error("eligibility freeze token is required");
+      const revision = Number(snapshot?.snapshotRevision);
+      const finalizationToken = String(options.finalizationToken || "");
+      if (!Number.isSafeInteger(revision) || revision < 0) throw new Error("snapshot revision is invalid");
+      if (!finalizationToken) throw new Error("finalization lock token is required");
       const finalized = {
         ...snapshot,
         scoringMode: "frozen",
         finalizedAt: new Date().toISOString(),
       };
       const script = [
-        "local raw=redis.call('GET',KEYS[2]); if not raw then return {'not-frozen'} end;",
-        "local f=cjson.decode(raw); if f.token~=ARGV[1] then return {'wrong-freeze'} end;",
-        "if f.configHash~=ARGV[3] or f.eventGeneration~=ARGV[4] or f.rewardEventId~=ARGV[5] then return {'mismatch'} end;",
-        "if tonumber(redis.call('GET',KEYS[3]) or '0')~=tonumber(ARGV[2]) or tonumber(f.revision)~=tonumber(ARGV[2]) then return {'stale'} end;",
+        "local lock=redis.call('GET',KEYS[2]); if not lock then return {'not-finalizing'} end;",
+        "if lock~=ARGV[1] then return {'wrong-lock'} end;",
+        "if tonumber(redis.call('GET',KEYS[3]) or '0')~=tonumber(ARGV[2]) then return {'stale'} end;",
         "local existing=redis.call('GET',KEYS[1]); if existing then return {'existing',existing} end;",
         "redis.call('SET',KEYS[1],ARGV[6]); return {'ok',ARGV[6]};",
       ].join(" ");
       const sealed = parseScriptResult(await command([
         "EVAL", script, "3",
-        key("public-snapshot:final"), key("eligibility-freeze"), key("eligibility-revision"),
-        freezeToken, String(revision), String(snapshot.configHash || ""), String(snapshot.eventGeneration || ""), String(snapshot.performanceSource?.eventId || ""), JSON.stringify(finalized),
+        key("public-snapshot:final"), key("finalization-lock"), key("snapshot-revision"),
+        finalizationToken, String(revision), String(snapshot.configHash || ""), String(snapshot.eventGeneration || ""), String(snapshot.performanceSource?.eventId || ""), JSON.stringify(finalized),
       ]), {
-        "not-frozen": "eligibility ledger is not frozen",
-        "wrong-freeze": "eligibility freeze ownership changed",
-        mismatch: "final leaderboard belongs to another event configuration",
-        stale: "eligibility changed before the final leaderboard could be sealed",
+        "not-finalizing": "finalization lock is not held",
+        "wrong-lock": "finalization lock ownership changed",
+        stale: "scores changed before the final leaderboard could be sealed",
       }, "final leaderboard could not be sealed");
       if (
         sealed?.configHash !== snapshot.configHash
         || sealed?.eventGeneration !== snapshot.eventGeneration
-        || sealed?.eligibilityRevision !== revision
+        || sealed?.snapshotRevision !== revision
       ) {
         throw new LeaderboardStorageError("Final leaderboard belongs to another event configuration");
       }

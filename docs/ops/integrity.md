@@ -103,9 +103,9 @@ in the activity history, but they cannot establish prohibited AI use without cor
 
 The portal records the first challenge launch durably for each participant and event generation. A
 signed completion received less than `FAST_SOLVE_REVIEW_SECONDS` later, 300 seconds by default, opens a
-manual-review case. This timing signal never changes score, access, or eligibility automatically. A
-missing launch record opens no case, reloads do not reset the first-launch clock, and failed delivery to
-the review service remains in a Redis outbox for organizer retry.
+passive observation. This timing signal never changes score, access, rank, or finalization. A missing
+launch record creates no observation, reloads do not reset the first-launch clock, and failed delivery
+to the telemetry service remains a bounded Redis record and never blocks a valid solve.
 
 Participant-authenticated interface navigation is also non-evidence by itself. Script identifiers,
 headless-browser identifiers, missing UI events, and interface-asset requests remain in the activity
@@ -236,19 +236,17 @@ aggregated integrity report; feed observed capabilities and false positives back
 
 ## 6. Tooling backlog
 
-The platform should support append-only structured integrity events; exact wrong-submission retention;
-synchronized launch/hint/action/solve timelines; anomaly views for bursts, impossible ordering,
-cross-participant reuse, and known decoys; reviewer cases with immutable evidence references; temporary holds;
-author question/variant packets; two-reviewer decisions; appeals and reversible scoreboard corrections;
-retention expiry; and access auditing.
+The platform supports append-only structured integrity events and synchronized participant timelines.
+Any event-day investigation, author questions, participant contact, sanction, appeal, or later scoreboard
+correction happens through the organizers' separate manual process, not through the live leaderboard.
 
 Avoid a black-box “AI cheating score.” Show underlying events and reasons so reviewers can challenge the
 inference.
 
 The canonical organizer surface is `/admin`. It combines readiness, the config-driven scoring lifecycle,
-Reward Sniper state, leaderboard finalization, the integrity queue, staging-only reset, and the
-two-organizer eligibility ledger. `/admin/integrity` redirects there. Start and end timestamps remain
-deployment configuration and cannot be mutated from the dashboard.
+Reward Sniper state, leaderboard finalization, passive integrity observations, and the staging-only reset.
+It does not mark participants, adjudicate cases, or alter leaderboard eligibility. Start and end timestamps
+remain deployment configuration and cannot be mutated from the dashboard.
 
 ---
 

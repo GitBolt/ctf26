@@ -40,6 +40,23 @@ async function fetchGoogleUser(accessToken) {
   return res.json();
 }
 
+async function provisionSignet(participantId) {
+  const origin = String(process.env.SIGNET_URL || "").replace(/\/$/, "");
+  const secret = String(process.env.CHALLENGE_TICKET_SECRET_SIGNET || "");
+  if (!origin || Buffer.byteLength(secret) < 32) throw new Error("signet provisioning is not configured");
+  const response = await fetch(`${origin}/api/internal/provision`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      authorization: `Bearer ${secret}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ participantId }),
+    signal: AbortSignal.timeout(45_000),
+  });
+  if (!response.ok) throw new Error("signet provisioning failed");
+}
+
 export async function GET(request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code") || "";
@@ -71,6 +88,14 @@ export async function GET(request) {
       participantId,
       displayName: String(googleUser.name || email).slice(0, 80),
     };
+    if (registration) {
+      await provisionSignet(identity.participantId).catch((error) => {
+        console.error("signet pre-provisioning failed", {
+          participantId: identity.participantId,
+          error: error?.message || String(error),
+        });
+      });
+    }
     const session = createUserSession({
       participant_id: identity.participantId,
       email,

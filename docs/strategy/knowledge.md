@@ -1,6 +1,6 @@
 # CTF26 Knowledge Base
 
-Updated: 2026-07-16
+Updated: 2026-07-24
 
 This is the working memory for the event: what we are building, how we protect competition integrity,
 why the challenge slate looks this way, what benchmark we are comparing against, and which real Solana
@@ -8,16 +8,22 @@ bug classes are worth mining for buildable challenges.
 
 Read this after `event.md` when you need the full context quickly.
 
-> **IMPRINT is COMPLETE and LOCKED.** Its mechanics, hardened Anchor verifier, passkey gate, checker,
-> UI, deployment, and AI/autonomous-agent evaluation are finished. Do not redesign or reopen IMPRINT.
-> Future work on it is limited to event operations: final passkey enrollment, target capacity, and
-> clean-room human QA.
+## Current operating model
 
-## Recent decisions and settled lessons (2026-07-15)
+CTF26 is an individual event with ten shipped challenges: Reward Sniper, IMPRINT, SIGNET, DRIFT,
+LAST STOP, AFTER HOURS, PLAYER TWO, THE BROADCAST, EVIDENCE ROOM, and SECOND KEY. Google-authenticated
+participants receive one-time signed launch tickets. Challenge services remain the authoritative source
+of completion; the portal owns the shared score, leaderboard, passive integrity observations, and
+organizer lifecycle controls. Current operational detail lives in `../ops/final-audit.md`,
+`../ops/staging.md`, `../ops/integrity.md`, and the ten challenge specifications.
 
-This section records decisions that became clear during the latest implementation and adversarial
-testing cycle. It is the canonical current baseline; detailed evidence remains in the linked
-challenge specs, staging runbook, and integrity case study.
+Integrity observations never change a participant's access, score, rank, or eligibility. They are
+bounded context for a separate manual review process, not a ticketing or adjudication system in the
+admin portal.
+
+The material after the current baseline is retained historical design and research context. It may
+describe earlier challenge slates, implementation states, or organizer workflows and must not override
+the current operating model above.
 
 ### Current implementation status
 
@@ -28,14 +34,14 @@ completed challenge only for an explicitly named future revision or event-config
 |---|---|---|
 | IMPRINT | Done for the current iteration | passkey gate, checker, core mechanics, and current visual direction |
 | Reward Sniper | Done for the current iteration | market mechanics, scoring model, ticket flow, and validated detection stack |
-| SIGNET | Active build / next challenge | finish automatic first-launch participant setup and rotate the staging program before event launch |
+| SIGNET | Done for the current iteration | automatic first-launch target provisioning and current visual direction |
 | DRIFT | Finalized implementation; event prep pending | do not reopen the native runtime mechanics during SIGNET work |
 | LAST STOP | Done for the current iteration | terminal/PDA mechanics unless an explicitly named future revision requires changes |
 | AFTER HOURS | Done for the current iteration | payment invariant and Discord delivery model unless an explicitly named future revision requires changes |
 | PLAYER TWO | Done for the current iteration | credential lifecycle mechanic and arcade interaction unless an explicitly named future revision requires changes |
-| THE BROADCAST | Implemented and deployed; final clean-room testing pending | signature-variant mechanic and claim workbench unless testing finds a concrete defect |
-| EVIDENCE ROOM | Implemented and deployed; final clean-room testing pending | account-allocation race and reserve-factory interaction unless testing finds a concrete defect |
-| SECOND KEY | Implemented and deployed; final clean-room testing pending | Token-2022 custody mechanic and collateral-desk interaction unless testing finds a concrete defect |
+| THE BROADCAST | Done for the current iteration | signature-variant mechanic and claim workbench unless testing finds a concrete defect |
+| EVIDENCE ROOM | Done for the current iteration | account-allocation race and reserve-factory interaction unless testing finds a concrete defect |
+| SECOND KEY | Done for the current iteration | Token-2022 custody mechanic and collateral-desk interaction unless testing finds a concrete defect |
 
 The live catalogue now contains ten challenges. PLAYER TWO and THE BROADCAST were promoted
 from retained prototype and companion status after their hosted implementations, authoritative
@@ -85,12 +91,10 @@ writeup/signature construction.
 - A discoverable first-party policy (`robots.txt`, `agents.txt`, `llms.txt`, or equivalent) can make a
   policy-following agent disclose and stop. It is a useful integrity layer, not a technical guarantee.
 - Personalized markers and authenticated disclosure endpoints should record identity before refusal
-  is mirrored to an organizer channel. Behavioral signals—cookie reuse, UI/API mismatch, polling
-  cadence, user agent, and action correlation—open a reviewable suspicion case; they do not decide
-  cheating automatically.
-- The organizer view must prioritize email, reason, triggering evidence, and a readable activity
-  timeline. Raw participant IDs and lifecycle case-management controls belong behind details,
-  not in the primary review surface.
+  is mirrored to an organizer channel. Behavioral signals are retained only as passive observations;
+  they never decide cheating automatically.
+- The organizer view is a compact read-only observation feed. It has no participant marking,
+  eligibility control, or case-management workflow; any review happens outside the portal.
 - Every agent test must state whether it is testing policy compliance, autonomous operation, or
   browser/API behavior. A policy refusal is evidence that the policy layer worked, not proof that the
   underlying challenge is technically unsolvable.
