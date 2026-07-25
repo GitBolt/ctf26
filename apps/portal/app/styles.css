@@ -1077,7 +1077,7 @@ button:active {
 }
 
 .challenge:last-child:nth-child(odd) {
-  min-height: 0;
+  min-height: 176px;
   grid-column: 1 / -1;
 }
 
