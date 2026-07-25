@@ -264,6 +264,18 @@ test("bounded events discard practice extraction and aggregate normalized scored
   assert.throws(() => issueVoucher(market, "participant-a", { binId: 0, nonce: "after-complete" }), /event is complete/);
 });
 
+test("each scored round receives a fresh bounded reward window", () => {
+  const market = createMarket("fresh-scored-vault", { roundTicks: 4, scoredRounds: 2 });
+  registerParticipant(market, "participant-a");
+  claimWithSniperTicket(market, "participant-a", 0, 500, issueVoucher(market, "participant-a", { binId: 0, nonce: "first-window" }));
+  advanceTick(market, 4);
+
+  const nextRound = inspectMarket(market, "participant-a");
+  assert.ok(nextRound.participant.escrow > 0);
+  assert.equal(nextRound.participant.roundEscrow, 0);
+  assert.equal(nextRound.rewardVault, 500_000);
+});
+
 test("completed event ranks use finalized scores without counting the last round twice", () => {
   const market = createMarket("completed-ranking", { scoredRounds: 2 });
   registerParticipant(market, "participant-a");

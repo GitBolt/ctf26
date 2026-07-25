@@ -6,11 +6,14 @@
  * row climbed. A first solve carries no delta — an unranked row has no rank to
  * subtract from — so that jump is reported as a debut instead.
  */
-export function rowMovement({ row, priorRank, priorPoints, firstComparison = false }) {
+export function rowMovement({ row, priorRank, priorPoints, priorSolveCount, firstComparison = false }) {
   const knownBefore = Number.isFinite(priorPoints);
   const wasRanked = Number.isSafeInteger(priorRank);
   const isRanked = Number.isSafeInteger(row?.rank);
-  const gained = knownBefore && row.points > priorPoints;
+  const completedChallenge = Number.isSafeInteger(priorSolveCount)
+    && Number.isSafeInteger(row?.solveCount)
+    && row.solveCount > priorSolveCount;
+  const gained = completedChallenge || (knownBefore && row.points > priorPoints);
   const debut = isRanked && !wasRanked && (knownBefore || !firstComparison);
   const delta = wasRanked && isRanked ? priorRank - row.rank : 0;
   if (!debut && delta === 0 && !gained) return null;

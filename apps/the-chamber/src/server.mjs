@@ -45,7 +45,6 @@ export async function createChamberServer(options = {}) {
   const policySecret = required(options.policySecret ?? env.AGENT_POLICY_SECRET ?? (production ? null : "development-the-chamber-policy-secret"), "AGENT_POLICY_SECRET");
   if (production && (options.allowDev === true || env.ALLOW_DEV_LAUNCH === "true")) throw new Error("development launch mode is not allowed in production");
   const allowDev = !production && (options.allowDev ?? (env.ALLOW_DEV_LAUNCH === "true" || !ticketSecret));
-  const expectedParticipants = positiveInteger(options.expectedParticipants ?? env.THE_CHAMBER_EXPECTED_PARTICIPANTS ?? 50, "THE_CHAMBER_EXPECTED_PARTICIPANTS");
   const preAuthIpLimit = positiveInteger(options.preAuthIpLimit ?? env.THE_CHAMBER_PREAUTH_IP_LIMIT_PER_MINUTE ?? 240, "THE_CHAMBER_PREAUTH_IP_LIMIT_PER_MINUTE");
   const preAuthGlobalLimit = positiveInteger(options.preAuthGlobalLimit ?? env.THE_CHAMBER_PREAUTH_GLOBAL_LIMIT_PER_MINUTE ?? 2_400, "THE_CHAMBER_PREAUTH_GLOBAL_LIMIT_PER_MINUTE");
   const sessionLimit = positiveInteger(options.sessionLimit ?? env.THE_CHAMBER_SESSION_LIMIT_PER_MINUTE ?? 240, "THE_CHAMBER_SESSION_LIMIT_PER_MINUTE");
@@ -85,16 +84,18 @@ export async function createChamberServer(options = {}) {
           typeof store.provisionedCount === "function" ? store.provisionedCount() : Promise.resolve(0),
           typeof store.health === "function" ? store.health() : Promise.resolve(false),
         ]);
-        const withinConfiguredField = provisionedParticipants <= expectedParticipants;
-        const remainingParticipants = Math.max(0, expectedParticipants - provisionedParticipants);
-        const chainHealth = await chain.health({ remainingParticipants });
-        const ok = Boolean(chainHealth.ok && storageHealthy && withinConfiguredField);
-        const value = { chainHealth, storageHealthy, provisionedParticipants, remainingParticipants, withinConfiguredField, ok };
+        const chainHealth = await chain.health();
+        const additionalParticipantCapacity = Number.isSafeInteger(chainHealth.additionalParticipantCapacity)
+          ? Math.max(0, chainHealth.additionalParticipantCapacity)
+          : 0;
+        const maxParticipants = provisionedParticipants + additionalParticipantCapacity;
+        const ok = Boolean(chainHealth.ok && storageHealthy);
+        const value = { chainHealth, storageHealthy, provisionedParticipants, additionalParticipantCapacity, maxParticipants, ok };
         if (epoch === healthEpoch) healthCache = { value, expiresAt: Date.now() + healthCacheMs };
         return value;
       } catch (error) {
         console.error("THE CHAMBER capacity probe failed", error.message);
-        const value = { chainHealth: { ok: false }, storageHealthy: false, provisionedParticipants: 0, remainingParticipants: 0, withinConfiguredField: false, ok: false };
+        const value = { chainHealth: { ok: false }, storageHealthy: false, provisionedParticipants: 0, additionalParticipantCapacity: 0, maxParticipants: 0, ok: false };
         if (epoch === healthEpoch) healthCache = { value, expiresAt: Date.now() + healthCacheMs };
         return value;
       }
@@ -184,7 +185,7 @@ export async function createChamberServer(options = {}) {
       return response.end(request.method === "HEAD" ? undefined : body);
     }
     if (request.method === "GET" && url.pathname === "/health") {
-      const { chainHealth, storageHealthy, provisionedParticipants, remainingParticipants, withinConfiguredField, ok } = await readHealth();
+      const { chainHealth, storageHealthy, provisionedParticipants, additionalParticipantCapacity, maxParticipants, ok } = await readHealth();
       return json(response, ok ? 200 : 503, {
         ok,
         challenge: "the-chamber",
@@ -195,13 +196,16 @@ export async function createChamberServer(options = {}) {
         programAvailable: chainHealth.programAvailable !== false,
         capacity: {
           reachable: chainHealth.ok !== undefined,
-          expectedParticipants,
           provisionedParticipants,
-          remainingParticipants,
-          withinConfiguredField,
+          additionalParticipantCapacity,
+          maxParticipants,
           sufficient: chainHealth.capacitySufficient !== false,
         },
-        funding: { payer: chainHealth.payer, requiredBalance: chainHealth.requiredPayerBalance },
+        funding: {
+          payer: chainHealth.payer,
+          balance: chainHealth.payerLamports,
+          requiredPerParticipant: chainHealth.requiredPayerBalance,
+        },
       });
     }
     if (request.method === "GET" && policyPaths.has(url.pathname)) {

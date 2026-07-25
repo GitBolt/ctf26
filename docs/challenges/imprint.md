@@ -1,6 +1,6 @@
 # Challenge Spec — IMPRINT (passkey-gated Solana exploit)
 
-Status: **COMPLETE / LOCKED — Challenge 2 of 10 (platform-passkey auth)** · Updated: 2026-07-21 · Codename: IMPRINT
+Status: **COMPLETE / LOCKED — Challenge 2 of 11 (platform-passkey auth)** · Updated: 2026-07-25 · Codename: IMPRINT
 
 Do not redesign or reopen this challenge. Its remaining checklist is event operations only: final
 roster enrollment, isolated per-participant target provisioning, and clean-room human QA.
@@ -10,7 +10,7 @@ winning exploit action **requires a live user-verifying passkey prompt (Face ID 
 autonomous agent cannot produce. Depth and anti-AI live in the *same real primitive*. Built on
 [`anti-ai.md` §2](../strategy/anti-ai.md#2-the-key-model-two-layers).
 
-> **Identity in the ten-challenge slate:** the **platform-passkey / cryptographic** challenge. The core
+> **Identity in the eleven-challenge slate:** the **platform-passkey / cryptographic** challenge. The core
 > security task is auditing and exploiting a passkey-controlled Solana vault. The anti-agent property is
 > in-band: the winning exploit requires a real passkey assertion and wallet approval. No dynamic-market
 > (that's Reward Sniper), no archaeology (that's SIGNET). Real-CTF lineage: real bug-bounty/audit

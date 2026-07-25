@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CHALLENGE_DISPLAY_ORDER,
   CHALLENGES,
+  DISPLAY_CHALLENGES,
   challengeByKey,
   challengeDestination,
 } from "../app/lib/challenges.mjs";
@@ -26,6 +28,31 @@ test("challenge catalog has unique, launch-safe keys", () => {
     }
   }
   assert.equal(challengeByKey("not-a-challenge"), null);
+});
+
+test("participant catalog starts with quicker experiences and leaves the longest challenge last", () => {
+  assert.deepEqual(
+    CHALLENGE_DISPLAY_ORDER,
+    [
+      "last-stop",
+      "player-two",
+      "after-hours",
+      "the-chamber",
+      "second-key",
+      "evidence-room",
+      "the-broadcast",
+      "imprint",
+      "signet",
+      "drift",
+      "reward-sniper",
+    ],
+  );
+  assert.deepEqual(DISPLAY_CHALLENGES.map(({ key }) => key), CHALLENGE_DISPLAY_ORDER);
+  assert.equal(new Set(CHALLENGE_DISPLAY_ORDER).size, CHALLENGES.length);
+  assert.deepEqual(
+    new Set(CHALLENGE_DISPLAY_ORDER),
+    new Set(CHALLENGES.map(({ key }) => key)),
+  );
 });
 
 test("Reward Sniper treats the briefing package and timed market as separate first-class starts", () => {

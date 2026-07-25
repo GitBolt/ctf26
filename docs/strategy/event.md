@@ -228,10 +228,10 @@ live in [`../challenges/`](../challenges/).
 | 3 | **[SIGNET](../challenges/signet.md)** | N-day / source archaeology | stale pre-fix CPI/PDA authority bug discovered via silent patch | messy repo history + per-participant target + live exploit, with canaries as telemetry |
 | 4 | **[DRIFT](../challenges/drift.md)** | reverse-engineering / runtime | bytecode-only vault with adversarial local runtime assumptions | no-source RE + replay checker |
 | 5 | **[LAST STOP](../challenges/last-stop.md)** | hosted SSH text adventure | variable-length PDA seed-boundary collision | one-use passage + live native replay + terminal-native discovery |
-| 6 | **[AFTER HOURS](../challenges/after-hours.md)** | Discord-native checkout | token identity omitted from payment reconciliation | guild install + real transaction + non-oracular hint |
-| 7 | **[PLAYER TWO](../challenges/player-two.md)** | credential-lifecycle arcade | stale and current membership passes remain simultaneously valid | devnet evidence trail + two-reader cabinet interaction |
-| 8 | **[THE BROADCAST](../challenges/the-broadcast.md)** | hosted wallet cryptography | Ed25519 signature variants bypass byte-level uniqueness accounting | wallet authorization + bounded proof of work + uniform receipts |
-| 9 | **[EVIDENCE ROOM](../challenges/evidence-room.md)** | live account-lifecycle investigation | legacy token account created before initialization | wallet-held room key + live chain state + repeated evidence |
+| 6 | **[AFTER HOURS](../challenges/after-hours.md)** | Discord-native checkout | token identity omitted from payment reconciliation | Discord-native flow, live ledger evidence, telemetry, and prize-contender proctoring |
+| 7 | **[PLAYER TWO](../challenges/player-two.md)** | credential-lifecycle arcade | stale and current membership passes remain simultaneously valid | participant-bound live evidence, telemetry, and prize-contender proctoring |
+| 8 | **[THE BROADCAST](../challenges/the-broadcast.md)** | hosted wallet cryptography | Ed25519 signature variants bypass byte-level uniqueness accounting | bounded proof of work, uniform receipts, telemetry, and prize-contender proctoring |
+| 9 | **[EVIDENCE ROOM](../challenges/evidence-room.md)** | live account-lifecycle investigation | legacy token account created before initialization | participant-bound live state, telemetry, and prize-contender proctoring |
 | 10 | **[SECOND KEY](../challenges/second-key.md)** | live collateral custody | Token-2022 permanent delegate bypasses lender custody assumption | mint-extension discovery + real delegated removal + live invariant checker |
 | 11 | **[THE CHAMBER](../challenges/the-chamber.md)** | three-lock vault authorization | CPI-shape check mistaken for an authorization boundary | venue-issued physical co-signing key + unprompted deploy-your-own-program leap |
 

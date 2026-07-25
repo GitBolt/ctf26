@@ -234,7 +234,6 @@ AFTER_HOURS_RPC_URL
 AFTER_HOURS_STORE_OWNER
 AFTER_HOURS_NIGHT_MINT
 AFTER_HOURS_NIGHT_TREASURY_KEYPAIR
-AFTER_HOURS_EXPECTED_PARTICIPANTS
 AFTER_HOURS_MIN_TREASURY_LAMPORTS
 DISCORD_APPLICATION_ID
 DISCORD_APPLICATION_PUBLIC_KEY
@@ -247,7 +246,7 @@ DISCORD_INSTALL_URL
 
 Launches and Discord commands have participant-scoped rate limits. Payment reconciliation uses a bounded global operation pool with one active chain operation per participant. NIGHT distribution has a separate Redis-backed global limit of one because every transfer writes the same treasury token account. Configure these bounds with `AFTER_HOURS_LAUNCH_RATE_MAX`, `AFTER_HOURS_COMMAND_RATE_MAX`, `AFTER_HOURS_MAX_ACTIVE_OPERATIONS`, and `AFTER_HOURS_MAX_ACTIVE_DISTRIBUTIONS=1`.
 
-Production readiness also verifies event capacity rather than only checking that the treasury is non-empty. Set `AFTER_HOURS_EXPECTED_PARTICIPANTS` to the final individual registration capacity and `AFTER_HOURS_MIN_TREASURY_LAMPORTS` to the organizer's transaction-fee reserve. The generation-scoped store counts each participant's completed NIGHT allotment once, and `/health` requires enough official NIGHT for every remaining configured allotment plus the SOL reserve. The response publishes only capacity booleans and aggregate counts, never treasury addresses or balances.
+Production readiness also verifies event capacity rather than only checking that the treasury is non-empty. Set `AFTER_HOURS_MIN_TREASURY_LAMPORTS` to the organizer's transaction-fee reserve. The generation-scoped store counts each participant's completed NIGHT allotment once, and `/health` derives the maximum supported field from completed allotments plus the remaining official NIGHT inventory. The portal compares that live maximum with the checked-in roster. The response publishes only aggregate capacity, never treasury addresses or balances.
 
 The served metadata uses `AFTER_HOURS_PUBLIC_ORIGIN` for its image and external link. `OFFICIAL_NIGHT_URI` is the permanent metadata URL embedded in each immutable NIGHT mint. If that hostname changes on devnet, provision a replacement fixed-supply mint with `npm run provision:night`, update `AFTER_HOURS_NIGHT_MINT`, and retain the old mint only as historical test data.
 

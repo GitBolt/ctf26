@@ -56,8 +56,13 @@ cannot be rotated without a redeploy:
 
 | file | pubkey | role |
 | --- | --- | --- |
-| `the-chamber-operator.json` | `2pqmreJi…v7AGZ` | `ADMIN_KEY`, rent payer, program upgrade authority |
+| `the-chamber-operator.json` | `2pqmreJi…v7AGZ` | `ADMIN_KEY` and rent payer |
 | `the-chamber-hidden.json` | `AnCccXSJ…tXaty` | `HIDDEN_KEY`; the value written to the venue cards |
+
+The live program's upgrade authority is the separate address
+`GpEetfasA7J3kbERkBAqqas8vTTfTTkyUdSrS4DKQrq2`. The operator key cannot upgrade
+the program. Confirm custody of that authority before planning an in-place key
+rotation. Without it, rotation requires a new deployment and program ID.
 
 Both are challenge-scoped rather than personal wallets, so the substantive rule in
 `docs/strategy/anti-ai.md` §9 holds — but tracking them departs from that section's
@@ -90,10 +95,52 @@ release:
 
 1. Point `THE_CHAMBER_ADMIN_KEYPAIR` at the inherited operator key and
    `SOLANA_RPC_URL` at a provider that accepts server traffic.
-2. Keep the operator funded for one account per participant; `/health` reports
-   `funding.requiredBalance` and fails closed when short. It held 10.01 SOL against
-   a 0.12 SOL requirement for a 50-person field at last check.
+2. Keep the operator funded for one account per participant. `/health` derives
+   `capacity.maxParticipants` from the live balance and reports the cost of each
+   additional account.
 3. Program the venue cards with the hidden key and count them against the roster.
+
+### Programming the venue cards
+
+NTAG213, NTAG215, and NTAG216 cards are supported. The card stores the 64-byte
+Solana keypair as an 88-character Base64 string so the complete NDEF text record
+fits on NTAG213. Do not write the larger JSON array to the card.
+
+1. On an organizer-controlled Mac, run this from `apps/the-chamber` to copy the
+   compact payload:
+
+   ```bash
+   node -e 'const fs=require("fs");const k=JSON.parse(fs.readFileSync(".keys/the-chamber-hidden.json","utf8"));process.stdout.write(Buffer.from(k).toString("base64"))' | pbcopy
+   ```
+
+2. In NFC Tools, choose **Write**, add one **Text** record, and paste the copied
+   Base64 value. The text is 88 characters and NFC Tools reports a 91-byte NDEF
+   payload when the language is `EN`.
+3. Write the same payload to every venue card.
+4. Read every card back inside NFC Tools and confirm the Text value is
+   byte-for-byte identical. iPhone background scanning does not reliably display
+   plain NDEF text records, so use NFC Tools or another NDEF reader.
+5. Copy the recovered Text value and verify the signer:
+
+   ```bash
+   pbpaste | node --input-type=module -e 'import {Keypair} from "@solana/web3.js";let s="";for await(const c of process.stdin)s+=c;const k=Keypair.fromSecretKey(Buffer.from(s.trim(),"base64"));console.log(k.publicKey.toBase58())'
+   ```
+
+   It must print `AnCccXSJrEbge2W5cttNJ6JEf21dusiXfNMqMAZtXaty`.
+6. After the full batch passes, make the tags read-only if the purchased tags and
+   writer support an irreversible lock. Keep two verified unlocked spares with
+   organizers until the event ends.
+
+Do not write a URL record, upload the payload, or use a cloud-backed NFC workflow.
+The card should contain only the local NDEF text record.
+
+Participants recover the signer with:
+
+```ts
+const hidden = Keypair.fromSecretKey(
+  Buffer.from(textFromCard.trim(), "base64"),
+);
+```
 
 `web/the-chamber-idl.json` is the IDL of the deployed program and is committed, so
 `/api/idl` works without a build. `npm run build:idl` only needs to run if the

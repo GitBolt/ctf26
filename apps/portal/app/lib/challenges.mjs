@@ -147,6 +147,24 @@ const CHALLENGE_BY_KEY = new Map(
   CHALLENGES.map((challenge) => [challenge.key, challenge]),
 );
 
+export const CHALLENGE_DISPLAY_ORDER = Object.freeze([
+  "last-stop",
+  "player-two",
+  "after-hours",
+  "the-chamber",
+  "second-key",
+  "evidence-room",
+  "the-broadcast",
+  "imprint",
+  "signet",
+  "drift",
+  "reward-sniper",
+]);
+
+export const DISPLAY_CHALLENGES = Object.freeze(
+  CHALLENGE_DISPLAY_ORDER.map((key) => CHALLENGE_BY_KEY.get(key)),
+);
+
 export function challengeByKey(key) {
   return CHALLENGE_BY_KEY.get(String(key || "")) || null;
 }

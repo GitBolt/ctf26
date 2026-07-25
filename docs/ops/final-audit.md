@@ -1,10 +1,10 @@
 # CTF26 final audit
 
-Updated: 2026-07-23
+Updated: 2026-07-25
 
 ## Verdict
 
-The ten-challenge system is ready for a final event rehearsal. The implementation now has one
+The eleven-challenge system is ready for a final event rehearsal. The implementation now has one
 participant identity model, bounded public request paths, generation-scoped state, durable solve
 recovery, passive integrity signals, explicit event timing, and fail-closed score finalization.
 
@@ -82,8 +82,9 @@ change, and the last stable leaderboard remains available while the final snapsh
   Completion fanout skips solved or unlaunched challenges and backs off unhealthy services.
 - Inventory and capacity health checks fail closed. Portal health checks exact roster parity for Reward,
   exact credential count for IMPRINT, and exact count plus participant-ID digest for SIGNET.
-- SIGNET also budgets the operator balance for every unprovisioned participant. Its current 0.610 SOL
-  covers the 0.375 SOL required to finish the configured 40-person rehearsal field.
+- SIGNET budgets the operator balance for every unprovisioned participant. A fresh generation may
+  begin with an empty inventory; each approved participant is provisioned on first launch, and
+  official readiness requires the resulting inventory to match the checked-in field exactly.
 - AFTER HOURS, PLAYER TWO, Evidence Room, and Second Key report field capacity based on current payer or
   treasury funding. Capacity is a launch condition, not merely a positive-balance check.
 - PLAYER TWO, Evidence Room, and Second Key use separate Devnet payers. Portal readiness rejects a future
@@ -91,14 +92,14 @@ change, and the last stable leaderboard remains available while the final snapsh
 - Reward Sniper's official start and end are immutable configuration. Writes and scheduled or manual
   transitions stop at the exact end, and a restart cannot create a free late round.
 
-The concurrency suite passed **23 of 23 tests**, modeling 40 concurrent participant
+The concurrency suite passed **24 of 24 tests**, modeling 50 concurrent participant
 sessions across every service plus invalid and repeated traffic. It verified identity isolation,
 one-use tickets, duplicate solves, bounded global work, atomic updates, and recovery. It does not
 replace live canaries, resource monitoring, or an isolated validator.
 
 ## Current deployed state
 
-Observed on 2026-07-23:
+Observed on 2026-07-25:
 
 - The portal is healthy in explicit staging mode with open rehearsal registration, zero checked-in
   participants, and two configured organizers. It is not presenting this as official readiness.
@@ -113,7 +114,7 @@ Observed on 2026-07-23:
   sign-in attempts best-effort pre-provisioning, and first challenge launch retries provisioning if RPC
   access was temporarily unavailable.
 - IMPRINT `5EgXikx8uaGDDRdLdxzoLsDafSruHZnNnstE7bd8wH6B`, SIGNET
-  `9xN3K7QfVtkUhFUgVawMuNvWPePvfrmnDmBGDxpo3grD`, PLAYER TWO
+  `GvX54HkYCVcM946oTSWMaV3MHhqWgHPf4CcLab2LZahR`, PLAYER TWO
   `BGJkBJaEHAakMso532hE1vfGdFkYX8dvjy9gDbCGN7eW`, and Second Key
   `NcPgcz4zQ2CKZK6evWYwGC6iFcdji2Yrw65nCoto5rn` are executable on Devnet. Dumped program bytes match
   the repository builds; IMPRINT and PLAYER TWO contain only normal trailing deployment padding.
@@ -152,7 +153,7 @@ preserved evidence, an author-led solve defense, two organizers, private notice,
 | The Broadcast | `https://st26-broadcast.up.railway.app` |
 | Evidence Room | `https://st26-evidence.up.railway.app` |
 | Second Key | `https://st26-secondkey.up.railway.app` |
-| The Chamber | _service not yet hosted — vault program already live on devnet; pending Railway deployment and programmed venue cards_ |
+| The Chamber | `https://st26-chamber.up.railway.app` |
 
 AFTER HOURS keeps its existing hostname because immutable on-chain token metadata points to that
 origin. The portal's Google OAuth base URL must remain on its currently allowlisted origin until the

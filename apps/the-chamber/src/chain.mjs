@@ -209,22 +209,24 @@ export function createChamberChain(env = process.env) {
         throw new Error("the chamber could not open an account for that wallet");
       }
     },
-    async health({ remainingParticipants = 0 } = {}) {
+    async health() {
       const [programInfo, payerLamports] = await Promise.all([
         connection.getAccountInfo(programId, "confirmed"),
         connection.getBalance(admin.publicKey, "confirmed"),
       ]);
       const programAvailable = Boolean(programInfo?.executable);
-      const requiredPayerBalance = remainingParticipants * (rentLamports + feeBudgetLamports);
-      const capacitySufficient = payerLamports >= requiredPayerBalance;
+      const lamportsPerParticipant = rentLamports + feeBudgetLamports;
+      const additionalParticipantCapacity = Math.floor(payerLamports / lamportsPerParticipant);
       return {
-        ok: programAvailable && capacitySufficient,
+        ok: programAvailable,
         programAvailable,
-        capacitySufficient,
+        capacitySufficient: additionalParticipantCapacity > 0,
+        additionalParticipantCapacity,
         payer: admin.publicKey.toBase58(),
         payerLamports,
-        requiredPayerBalance,
+        requiredPayerBalance: lamportsPerParticipant,
         rentLamportsPerParticipant: rentLamports,
+        feeBudgetLamportsPerParticipant: feeBudgetLamports,
       };
     },
   };

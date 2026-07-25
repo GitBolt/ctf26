@@ -24,9 +24,8 @@ test("unsupported client-selected group identity is rejected", async (t) => {
   assert.equal(response.status, 400);
 });
 
-test("capacity planning reserves four cases per expected participant plus buffer", () => {
+test("capacity planning derives the buffered cost of one participant", () => {
   const estimate = estimateEvidenceRoomCapacity({
-    expectedParticipants: 50,
     maxBatches: 4,
     tokenRent: 2_039_280,
     mintRent: 1_461_600,
@@ -36,8 +35,7 @@ test("capacity planning reserves four cases per expected participant plus buffer
   assert.deepEqual(estimate, {
     perBatch: 6_431_040,
     perParticipant: 57_185_760,
-    baseTotal: 2_859_288_000,
-    requiredBalance: 3_145_216_800,
+    bufferedPerParticipant: 62_904_336,
   });
 });
 
@@ -365,14 +363,14 @@ test("health fails closed when the chain dependency is unavailable", async (t) =
   assert.equal(health.store.ok, true);
 });
 
-test("health fails closed when the factory payer cannot cover expected participants", async (t) => {
+test("health fails closed when the factory payer falls below its protected reserve", async (t) => {
   const chain = fakeChain();
   chain.health = async () => ({
     ok: false,
     balance: 2_000_000_000,
-    requiredBalance: 3_145_216_800,
+    requiredBalance: 50_000_000,
     estimatedLamportsPerParticipant: 57_185_760,
-    expectedParticipants: 50,
+    maxParticipants: 31,
   });
   const service = await createEvidenceRoomServer({ chain, allowDev: true, reportSolve: async () => {} });
   const address = await service.listen();
@@ -380,7 +378,7 @@ test("health fails closed when the factory payer cannot cover expected participa
   const response = await fetch(`http://127.0.0.1:${address.port}/health`);
   assert.equal(response.status, 503);
   const health = await response.json();
-  assert.equal(health.chain.requiredBalance, 3_145_216_800);
+  assert.equal(health.chain.requiredBalance, 50_000_000);
   assert.equal(health.chain.estimatedLamportsPerParticipant, 57_185_760);
 });
 

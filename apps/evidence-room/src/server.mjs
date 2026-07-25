@@ -45,7 +45,7 @@ export async function createEvidenceRoomServer(options = {}) {
   const captureGraceMs = positiveInteger(options.captureGraceMs ?? env.EVIDENCE_ROOM_CAPTURE_GRACE_MS ?? 30_000, "EVIDENCE_ROOM_CAPTURE_GRACE_MS");
   const batchCooldownMs = positiveInteger(options.batchCooldownMs ?? env.EVIDENCE_ROOM_BATCH_COOLDOWN_MS ?? 30_000, "EVIDENCE_ROOM_BATCH_COOLDOWN_MS");
   const maxBatches = positiveInteger(options.maxBatches ?? env.EVIDENCE_ROOM_MAX_BATCHES ?? 4, "EVIDENCE_ROOM_MAX_BATCHES");
-  const interferenceCredits = nonNegativeInteger(options.interferenceCredits ?? env.EVIDENCE_ROOM_INTERFERENCE_CREDITS ?? 2, "EVIDENCE_ROOM_INTERFERENCE_CREDITS");
+  const interferenceCredits = nonNegativeInteger(options.interferenceCredits ?? env.EVIDENCE_ROOM_INTERFERENCE_CREDITS ?? 0, "EVIDENCE_ROOM_INTERFERENCE_CREDITS");
   const schedulerConcurrency = positiveInteger(options.schedulerConcurrency ?? env.EVIDENCE_ROOM_SCHEDULER_CONCURRENCY ?? 4, "EVIDENCE_ROOM_SCHEDULER_CONCURRENCY");
   const preAuthIpLimit = positiveInteger(options.preAuthIpLimit ?? env.EVIDENCE_ROOM_PREAUTH_IP_LIMIT_PER_MINUTE ?? 240, "EVIDENCE_ROOM_PREAUTH_IP_LIMIT_PER_MINUTE");
   const preAuthGlobalLimit = positiveInteger(options.preAuthGlobalLimit ?? env.EVIDENCE_ROOM_PREAUTH_GLOBAL_LIMIT_PER_MINUTE ?? 2_400, "EVIDENCE_ROOM_PREAUTH_GLOBAL_LIMIT_PER_MINUTE");
@@ -68,7 +68,7 @@ export async function createEvidenceRoomServer(options = {}) {
     if (healthCache && healthCache.expiresAt > Date.now()) return healthCache.value;
     if (!healthProbe) {
       healthProbe = Promise.allSettled([
-        chain.health(),
+        store.participantIds().then((participantIds) => chain.health({ provisionedParticipants: participantIds.length })),
         typeof store.health === "function" ? store.health() : Promise.resolve({ ok: true }),
       ]).then(([chainResult, storeResult]) => {
         const chainHealth = chainResult.status === "fulfilled" ? chainResult.value : { ok: false, error: "chain unavailable" };

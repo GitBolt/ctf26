@@ -44,9 +44,8 @@ test("production pins the Second Key RPC and program explicitly", () => {
   assert.throws(() => createSecondKeyChain({ NODE_ENV: "production", SOLANA_RPC_URL: "https://rpc.example" }), /SECOND_KEY_PROGRAM_ID is required in production/);
 });
 
-test("payer capacity budgets every remaining participant and fails closed when underfunded", () => {
+test("payer capacity derives a funded participant maximum without a fixed field cap", () => {
   const inputs = {
-    expectedParticipants: 50,
     provisionedParticipants: 10,
     mintRent: 2_000_000,
     tokenAccountRent: 2_100_000,
@@ -56,9 +55,7 @@ test("payer capacity budgets every remaining participant and fails closed when u
   };
   const capacity = estimateSecondKeyCapacity(inputs);
   assert.equal(capacity.perParticipantLamports, 48_000_000);
-  assert.equal(capacity.remainingParticipants, 40);
-  assert.equal(capacity.baseRemainingBalance, 1_920_000_000);
-  assert.equal(capacity.requiredRemainingBalance, 2_112_000_000);
+  assert.equal(capacity.bufferedPerParticipantLamports, 52_800_000);
   assert.deepEqual(capacity.components, {
     walletFundingLamports: 30_000_000,
     mintRentLamports: 2_000_000,
@@ -67,8 +64,11 @@ test("payer capacity budgets every remaining participant and fails closed when u
     advanceLamports: 10_000_000,
     feeBudgetLamports: 100_000,
   });
-  assert.equal(evaluateSecondKeyPayerCapacity({ ...inputs, balance: 2_111_999_999, minimumPayerBalance: 100_000_000 }).ok, false);
-  assert.equal(evaluateSecondKeyPayerCapacity({ ...inputs, balance: 2_112_000_000, minimumPayerBalance: 100_000_000 }).ok, true);
+  assert.equal(evaluateSecondKeyPayerCapacity({ ...inputs, balance: 99_999_999, minimumPayerBalance: 100_000_000 }).ok, false);
+  const funded = evaluateSecondKeyPayerCapacity({ ...inputs, balance: 2_212_000_000, minimumPayerBalance: 100_000_000 });
+  assert.equal(funded.ok, true);
+  assert.equal(funded.capacity.availableProvisionSlots, 40);
+  assert.equal(funded.capacity.maxParticipants, 50);
 });
 
 test("health supplies the generation-scoped provision count and exposes an underfunded field", async (t) => {

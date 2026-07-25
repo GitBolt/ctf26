@@ -107,6 +107,7 @@ export default function LeaderboardLive({ initialSnapshot }) {
   const lastOffsets = useRef(new Map());
   const rankHistory = useRef(new Map());
   const pointsHistory = useRef(new Map());
+  const solveHistory = useRef(new Map());
   const historySeeded = useRef(false);
   const hasComparedOnce = useRef(false);
   if (!historySeeded.current) {
@@ -115,6 +116,7 @@ export default function LeaderboardLive({ initialSnapshot }) {
     for (const row of initialSnapshot?.rows || []) {
       rankHistory.current.set(row.participantId, row.rank);
       pointsHistory.current.set(row.participantId, row.points);
+      solveHistory.current.set(row.participantId, row.solveCount);
     }
     historySeeded.current = true;
   }
@@ -179,11 +181,13 @@ export default function LeaderboardLive({ initialSnapshot }) {
         row,
         priorRank: rankHistory.current.get(row.participantId),
         priorPoints: pointsHistory.current.get(row.participantId),
+        priorSolveCount: solveHistory.current.get(row.participantId),
         firstComparison,
       });
       if (movement) fresh.push([row.participantId, { ...movement, at: Date.now() }]);
       rankHistory.current.set(row.participantId, row.rank);
       pointsHistory.current.set(row.participantId, row.points);
+      solveHistory.current.set(row.participantId, row.solveCount);
     }
     hasComparedOnce.current = true;
     if (!fresh.length) return;

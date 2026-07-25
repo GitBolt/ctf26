@@ -230,6 +230,9 @@ fails; and portal recovery discovers a completed on-chain state.
 
 - Give only the hosted surface and the program interface. Hand the participant the venue card exactly as
   a real attendee receives it: a blank PVC card, with no verbal explanation that it is readable.
+- Use a card from the production batch. Confirm the participant can read its NDEF Text record with NFC
+  Tools or another NDEF reader, decode the Base64 value into exactly 64 bytes, and derive
+  `AnCccXSJrEbge2W5cttNJ6JEf21dusiXfNMqMAZtXaty` before attempting lock two.
 - Do not name cross-program invocation, `get_stack_height`, or "deploy a program" anywhere in the brief
   or the room. The vague `ThirdLockResists` message is the only feedback lock three gives.
 - Suggested timebox: 60 minutes. Record wallet registration, the first-lock transaction, how long the card
@@ -252,7 +255,7 @@ Because one shared hidden key serves the whole field, run the card-discovery obs
 ## Event-wide system run
 
 Run at least one full rehearsal with the final roster, production-like Redis, final field size, and all
-eleven services. Include a small concurrent human cohort, then run the repository's 40-participant HTTP
+eleven services. Include a small concurrent human cohort, then run the repository's 50-participant HTTP
 load simulation with the documented spam bursts and service concurrency bounds.
 
 - Confirm every participant must acknowledge the same current rules version before launch.

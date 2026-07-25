@@ -209,7 +209,9 @@ test("capacity derives the remaining requirement from ten pass accounts, one jac
     safetyReserveLamports: 5,
   }), {
     rentLamportsPerParticipant: 12,
+    provisionLamportsPerParticipant: 15,
     requiredPayerLamports: 35,
+    availableProvisionSlots: 2,
     capacitySufficient: true,
   });
   assert.equal(assessProvisionCapacity({
@@ -246,13 +248,13 @@ test("health degrades when remaining participant rent capacity is insufficient",
       capacitySufficient: false,
       payer: "player-two-payer",
       requiredPayerBalance: 100,
+      availableProvisionSlots: 0,
     };
   };
   const service = await createPlayerTwoServer({
     allowDev: true,
     chain,
     env: {
-      PLAYER_TWO_EXPECTED_PARTICIPANTS: "12",
       PLAYER_TWO_PROVISION_FEE_BUFFER_LAMPORTS: "175000",
     },
   });
@@ -261,20 +263,19 @@ test("health degrades when remaining participant rent capacity is insufficient",
   const response = await fetch(`http://127.0.0.1:${address.port}/health`);
   assert.equal(response.status, 503);
   const body = await response.json();
-  assert.deepEqual(healthInput, { remainingParticipants: 12, feeBufferLamportsPerParticipant: 175_000 });
+  assert.deepEqual(healthInput, { remainingParticipants: 1, feeBufferLamportsPerParticipant: 175_000 });
   assert.deepEqual(body.capacity, {
     reachable: true,
-    expectedParticipants: 12,
     provisionedInstances: 0,
-    remainingParticipants: 12,
-    withinConfiguredField: true,
+    availableProvisionSlots: 0,
+    maxParticipants: 0,
     sufficient: false,
   });
   assert.deepEqual(body.funding, { payer: "player-two-payer", requiredBalance: 100 });
   assert.equal(JSON.stringify(body).includes("payerBalance"), false);
 });
 
-test("production requires an explicit Player Two field size and fee allowance", async () => {
+test("production requires an explicit Player Two fee allowance", async () => {
   const store = await createStore({ CTF_EVENT_GENERATION: "capacity-event" });
   const env = {
     NODE_ENV: "production",
@@ -284,8 +285,6 @@ test("production requires an explicit Player Two field size and fee allowance", 
     AGENT_POLICY_SECRET: "player-two-production-policy-secret-at-least-32-bytes",
     COMPLETION_SECRET: "player-two-production-completion-secret-at-least-32-bytes",
   };
-  await assert.rejects(() => createPlayerTwoServer({ env, store, chain: fakeChain() }), /PLAYER_TWO_EXPECTED_PARTICIPANTS is required in production/);
-  env.PLAYER_TWO_EXPECTED_PARTICIPANTS = "50";
   await assert.rejects(() => createPlayerTwoServer({ env, store, chain: fakeChain() }), /PLAYER_TWO_PROVISION_FEE_BUFFER_LAMPORTS is required in production/);
 });
 

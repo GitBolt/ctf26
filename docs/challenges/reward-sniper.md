@@ -1,12 +1,12 @@
 # Challenge Spec — Reward Sniper (DLMM-style, Meteora sponsor candidate)
 
-Status: **COMPLETE / LOCKED FOR CURRENT ITERATION — Challenge 1 of 10 (dynamic DeFi) / Meteora sponsor candidate** · Updated: 2026-07-21
+Status: **COMPLETE / LOCKED FOR CURRENT ITERATION — Challenge 1 of 11 (dynamic DeFi) / Meteora sponsor candidate** · Updated: 2026-07-25
 
 Mechanics and autonomous-agent resistance have been individually validated. Do not reopen this
 challenge during routine slate work. Event timing/reset are operations; any later on-chain or mechanic
 change is a separately requested future revision.
 
-> **Identity in the ten-challenge slate:** the **dynamic DeFi / KOTH** challenge. The core
+> **Identity in the eleven-challenge slate:** the **dynamic DeFi / KOTH** challenge. The core
 > player task is simple: understand a DLMM-style reward-accounting flaw, then write searcher logic that
 > extracts more reward than everyone else from a live market. Its anti-agent layer is secondary:
 > dynamic state, relative scoring, scarce high-value attempts, commit–reveal, and imperfect telemetry.

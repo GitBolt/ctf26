@@ -4,7 +4,7 @@ use anchor_lang::{
 };
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
-declare_id!("9xN3K7QfVtkUhFUgVawMuNvWPePvfrmnDmBGDxpo3grD");
+declare_id!("GvX54HkYCVcM946oTSWMaV3MHhqWgHPf4CcLab2LZahR");
 
 const TEAM_SEED_LEN: usize = 16;
 // First eight bytes of sha256("global:execute"), the public strategy ABI.
@@ -18,11 +18,13 @@ pub mod quarry_vault {
         ctx: Context<Initialize>,
         team_seed: [u8; TEAM_SEED_LEN],
         pinned_strategy_program: Pubkey,
+        access_authority: Pubkey,
     ) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         vault.authority = ctx.accounts.authority.key();
         vault.team_seed = team_seed;
         vault.pinned_strategy_program = pinned_strategy_program;
+        vault.access_authority = access_authority;
         vault.reserve = ctx.accounts.reserve.key();
         vault.vault_authority_bump = ctx.bumps.vault_authority;
         vault.bump = ctx.bumps.vault;
@@ -127,6 +129,8 @@ pub struct ExecuteStrategy<'info> {
     pub reserve: Account<'info, TokenAccount>,
     #[account(mut, constraint = destination.mint == reserve.mint)]
     pub destination: Account<'info, TokenAccount>,
+    #[account(address = vault.access_authority)]
+    pub access_authority: Signer<'info>,
     /// CHECK: intentionally unpinned in the vulnerable deployment.
     #[account(executable)]
     pub strategy_program: UncheckedAccount<'info>,
@@ -137,6 +141,7 @@ pub struct ExecuteStrategy<'info> {
 pub struct Vault {
     pub authority: Pubkey,
     pub pinned_strategy_program: Pubkey,
+    pub access_authority: Pubkey,
     pub reserve: Pubkey,
     pub team_seed: [u8; TEAM_SEED_LEN],
     pub vault_authority_bump: u8,
@@ -144,7 +149,7 @@ pub struct Vault {
 }
 
 impl Vault {
-    pub const SPACE: usize = 8 + 32 + 32 + 32 + TEAM_SEED_LEN + 1 + 1;
+    pub const SPACE: usize = 8 + 32 + 32 + 32 + 32 + TEAM_SEED_LEN + 1 + 1;
 }
 
 #[error_code]

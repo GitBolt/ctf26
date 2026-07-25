@@ -29,6 +29,10 @@ set -a
 set +a
 ```
 
+Download the participant-specific access credential from the challenge console and save it as
+`signet-access-keypair.json`. It authorizes only your assigned vault. It is not a personal wallet
+and should not be shared.
+
 Then inspect the assignment:
 
 ```bash

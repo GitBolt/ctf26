@@ -237,6 +237,7 @@ export function createDevnetChain(env = process.env) {
         payer: payer.publicKey.toBase58(),
         programAvailable,
         capacitySufficient: capacity.capacitySufficient,
+        availableProvisionSlots: capacity.availableProvisionSlots,
         payerBalance: balance,
         requiredPayerBalance: capacity.requiredPayerLamports,
         rentLamportsPerParticipant: capacity.rentLamportsPerParticipant,
@@ -259,11 +260,15 @@ export function assessProvisionCapacity({
     if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${name} must be a non-negative safe integer`);
   }
   const rentLamportsPerParticipant = (PASS_ACCOUNTS_PER_PARTICIPANT * passRentLamports) + jackpotRentLamports;
-  const requiredPayerLamports = safetyReserveLamports + (remainingParticipants * (rentLamportsPerParticipant + feeBufferLamportsPerParticipant));
+  const provisionLamportsPerParticipant = rentLamportsPerParticipant + feeBufferLamportsPerParticipant;
+  const requiredPayerLamports = safetyReserveLamports + (remainingParticipants * provisionLamportsPerParticipant);
   if (!Number.isSafeInteger(requiredPayerLamports)) throw new Error("required Player Two capacity exceeds the safe integer range");
+  const availableProvisionSlots = Math.floor(Math.max(0, payerLamports - safetyReserveLamports) / provisionLamportsPerParticipant);
   return Object.freeze({
     rentLamportsPerParticipant,
+    provisionLamportsPerParticipant,
     requiredPayerLamports,
+    availableProvisionSlots,
     capacitySufficient: payerLamports >= requiredPayerLamports,
   });
 }

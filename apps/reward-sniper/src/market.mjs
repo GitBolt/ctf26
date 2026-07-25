@@ -597,7 +597,13 @@ function getBin(market, binId) {
 }
 
 function rewardVaultEstimate(market) {
-  return Math.max(0, 500_000 - Object.values(market.participants).reduce((sum, participant) => sum + participant.escrow, 0));
+  // A scored event records historical rewards in `escrow`, but each round has a fresh
+  // bounded reward window. Only the current window can consume the current vault.
+  const committedRewards = Object.values(market.participants).reduce(
+    (sum, participant) => sum + (market.event ? participant.roundEscrow : participant.escrow),
+    0,
+  );
+  return Math.max(0, 500_000 - committedRewards);
 }
 
 function assertPositiveSafeInteger(value, label) {

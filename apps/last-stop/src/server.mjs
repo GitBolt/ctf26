@@ -165,7 +165,7 @@ export async function start(env = process.env, options = {}) {
   const launchRateMax = boundedInteger(env.LAST_STOP_LAUNCH_RATE_MAX, 4, 1, 30, "LAST_STOP_LAUNCH_RATE_MAX");
   const sshAdmission = sshAdmissionConfig(env);
   boundedInteger(env.LAST_STOP_VALIDATOR_RATE_MAX, 120, 10, 600, "LAST_STOP_VALIDATOR_RATE_MAX");
-  boundedInteger(env.LAST_STOP_MAX_ACTIVE_VALIDATORS, 8, 1, 40, "LAST_STOP_MAX_ACTIVE_VALIDATORS");
+  boundedInteger(env.LAST_STOP_MAX_ACTIVE_VALIDATORS, 24, 1, 100, "LAST_STOP_MAX_ACTIVE_VALIDATORS");
   const health = cachedProbe(async () => {
     const storageHealthy = typeof store.health === "function" ? await store.health() : false;
     return { status: storageHealthy ? 200 : 503, body: { ok: storageHealthy, state: store.mode, ssh: { port: sshPort } } };
@@ -260,13 +260,15 @@ export async function start(env = process.env, options = {}) {
     const authenticationTimer = setTimeout(() => client.end(), sshAdmission.authenticationTimeoutMs);
     authenticationTimer.unref?.();
     let identity = null;
+    let passageCode = null;
     const claimSessionChannel = createSessionChannelGate();
     client.on("authentication", async (context) => {
       try {
         if (!await store.hitRate("ssh-auth-global", Date.now(), sshAdmission.globalAttemptsPerMinute, 60_000)) return context.reject();
         if (context.method !== "password" || context.username !== "last-stop" || !/^[A-Za-z0-9_-]{12}$/.test(context.password || "")) return context.reject();
         if (!await store.hitRate(`ssh-code:${sshCandidateRateKey(context.password)}`, Date.now(), sshAdmission.attemptsPerCodePerMinute, 60_000)) return context.reject();
-        identity = await store.consumeCode(context.password);
+        identity = await store.readCode(context.password);
+        passageCode = identity ? context.password : null;
         identity ? context.accept() : context.reject();
       } catch { context.reject(); }
     });
@@ -279,10 +281,10 @@ export async function start(env = process.env, options = {}) {
         }
         const session = accept();
         session.on("pty", (acceptPty) => acceptPty?.());
-        session.on("shell", (acceptShell) => runTerminal(acceptShell(), identity, store, env, recordIntegrity));
+        session.on("shell", (acceptShell) => runTerminal(acceptShell(), identity, passageCode, store, env, recordIntegrity));
         session.on("exec", (acceptExec, reject, info) => {
           if (String(info.command || "").trim() !== "play") return reject();
-          runTerminal(acceptExec(), identity, store, env, recordIntegrity);
+          runTerminal(acceptExec(), identity, passageCode, store, env, recordIntegrity);
         });
       });
     });
@@ -298,12 +300,15 @@ export async function start(env = process.env, options = {}) {
   return { httpServer, sshServer, store };
 }
 
-async function replayParticipant(identity, actions, store, env) {
+async function replayParticipant(identity, actions, store, env, onSlotAcquired = null) {
   const rateMax = boundedInteger(env.LAST_STOP_VALIDATOR_RATE_MAX, 120, 10, 600, "LAST_STOP_VALIDATOR_RATE_MAX");
-  const maxActive = boundedInteger(env.LAST_STOP_MAX_ACTIVE_VALIDATORS, 8, 1, 40, "LAST_STOP_MAX_ACTIVE_VALIDATORS");
+  const maxActive = boundedInteger(env.LAST_STOP_MAX_ACTIVE_VALIDATORS, 24, 1, 100, "LAST_STOP_MAX_ACTIVE_VALIDATORS");
   if (!await store.hitRate(`validator:${identity.participantId}`, Date.now(), rateMax, 5 * 60_000)) throw rateError("validator rate limit exceeded", 60);
   if (!await store.acquireSlot("validator", identity.participantId, Date.now(), 15_000, maxActive)) throw rateError("validator capacity is busy", 2);
-  try { return await replayJourney(identity.participantId, actions, env); }
+  try {
+    if (onSlotAcquired) await onSlotAcquired();
+    return await replayJourney(identity.participantId, actions, env);
+  }
   finally { await store.releaseSlot("validator", identity.participantId); }
 }
 
@@ -322,7 +327,7 @@ function cachedProbe(probe, ttlMs = 15_000) {
   };
 }
 
-async function runTerminal(stream, identity, store, env, recordIntegrity = async () => {}) {
+async function runTerminal(stream, identity, passageCode, store, env, recordIntegrity = async () => {}) {
   const write = (text = "") => stream.write(`${String(text).replace(/\n/g, "\r\n")}\r\n`);
   const prompt = (state) => stream.write(promptText(state));
   const { maxMs } = sessionTiming(env);
@@ -356,7 +361,12 @@ async function runTerminal(stream, identity, store, env, recordIntegrity = async
     }
   };
   let runtime;
-  try { runtime = await replayParticipant(identity, [], store, env); }
+  try {
+    runtime = await replayParticipant(identity, [], store, env, async () => {
+      const claimed = await store.consumeCode(passageCode);
+      if (!claimed || claimed.participantId !== identity.participantId) throw rateError("passage is no longer valid", 1);
+    });
+  }
   catch (error) { write("The station validator is unavailable. Please try again shortly."); stream.end(); return; }
   await recordIntegrity(identity, "session-started");
   let state = initialState();

@@ -50,6 +50,7 @@ function fakeChain(overrides = {}) {
         ok: true,
         programAvailable: true,
         capacitySufficient: true,
+        additionalParticipantCapacity: 2_000,
         payer: "2pqmreJiLwbPMwCbwBH2rexfeWs7J6zpTaJcZCRv7AGZ",
         payerLamports: 5_000_000_000,
         requiredPayerBalance: 100_000,
@@ -300,7 +301,8 @@ test("health reports capacity and funding, and fails closed", async (t) => {
   const body = await healthy.json();
   assert.equal(body.ok, true);
   assert.equal(body.challenge, "the-chamber");
-  assert.equal(body.capacity.expectedParticipants, 50);
+  assert.equal(body.capacity.maxParticipants, 2_000);
+  assert.equal(body.capacity.additionalParticipantCapacity, 2_000);
   assert.equal(body.funding.payer, "2pqmreJiLwbPMwCbwBH2rexfeWs7J6zpTaJcZCRv7AGZ");
 
   const broken = await startService(t, {

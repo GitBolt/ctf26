@@ -42,12 +42,12 @@ function integrityDigest(report) {
   return crypto.createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
 }
 
-test("Reward Sniper accepts 40 simultaneous participants and isolates duplicate write spam", async (context) => {
-  const app = createRewardSniperServer({ seed: "load-40", autoPhases: false });
+test("Reward Sniper accepts 50 simultaneous participants and isolates duplicate write spam", async (context) => {
+  const app = createRewardSniperServer({ seed: "load-50", autoPhases: false });
   const baseUrl = await app.listen();
   context.after(() => app.close());
 
-  const sessions = await Promise.all(Array.from({ length: 40 }, (_, index) => request(baseUrl, "/api/session", {
+  const sessions = await Promise.all(Array.from({ length: 50 }, (_, index) => request(baseUrl, "/api/session", {
     method: "POST",
     headers: { "x-forwarded-for": `198.51.100.${index + 1}` },
     body: { participantId: `load-player-${index + 1}` },
@@ -89,8 +89,8 @@ test("Reward Sniper accepts 40 simultaneous participants and isolates duplicate 
     headers: { "x-forwarded-for": "203.0.113.4" },
   });
   assert.equal(scoreboard.status, 200);
-  assert.equal(scoreboard.body.length, 40);
-  assert.equal(new Set(scoreboard.body.map((row) => row.participantId)).size, 40);
+  assert.equal(scoreboard.body.length, 50);
+  assert.equal(new Set(scoreboard.body.map((row) => row.participantId)).size, 50);
 });
 
 test("integrity ingest freeze survives restart, evidence seals separately, and staging reset clears both", async () => {

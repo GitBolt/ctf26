@@ -478,11 +478,12 @@ test("production health checks secrets, Redis, and Solana RPC", async () => {
       env,
       capacityProbe: async (provisionedParticipants) => ({
         sufficient: true,
+        canProvisionAnother: true,
         payer: "signet-payer",
-        requiredBalance: 123,
-        expectedParticipants: 40,
+        minimumOperatorLamports: 123,
+        provisionLamportsPerParticipant: 456,
         provisionedParticipants,
-        remainingParticipants: 40 - provisionedParticipants,
+        availableProvisionSlots: 9,
       }),
       fetchImpl: async (_url, options) => {
         const body = JSON.parse(options.body);
@@ -511,13 +512,61 @@ test("production health checks secrets, Redis, and Solana RPC", async () => {
       participantIdsSha256: inventory.participantIdsSha256,
     },
     capacity: {
-      expectedParticipants: 40,
       provisionedParticipants: 2,
-      remainingParticipants: 38,
+      availableProvisionSlots: 9,
+      maxParticipants: 11,
+      canProvisionAnother: true,
       sufficient: true,
     },
-    funding: { payer: "signet-payer", requiredBalance: 123 },
+    funding: { payer: "signet-payer", minimumOperatorLamports: 123, provisionLamportsPerParticipant: 456 },
   });
+});
+
+test("production health supports an empty generation before the first participant launches", async () => {
+  const env = {
+    NODE_ENV: "production",
+    CTF_EVENT_GENERATION: "event-empty",
+    FLAG_SECRET: SECRET,
+    CHALLENGE_TICKET_SECRET: SECRET,
+    CHALLENGE_SESSION_SECRET: SECRET,
+    KV_REST_API_URL: "https://redis.invalid",
+    KV_REST_API_TOKEN: "token",
+    SOLANA_RPC_URL: "https://rpc.invalid",
+  };
+  const response = mockResponse();
+  await handleHealth(
+    { method: "GET", url: "/api/health", headers: {} },
+    response,
+    {
+      env,
+      capacityProbe: async (provisionedParticipants) => ({
+        sufficient: true,
+        canProvisionAnother: true,
+        payer: "signet-payer",
+        minimumOperatorLamports: 123,
+        provisionLamportsPerParticipant: 456,
+        provisionedParticipants,
+        availableProvisionSlots: 9,
+      }),
+      fetchImpl: async (_url, options) => {
+        const body = JSON.parse(options.body);
+        return {
+          ok: true,
+          async json() {
+            if (!Array.isArray(body)) return { jsonrpc: "2.0", id: 1, result: "ok" };
+            if (body[0] === "PING") return { result: "PONG" };
+            return { result: null };
+          },
+        };
+      },
+    },
+  );
+  assert.equal(response.statusCode, 200);
+  const body = JSON.parse(response.body);
+  assert.equal(body.targetInventory.count, 0);
+  assert.equal(body.targetInventory.participantIdsSha256, crypto.createHash("sha256").update("[]").digest("hex"));
+  assert.equal(body.capacity.provisionedParticipants, 0);
+  assert.equal(body.capacity.maxParticipants, 9);
 });
 
 test("on-chain checker accepts only the assigned finalized reserve-to-escrow transition", async () => {

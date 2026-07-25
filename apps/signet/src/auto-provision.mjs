@@ -28,8 +28,8 @@ import { redisCommand, signetRedisKey } from "./redis.mjs";
 import { createTargetInventory, validateTarget } from "./targets.mjs";
 
 const INITIALIZE_DISCRIMINATOR = Buffer.from([175, 175, 109, 31, 13, 152, 155, 237]);
-const BUILD_FINGERPRINT = crypto.createHash("sha256").update("quarry-vault:8d17c2e-pre-refactor").digest("hex").slice(0, 16);
-const VAULT_ACCOUNT_SIZE = 122;
+const BUILD_FINGERPRINT = crypto.createHash("sha256").update("quarry-vault:participant-isolation-v1").digest("hex").slice(0, 16);
+const VAULT_ACCOUNT_SIZE = 154;
 
 function required(env, name, minimumBytes = 1) {
   const value = String(env[name] || "");
@@ -60,7 +60,6 @@ export async function participantProvisionCapacity(provisionedParticipants, { en
   if (!Number.isSafeInteger(provisionedParticipants) || provisionedParticipants < 0) {
     throw new Error("SIGNET provisioned participant count is invalid");
   }
-  const expectedParticipants = productionInteger(env, "SIGNET_EXPECTED_PARTICIPANTS", 40, 1);
   const minimumOperatorLamports = productionInteger(env, "SIGNET_MIN_OPERATOR_LAMPORTS", 100_000_000, 1);
   const feeBufferLamportsPerParticipant = productionInteger(env, "SIGNET_PROVISION_FEE_BUFFER_LAMPORTS", 150_000, 1);
   const operator = operatorFromEnvironment(env);
@@ -71,27 +70,33 @@ export async function participantProvisionCapacity(provisionedParticipants, { en
     connection.getMinimumBalanceForRentExemption(VAULT_ACCOUNT_SIZE, "confirmed"),
     connection.getMinimumBalanceForRentExemption(ACCOUNT_SIZE, "confirmed"),
   ]);
-  const remainingParticipants = Math.max(0, expectedParticipants - provisionedParticipants);
   const rentLamportsPerParticipant = mintRent + vaultRent + (2 * tokenAccountRent);
-  const requiredBalance = minimumOperatorLamports
-    + (remainingParticipants * (rentLamportsPerParticipant + feeBufferLamportsPerParticipant));
-  if (!Number.isSafeInteger(requiredBalance)) throw new Error("SIGNET capacity exceeds the safe integer range");
+  const provisionLamportsPerParticipant = rentLamportsPerParticipant + feeBufferLamportsPerParticipant;
+  const availableProvisionSlots = Math.floor(Math.max(0, operatorBalance - minimumOperatorLamports) / provisionLamportsPerParticipant);
   return {
-    sufficient: provisionedParticipants <= expectedParticipants && operatorBalance >= requiredBalance,
+    sufficient: operatorBalance >= minimumOperatorLamports,
+    canProvisionAnother: availableProvisionSlots > 0,
     payer: operator.publicKey.toBase58(),
     balance: operatorBalance,
-    requiredBalance,
-    expectedParticipants,
     provisionedParticipants,
-    remainingParticipants,
+    availableProvisionSlots,
     rentLamportsPerParticipant,
     feeBufferLamportsPerParticipant,
     minimumOperatorLamports,
+    provisionLamportsPerParticipant,
   };
 }
 
 function deterministicMint(participantId, secret) {
   const seed = crypto.createHmac("sha256", secret).update(`ctf26:signet:mint:${participantId}`).digest().subarray(0, 32);
+  return Keypair.fromSeed(seed);
+}
+
+export function participantAccessKeypair(participantId, { env = process.env } = {}) {
+  const seed = crypto.createHmac("sha256", required(env, "INSTANCE_SECRET", 32))
+    .update(`ctf26:signet:access:${participantId}`)
+    .digest()
+    .subarray(0, 32);
   return Keypair.fromSeed(seed);
 }
 
@@ -114,6 +119,7 @@ export async function provisionParticipantTarget(participantId, { env = process.
   const connection = new Connection(required(env, "SOLANA_RPC_URL"), "confirmed");
   const plan = createInstancePlan(participantId, instanceSecret);
   const mint = deterministicMint(participantId, instanceSecret);
+  const accessAuthority = participantAccessKeypair(participantId, { env });
   const [vault] = PublicKey.findProgramAddressSync(
     [Buffer.from("vault"), operator.publicKey.toBuffer(), plan.participantSeed],
     programId,
@@ -141,6 +147,7 @@ export async function provisionParticipantTarget(participantId, { env = process.
       INITIALIZE_DISCRIMINATOR,
       plan.participantSeed,
       SystemProgram.programId.toBuffer(),
+      accessAuthority.publicKey.toBuffer(),
     ]);
     await send(connection, operator, [new TransactionInstruction({
       programId,
@@ -184,6 +191,7 @@ export async function provisionParticipantTarget(participantId, { env = process.
     escrowAccount: escrow.toBase58(),
     mint: mint.publicKey.toBase58(),
     escrowAuthority: vaultAuthority.toBase58(),
+    accessAuthority: accessAuthority.publicKey.toBase58(),
     buildFingerprint: BUILD_FINGERPRINT,
     thresholdRaw: plan.thresholdRaw.toString(),
     initialReserveRaw: plan.reserveRaw.toString(),
@@ -198,7 +206,9 @@ async function storedTarget(participantId, options) {
   const env = options.env || process.env;
   const value = await (options.redisCommandImpl || redisCommand)(["GET", signetRedisKey("target", participantId, env)], options);
   if (typeof value !== "string") return null;
-  return validateTarget(JSON.parse(value), participantId);
+  const target = validateTarget(JSON.parse(value), participantId);
+  const activeProgramId = String(env.VAULT_PROGRAM_ID || "");
+  return activeProgramId && target.programId !== activeProgramId ? null : target;
 }
 
 async function publishDynamicTarget(participantId, target, options) {

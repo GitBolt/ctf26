@@ -42,9 +42,8 @@ export async function createPlayerTwoServer(options = {}) {
   const chain = options.chain || createDevnetChain(env);
   const sessionRateMax = boundedInteger(env.PLAYER_TWO_SESSION_RATE_MAX, 4, 1, 30, "PLAYER_TWO_SESSION_RATE_MAX");
   const actionRateMax = boundedInteger(env.PLAYER_TWO_ACTION_RATE_MAX, 30, 1, 300, "PLAYER_TWO_ACTION_RATE_MAX");
-  const maxActiveProvisions = boundedInteger(env.PLAYER_TWO_MAX_ACTIVE_PROVISIONS, 1, 1, 8, "PLAYER_TWO_MAX_ACTIVE_PROVISIONS");
-  const maxActiveChainActions = boundedInteger(env.PLAYER_TWO_MAX_ACTIVE_CHAIN_ACTIONS, 12, 1, 40, "PLAYER_TWO_MAX_ACTIVE_CHAIN_ACTIONS");
-  const expectedParticipants = requiredProductionInteger(env, "PLAYER_TWO_EXPECTED_PARTICIPANTS", 40, 1, 10_000);
+  const maxActiveProvisions = boundedInteger(env.PLAYER_TWO_MAX_ACTIVE_PROVISIONS, 8, 1, 24, "PLAYER_TWO_MAX_ACTIVE_PROVISIONS");
+  const maxActiveChainActions = boundedInteger(env.PLAYER_TWO_MAX_ACTIVE_CHAIN_ACTIONS, 24, 1, 80, "PLAYER_TWO_MAX_ACTIVE_CHAIN_ACTIONS");
   const feeBufferLamportsPerParticipant = requiredProductionInteger(env, "PLAYER_TWO_PROVISION_FEE_BUFFER_LAMPORTS", 150_000, 1, Number.MAX_SAFE_INTEGER);
   const reportSolve = options.reportSolve || ((identity, sourceId) => reportSolveEventBestEffort({
     url: env.LEADERBOARD_INGEST_URL,
@@ -62,10 +61,8 @@ export async function createPlayerTwoServer(options = {}) {
         typeof store.health === "function" ? store.health() : Promise.resolve(false),
         store.provisionedInstanceCount(),
       ]);
-      const withinConfiguredField = provisionedInstances <= expectedParticipants;
-      const remainingParticipants = Math.max(0, expectedParticipants - provisionedInstances);
-      const chainHealth = await chain.health({ remainingParticipants, feeBufferLamportsPerParticipant });
-      const ok = Boolean(chainHealth.ok && storageHealthy && withinConfiguredField);
+      const chainHealth = await chain.health({ remainingParticipants: 1, feeBufferLamportsPerParticipant });
+      const ok = Boolean(chainHealth.ok && storageHealthy);
       return {
         status: ok ? 200 : 503,
         body: {
@@ -75,10 +72,11 @@ export async function createPlayerTwoServer(options = {}) {
           programAvailable: chainHealth.programAvailable !== false,
           capacity: {
             reachable: true,
-            expectedParticipants,
             provisionedInstances,
-            remainingParticipants,
-            withinConfiguredField,
+            availableProvisionSlots: chainHealth.availableProvisionSlots,
+            maxParticipants: Number.isSafeInteger(chainHealth.availableProvisionSlots)
+              ? provisionedInstances + chainHealth.availableProvisionSlots
+              : null,
             sufficient: chainHealth.capacitySufficient !== false,
           },
           funding: {
@@ -95,7 +93,7 @@ export async function createPlayerTwoServer(options = {}) {
           ...base,
           ok: false,
           storageHealthy: false,
-          capacity: { reachable: false, expectedParticipants },
+          capacity: { reachable: false },
         },
       };
     }
@@ -173,7 +171,10 @@ export async function createPlayerTwoServer(options = {}) {
           if (launchTicket) await consumeLaunchTicket(launchTicket);
           return;
         }
-        if (!current && await store.provisionedInstanceCount() >= expectedParticipants) throw new HttpError(503, "event provisioning capacity is full");
+        if (!current) {
+          const capacity = await chain.health({ remainingParticipants: 1, feeBufferLamportsPerParticipant });
+          if (!capacity.ok || capacity.capacitySufficient === false) throw new HttpError(503, "event provisioning capacity is temporarily unavailable");
+        }
         if (launchTicket) await consumeLaunchTicket(launchTicket);
         const eventNonce = current?.eventNonce || crypto.randomBytes(12).toString("hex");
         if (!current) {

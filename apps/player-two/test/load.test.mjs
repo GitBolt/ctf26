@@ -7,7 +7,7 @@ import { createPlayerTwoServer } from "../src/server.mjs";
 const SECRET = "player-two-load-ticket-secret-at-least-32-bytes";
 const EVENT = "load-event";
 
-test("40 participants are isolated while chain concurrency and spam stay bounded", async (t) => {
+test("50 participants are isolated while chain concurrency and spam stay bounded", async (t) => {
   const chain = loadChain();
   const service = await createPlayerTwoServer({
     allowDev: false,
@@ -16,22 +16,21 @@ test("40 participants are isolated while chain concurrency and spam stay bounded
     env: {
       CTF_EVENT_GENERATION: EVENT,
       PLAYER_TWO_SESSION_RATE_MAX: "4",
-      PLAYER_TWO_MAX_ACTIVE_PROVISIONS: "1",
-      PLAYER_TWO_MAX_ACTIVE_CHAIN_ACTIONS: "6",
-      PLAYER_TWO_EXPECTED_PARTICIPANTS: "41",
+      PLAYER_TWO_MAX_ACTIVE_PROVISIONS: "8",
+      PLAYER_TWO_MAX_ACTIVE_CHAIN_ACTIONS: "24",
       PLAYER_TWO_PROVISION_FEE_BUFFER_LAMPORTS: "150000",
     },
   });
   const address = await service.listen(0);
   t.after(() => service.close());
   const origin = `http://127.0.0.1:${address.port}`;
-  const healthResponses = await Promise.all(Array.from({ length: 40 }, () => fetch(`${origin}/health`)));
+  const healthResponses = await Promise.all(Array.from({ length: 50 }, () => fetch(`${origin}/health`)));
   assert.ok(healthResponses.every(({ status }) => status === 200));
   assert.equal(chain.healthCalls(), 1);
   const browser = await (await fetch(`${origin}/app.js`)).text();
   assert.match(browser, /SESSION_ATTEMPTS = 12/);
   assert.match(browser, /error\.status !== 429/);
-  const participants = Array.from({ length: 40 }, (_, index) => `load-${index}`);
+  const participants = Array.from({ length: 50 }, (_, index) => `load-${index}`);
   const tickets = new Map(participants.map((participantId, index) => [participantId, ticket(participantId, `launch-${index}`)]));
   const launch = async (participantId, launchTicket = tickets.get(participantId)) => {
     const response = await fetch(`${origin}/api/session`, {
@@ -45,10 +44,10 @@ test("40 participants are isolated while chain concurrency and spam stay bounded
   const firstWave = await Promise.all(participants.map((participantId) => launch(participantId)));
   const admitted = firstWave.filter(({ status }) => status === 201);
   const busy = firstWave.filter(({ status }) => status === 429);
-  assert.ok(admitted.length >= 1 && admitted.length < 40, JSON.stringify(firstWave.slice(0, 3)));
-  assert.equal(admitted.length + busy.length, 40);
+  assert.ok(admitted.length >= 1 && admitted.length < 50, JSON.stringify(firstWave.slice(0, 3)));
+  assert.equal(admitted.length + busy.length, 50);
   assert.ok(firstWave.filter(({ status }) => status === 429).every(({ retryAfter }) => retryAfter === "2"));
-  assert.ok(chain.maxProvision() <= 1);
+  assert.ok(chain.maxProvision() <= 8);
 
   const sessions = new Map(admitted.map(({ participantId, cookie }) => [participantId, cookie]));
   const rejected = busy.map(({ participantId }) => participantId);
@@ -57,7 +56,7 @@ test("40 participants are isolated while chain concurrency and spam stay bounded
     assert.equal(retried.status, 201);
     sessions.set(retried.participantId, retried.cookie);
   }
-  assert.equal(sessions.size, 40);
+  assert.equal(sessions.size, 50);
   await Promise.all(participants.map(async (participantId) => {
     const instance = await service.store.getInstance(participantId);
     assert.equal(instance.participantId, participantId);
@@ -74,9 +73,9 @@ test("40 participants are isolated while chain concurrency and spam stay bounded
   }));
   const completedScans = scans.filter(({ status }) => status === 200).length;
   const busyScans = scans.filter(({ status }) => status === 429).length;
-  assert.ok(completedScans >= 6 && completedScans < 40);
-  assert.equal(completedScans + busyScans, 40);
-  assert.ok(chain.maxScan() <= 6);
+  assert.ok(completedScans >= 24 && completedScans < 50);
+  assert.equal(completedScans + busyScans, 50);
+  assert.ok(chain.maxScan() <= 24);
 
   const repeatedParticipant = participants[0];
   const repeatedInstance = await service.store.getInstance(repeatedParticipant);

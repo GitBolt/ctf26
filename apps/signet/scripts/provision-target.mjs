@@ -20,6 +20,7 @@ const rpcUrl = required("SOLANA_RPC_URL");
 const operatorPath = resolveKeypairPath(required("OPERATOR_KEYPAIR"));
 const programId = new PublicKey(required("VAULT_PROGRAM_ID"));
 const plan = createInstancePlan(participantId, required("INSTANCE_SECRET"));
+const accessAuthority = Keypair.fromSeed(crypto.createHmac("sha256", required("INSTANCE_SECRET")).update(`ctf26:signet:access:${participantId}`).digest().subarray(0, 32));
 
 if (operatorPath === path.join(os.homedir(), ".config/solana/id.json")) {
   throw new Error("Refusing the default personal Solana wallet. Use a dedicated .keys SIGNET operator keypair.");
@@ -58,7 +59,7 @@ const escrow = await getOrCreateAssociatedTokenAccount(connection, operator, min
 const pinnedStrategyProgram = SystemProgram.programId;
 
 const initializeSignature = await program.methods
-  .initialize([...plan.participantSeed], pinnedStrategyProgram)
+  .initialize([...plan.participantSeed], pinnedStrategyProgram, accessAuthority.publicKey)
   .accounts({
     authority: operator.publicKey,
     mint,
@@ -76,7 +77,7 @@ await setAuthority(connection, operator, mint, operator, AuthorityType.MintToken
 
 const buildFingerprint = crypto
   .createHash("sha256")
-  .update("quarry-vault:8d17c2e-pre-refactor")
+  .update("quarry-vault:participant-isolation-v1")
   .digest("hex")
   .slice(0, 16);
 
@@ -89,6 +90,7 @@ const target = {
   escrowAccount: escrow.address.toBase58(),
   mint: mint.toBase58(),
   escrowAuthority: vaultAuthority.toBase58(),
+  accessAuthority: accessAuthority.publicKey.toBase58(),
   buildFingerprint,
   thresholdRaw: plan.thresholdRaw.toString(),
   initialReserveRaw: plan.reserveRaw.toString(),

@@ -188,11 +188,10 @@ Production must pin `SOLANA_RPC_URL` and `PLAYER_TWO_PROGRAM_ID` explicitly. It 
 event-only `PLAYER_TWO_DEVNET_KEYPAIR`, a strong `PLAYER_TWO_CHAIN_SECRET`, durable `REDIS_URL` storage,
 the shared participant-ticket and leaderboard settings, and the session, completion, and integrity
 secrets listed in `apps/player-two/.env.example`. Development may use the checked-in Devnet defaults,
-but production never falls back to them silently. Set `PLAYER_TWO_EXPECTED_PARTICIPANTS` from the
-final individual registration capacity, `PLAYER_TWO_PROVISION_FEE_BUFFER_LAMPORTS` to a conservative
-per-participant transaction-fee allowance, and `PLAYER_TWO_MIN_PAYER_LAMPORTS` to the SOL safety
+but production never falls back to them silently. Set `PLAYER_TWO_PROVISION_FEE_BUFFER_LAMPORTS` to a
+conservative per-participant transaction-fee allowance and `PLAYER_TWO_MIN_PAYER_LAMPORTS` to the SOL safety
 reserve that must remain after all outstanding allocations. The readiness probe reads current Devnet
 rent for ten pass-sized accounts and one jackpot account, combines that rent with the fee allowance
-for every remaining participant, and adds the safety reserve. A generation-scoped durable set counts
+to derive the maximum funded participant count above the safety reserve. A generation-scoped durable set counts
 fully provisioned participant instances once, so retries and repeat sessions do not consume capacity
 twice. `/health` returns aggregate counts and capacity booleans, not the payer address or secret.

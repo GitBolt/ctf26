@@ -7,7 +7,7 @@ skip-lint = false
 
 [programs.localnet]
 attacker_strategy = "BAnD14nexs2Cpb7ZRbvpFCfWZ114641FkwxH5CPxxznZ"
-quarry_vault = "9xN3K7QfVtkUhFUgVawMuNvWPePvfrmnDmBGDxpo3grD"
+quarry_vault = "GvX54HkYCVcM946oTSWMaV3MHhqWgHPf4CcLab2LZahR"
 quarry_vault_fixed = "HzXXcU1Jvy2c8twFMAwjCKbX3A43sbLwCbYKaTk47KPE"
 
 [registry]

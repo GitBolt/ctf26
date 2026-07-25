@@ -22,16 +22,16 @@ const env = {
   DRIFT_HEALTH_CACHE_MS: "15000",
 };
 
-test("an invalid-ticket source cannot consume admission for 40 legitimate launches", async (t) => {
+test("an invalid-ticket source cannot consume admission for 50 legitimate launches", async (t) => {
   const floodEnv = {
     ...env,
     CTF_EVENT_GENERATION: "drift-session-flood-event",
     DRIFT_SESSION_ATTEMPT_LIMIT_PER_IP_PER_MINUTE: "25",
-    // Above 40 legitimate launches plus the 25 attempts admitted from one source,
+    // Above 50 legitimate launches plus the 25 attempts admitted from one source,
     // but below the 200-request flood. This fails if rejected source attempts
     // are allowed to consume the global attempt bucket.
-    DRIFT_GLOBAL_SESSION_ATTEMPT_LIMIT_PER_MINUTE: "80",
-    DRIFT_SESSION_LIMIT_PER_MINUTE: "41",
+    DRIFT_GLOBAL_SESSION_ATTEMPT_LIMIT_PER_MINUTE: "90",
+    DRIFT_SESSION_LIMIT_PER_MINUTE: "51",
     DRIFT_PARTICIPANT_SESSION_LIMIT_PER_MINUTE: "2",
   };
   const server = createDriftServer({
@@ -52,7 +52,7 @@ test("an invalid-ticket source cannot consume admission for 40 legitimate launch
   assert.equal(invalid.filter((response) => response.status === 401).length, 25);
   assert.equal(invalid.filter((response) => response.status === 429).length, 175);
 
-  const tickets = Array.from({ length: 40 }, (_, index) => issueParticipantTicket(
+  const tickets = Array.from({ length: 50 }, (_, index) => issueParticipantTicket(
     { audience: "drift", eventId: floodEnv.CTF_EVENT_GENERATION, participantId: `flood-legitimate-${index}` },
     TICKET_SECRET,
     { jti: `drift-flood-legitimate-${index}` },
@@ -65,7 +65,7 @@ test("an invalid-ticket source cannot consume admission for 40 legitimate launch
   assert.match((await replay.json()).error, /already been consumed/);
 });
 
-test("40 participant sessions stay isolated while checker work and spam are bounded", async (t) => {
+test("50 participant sessions stay isolated while checker work and spam are bounded", async (t) => {
   let active = 0;
   let maximum = 0;
   let healthCalls = 0;
@@ -88,11 +88,11 @@ test("40 participant sessions stay isolated while checker work and spam are boun
   t.after(() => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())));
   const origin = `http://127.0.0.1:${server.address().port}`;
 
-  const health = await Promise.all(Array.from({ length: 40 }, () => fetch(`${origin}/health`)));
+  const health = await Promise.all(Array.from({ length: 50 }, () => fetch(`${origin}/health`)));
   assert.ok(health.every((response) => response.status === 200));
   assert.equal(healthCalls, 1);
 
-  const participantIds = Array.from({ length: 40 }, (_, index) => `load-participant-${index}`);
+  const participantIds = Array.from({ length: 50 }, (_, index) => `load-participant-${index}`);
   const cookies = new Map();
   await Promise.all(participantIds.map(async (participantId) => {
     const ticket = issueParticipantTicket(

@@ -28,6 +28,10 @@ export async function createStore(env = process.env) {
       const raw = await redis.getDel(`${prefix}:code:${code}`);
       return raw ? JSON.parse(raw) : null;
     },
+    async readCode(code) {
+      const raw = await redis.get(`${prefix}:code:${code}`);
+      return raw ? JSON.parse(raw) : null;
+    },
     async appendCommand(participantId, command) {
       const key = `${prefix}:commands:${participantId}`;
       await redis.multi()
@@ -101,6 +105,10 @@ function memoryStore(generation = "rehearsal") {
       const identity = codes.get(code) || null;
       codes.delete(code);
       return identity;
+    },
+    async readCode(code) {
+      const identity = codes.get(code);
+      return identity ? structuredClone(identity) : null;
     },
     async appendCommand(participantId, command) {
       const commands = [...(commandLogs.get(participantId) || []), structuredClone(command)].slice(-200);

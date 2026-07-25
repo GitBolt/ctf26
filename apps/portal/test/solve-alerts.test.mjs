@@ -7,18 +7,18 @@ test("a first solve is reported as a debut, not as holding position", () => {
   // An unranked row has rank null, so there is no prior rank to subtract. This
   // is the kickoff case: it must not render as "scored, held position".
   assert.deepEqual(
-    rowMovement({ row: { rank: 1, points: 3_240 }, priorRank: null, priorPoints: 0 }),
+    rowMovement({ row: { rank: 1, points: 3_240, solveCount: 1 }, priorRank: null, priorPoints: 0, priorSolveCount: 0 }),
     { delta: 0, gained: true, debut: true },
   );
 });
 
 test("rank movement is positive when a row climbs", () => {
   assert.deepEqual(
-    rowMovement({ row: { rank: 1, points: 2_610 }, priorRank: 4, priorPoints: 870 }),
+    rowMovement({ row: { rank: 1, points: 2_610, solveCount: 3 }, priorRank: 4, priorPoints: 870, priorSolveCount: 2 }),
     { delta: 3, gained: true, debut: false },
   );
   assert.deepEqual(
-    rowMovement({ row: { rank: 2, points: 1_740 }, priorRank: 1, priorPoints: 1_870 }),
+    rowMovement({ row: { rank: 2, points: 1_740, solveCount: 1 }, priorRank: 1, priorPoints: 1_870, priorSolveCount: 1 }),
     { delta: -1, gained: false, debut: false },
   );
 });
@@ -26,6 +26,18 @@ test("rank movement is positive when a row climbs", () => {
 test("a row that scores without changing rank still reports the gain", () => {
   assert.deepEqual(
     rowMovement({ row: { rank: 1, points: 2_000 }, priorRank: 1, priorPoints: 1_000 }),
+    { delta: 0, gained: true, debut: false },
+  );
+});
+
+test("a verified solve is still a gain when dynamic repricing lowers net points", () => {
+  assert.deepEqual(
+    rowMovement({
+      row: { rank: 2, points: 2_980, solveCount: 4 },
+      priorRank: 2,
+      priorPoints: 3_010,
+      priorSolveCount: 3,
+    }),
     { delta: 0, gained: true, debut: false },
   );
 });

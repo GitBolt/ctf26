@@ -43,13 +43,17 @@ Learner floor. Anyone who can build a transaction clears it.
 `HIDDEN_KEY`. It refuses to run until lock one is open (`FirstLockNotUnlocked`).
 
 The hidden key is not published anywhere online. Participants are handed a plain
-PVC card at the desk; an NFC tag inside holds the secret-key bytes. The intended
-discovery is that the blank-looking card is readable at all. This is the
+PVC card at the desk; an NFC tag inside holds the 64 secret-key bytes encoded as
+an 88-character Base64 NDEF Text record. This compact representation fits
+NTAG213, NTAG215, and NTAG216. The intended discovery is that the blank-looking
+card is readable at all. This is the
 venue-local gate from `docs/strategy/anti-ai.md` §4.3 — a remote autonomous agent
 cannot obtain it, while an on-site human recovers it in seconds.
 
 ```ts
-const hidden = Keypair.fromSecretKey(hiddenSecretFromCard);
+const hidden = Keypair.fromSecretKey(
+  Buffer.from(textFromCard.trim(), "base64"),
+);
 await program.methods
   .unlockSecond()
   .accounts({ user: wallet.publicKey, hidden: hidden.publicKey, userAccount: userPda })

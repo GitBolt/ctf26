@@ -20,7 +20,6 @@ export function createEvidenceRoomChain(env = process.env) {
     env.EVIDENCE_ROOM_MIN_FACTORY_LAMPORTS ?? 50_000_000,
     "EVIDENCE_ROOM_MIN_FACTORY_LAMPORTS",
   );
-  const expectedParticipants = requiredProductionInteger(env, "EVIDENCE_ROOM_EXPECTED_PARTICIPANTS", 50);
   const maxBatches = requiredProductionInteger(env, "EVIDENCE_ROOM_MAX_BATCHES", 4);
   const capacityBufferBps = nonNegativeInteger(env.EVIDENCE_ROOM_CAPACITY_BUFFER_BPS ?? 1_000, "EVIDENCE_ROOM_CAPACITY_BUFFER_BPS");
   if (capacityBufferBps > 10_000) throw new Error("EVIDENCE_ROOM_CAPACITY_BUFFER_BPS must not exceed 10000");
@@ -158,7 +157,7 @@ export function createEvidenceRoomChain(env = process.env) {
       }
       return null;
     },
-    async health() {
+    async health({ provisionedParticipants = 0 } = {}) {
       const [balance, finalizedSlot, tokenRent, mintRent, systemRent] = await Promise.all([
         connection.getBalance(payer.publicKey, "confirmed"),
         connection.getSlot("finalized"),
@@ -167,24 +166,29 @@ export function createEvidenceRoomChain(env = process.env) {
         connection.getMinimumBalanceForRentExemption(0, "confirmed"),
       ]);
       const capacity = estimateEvidenceRoomCapacity({
-        expectedParticipants,
         maxBatches,
         tokenRent,
         mintRent,
         systemRent,
         capacityBufferBps,
       });
-      const requiredBalance = Math.max(minimumFactoryBalance, capacity.requiredBalance);
+      const availableProvisionSlots = Math.floor(
+        Math.max(0, balance - minimumFactoryBalance) / capacity.bufferedPerParticipant,
+      );
+      const maxParticipants = provisionedParticipants + availableProvisionSlots;
       return {
-        ok: balance >= requiredBalance && Number.isSafeInteger(finalizedSlot),
+        ok: balance >= minimumFactoryBalance && Number.isSafeInteger(finalizedSlot),
         network: env.EVIDENCE_ROOM_NETWORK || "devnet",
         payer: payer.publicKey.toBase58(),
         balance,
         minimumFactoryBalance,
-        requiredBalance,
-        expectedParticipants,
+        requiredBalance: minimumFactoryBalance,
+        provisionedParticipants,
+        availableProvisionSlots,
+        maxParticipants,
         maxBatches,
         estimatedLamportsPerParticipant: capacity.perParticipant,
+        bufferedLamportsPerParticipant: capacity.bufferedPerParticipant,
         capacityBufferBps,
         finalizedSlot,
       };
@@ -193,7 +197,6 @@ export function createEvidenceRoomChain(env = process.env) {
 }
 
 export function estimateEvidenceRoomCapacity({
-  expectedParticipants,
   maxBatches,
   tokenRent,
   mintRent,
@@ -201,17 +204,16 @@ export function estimateEvidenceRoomCapacity({
   capacityBufferBps = 1_000,
   walletLamports = 30_000_000,
 }) {
-  for (const [name, value] of Object.entries({ expectedParticipants, maxBatches, tokenRent, mintRent, systemRent, capacityBufferBps, walletLamports })) {
+  for (const [name, value] of Object.entries({ maxBatches, tokenRent, mintRent, systemRent, capacityBufferBps, walletLamports })) {
     if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${name} must be a non-negative safe integer`);
   }
-  if (expectedParticipants < 1 || maxBatches < 1) throw new Error("expectedParticipants and maxBatches must be positive");
+  if (maxBatches < 1) throw new Error("maxBatches must be positive");
   if (capacityBufferBps > 10_000) throw new Error("capacityBufferBps must not exceed 10000");
   const perBatch = tokenRent * 2 + mintRent + systemRent;
   const perParticipant = walletLamports + mintRent + maxBatches * perBatch;
-  const baseTotal = perParticipant * expectedParticipants;
-  const requiredBalance = Math.ceil(baseTotal * (10_000 + capacityBufferBps) / 10_000);
-  if (![perBatch, perParticipant, baseTotal, requiredBalance].every(Number.isSafeInteger)) throw new Error("capacity estimate exceeds safe integer range");
-  return Object.freeze({ perBatch, perParticipant, baseTotal, requiredBalance });
+  const bufferedPerParticipant = Math.ceil(perParticipant * (10_000 + capacityBufferBps) / 10_000);
+  if (![perBatch, perParticipant, bufferedPerParticipant].every(Number.isSafeInteger)) throw new Error("capacity estimate exceeds safe integer range");
+  return Object.freeze({ perBatch, perParticipant, bufferedPerParticipant });
 }
 
 async function reconcileAllocation(connection, plan) {

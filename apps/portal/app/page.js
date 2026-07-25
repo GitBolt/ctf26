@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-import { CHALLENGES } from "@/lib/challenges.mjs";
+import { DISPLAY_CHALLENGES } from "@/lib/challenges.mjs";
 import { currentUser, isOrganizer } from "@/lib/auth";
 import {
   afterHoursCompletion,
@@ -217,7 +217,7 @@ export default async function Home({ searchParams }) {
       </section>
 
       <section className="challenge-grid" aria-label="Challenges">
-        {CHALLENGES.map((challenge) => {
+        {DISPLAY_CHALLENGES.map((challenge, index) => {
           const completed = completedChallenges.has(challenge.key);
           return (
           <article className={`challenge challenge-${challenge.key}${completed ? " challenge-completed" : ""}`} key={challenge.key} id={`${challenge.key}-local-kit`}>
@@ -225,7 +225,7 @@ export default async function Home({ searchParams }) {
               <span className="challenge-visual-glyph" />
             </div>
             <div className="challenge-number" aria-hidden="true">
-              {challenge.number}
+              {String(index + 1).padStart(2, "0")}
             </div>
             <div className="challenge-content">
               <div>

@@ -8,7 +8,7 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const TICKET_SECRET = "second-key-load-ticket-secret-at-least-32-bytes";
 const EVENT = "second-key-load-event";
 
-test("one unauthenticated flood cannot deny 40 isolated participants while shared-payer work stays bounded", async (t) => {
+test("one unauthenticated flood cannot deny 50 isolated participants while shared-payer work stays bounded", async (t) => {
   let active = 0;
   let maximum = 0;
   let provisionCalls = 0;
@@ -75,8 +75,8 @@ test("one unauthenticated flood cannot deny 40 isolated participants while share
     env: { CTF_EVENT_GENERATION: EVENT },
     reportSolve: async () => {},
     preAuthIpLimit: 8,
-    preAuthGlobalLimit: 100,
-    sessionLimit: 100,
+    preAuthGlobalLimit: 200,
+    sessionLimit: 200,
     participantOperationLimit: 100,
     globalOperationLimit: 10_000,
     maxExpensiveConcurrency: 1,
@@ -89,7 +89,7 @@ test("one unauthenticated flood cannot deny 40 isolated participants while share
   const address = await service.listen();
   const origin = `http://127.0.0.1:${address.port}`;
 
-  const health = await Promise.all(Array.from({ length: 40 }, () => fetch(`${origin}/health`)));
+  const health = await Promise.all(Array.from({ length: 50 }, () => fetch(`${origin}/health`)));
   assert.ok(health.every((response) => response.status === 200));
   assert.equal(healthCalls, 1);
   const browser = await (await fetch(`${origin}/app.js`)).text();
@@ -104,7 +104,7 @@ test("one unauthenticated flood cannot deny 40 isolated participants while share
   assert.equal(invalidFlood.filter((response) => response.status === 401).length, 8);
   assert.equal(invalidFlood.filter((response) => response.status === 429).length, 112);
 
-  const participantIds = Array.from({ length: 40 }, (_, index) => `load-participant-${index}`);
+  const participantIds = Array.from({ length: 50 }, (_, index) => `load-participant-${index}`);
   const tickets = new Map(participantIds.map((participantId, index) => [participantId, issueParticipantTicket({ eventId: EVENT, audience: "second-key", participantId }, TICKET_SECRET, { jti: `load-${index}` })]));
   const participantIps = new Map(participantIds.map((participantId, index) => [participantId, `198.51.100.${index + 1}`]));
   const launch = (participantId, ticket = tickets.get(participantId)) => fetch(`${origin}/api/session`, {
@@ -130,8 +130,8 @@ test("one unauthenticated flood cannot deny 40 isolated participants while share
     cookies.set(participantIds[index], response.headers.get("set-cookie").split(";", 1)[0]);
   }
   assert.equal((await launch(participantIds[0])).status, 401);
-  assert.equal(provisionCalls, 40);
-  assert.equal(await service.store.provisionedCount(), 40);
+  assert.equal(provisionCalls, 50);
+  assert.equal(await service.store.provisionedCount(), 50);
   assert.equal(maximum, 1);
   for (const participantId of participantIds) {
     const instance = await service.store.getInstance(participantId);

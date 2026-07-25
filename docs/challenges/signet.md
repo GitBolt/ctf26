@@ -1,6 +1,6 @@
 # Challenge Spec — SIGNET (stale deployment + source archaeology)
 
-Status: **EVENT BUILD — Challenge 3 of 10 (N-day / source archaeology)** · Updated: 2026-07-21 · Codename: SIGNET
+Status: **EVENT BUILD — Challenge 3 of 11 (N-day / source archaeology)** · Updated: 2026-07-25 · Codename: SIGNET
 
 **One line:** your per-participant Solana program is a fork **deployed from the vulnerable commit just before
 a CPI/PDA authority bug was silently patched** — no advisory, the fix buried in an innocuous "strategy
@@ -8,7 +8,7 @@ refactor" PR. You do **not** exploit the latest fixed code. You use the patch to
 then exploit the deliberately stale pre-fix live instance. Real N-day / patch-diffing security
 research.
 
-> **Identity in the ten-challenge slate:** the **N-day / audit research** challenge. The hard part is not
+> **Identity in the eleven-challenge slate:** the **N-day / audit research** challenge. The hard part is not
 > generic OSINT; the hard part is mapping a silent source patch to a **stale pre-fix Solana
 > deployment**. Navigation friction, Turnstile, and canaries are support layers only. No passkey
 > (IMPRINT), no dynamic market (Reward Sniper). Real-CTF lineage: patch-diffing, source archaeology,

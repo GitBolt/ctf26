@@ -23,16 +23,16 @@ const env = {
   SIGNET_SUBMIT_LEASE_SECONDS: "45",
 };
 
-test("an invalid-ticket source cannot consume admission for 40 legitimate launches", async (t) => {
+test("an invalid-ticket source cannot consume admission for 50 legitimate launches", async (t) => {
   const floodEnv = {
     ...env,
     CTF_EVENT_GENERATION: "signet-session-flood-event",
     SIGNET_SESSION_ATTEMPT_LIMIT_PER_IP_PER_MINUTE: "25",
-    // Above 40 legitimate launches plus the 25 attempts admitted from one source,
+    // Above 50 legitimate launches plus the 25 attempts admitted from one source,
     // but below the 200-request flood. This fails if rejected source attempts
     // are allowed to consume the global attempt bucket.
-    SIGNET_GLOBAL_SESSION_ATTEMPT_LIMIT_PER_MINUTE: "80",
-    SIGNET_SESSION_LIMIT_PER_MINUTE: "41",
+    SIGNET_GLOBAL_SESSION_ATTEMPT_LIMIT_PER_MINUTE: "90",
+    SIGNET_SESSION_LIMIT_PER_MINUTE: "51",
     SIGNET_PARTICIPANT_SESSION_LIMIT_PER_MINUTE: "2",
   };
   const server = createSignetServer({ env: floodEnv, reportSolve: async () => {} });
@@ -49,7 +49,7 @@ test("an invalid-ticket source cannot consume admission for 40 legitimate launch
   assert.equal(invalid.filter((response) => response.status === 401).length, 25);
   assert.equal(invalid.filter((response) => response.status === 429).length, 175);
 
-  const tickets = Array.from({ length: 40 }, (_, index) => issueParticipantTicket(
+  const tickets = Array.from({ length: 50 }, (_, index) => issueParticipantTicket(
     { audience: "signet", eventId: floodEnv.CTF_EVENT_GENERATION, participantId: `flood-legitimate-${index}` },
     TICKET_SECRET,
     { jti: `signet-flood-legitimate-${index}` },
@@ -62,7 +62,7 @@ test("an invalid-ticket source cannot consume admission for 40 legitimate launch
   assert.equal((await replay.json()).error.code, "invalid_ticket");
 });
 
-test("40 participant sessions stay isolated while checker work and spam are bounded", async (t) => {
+test("50 participant sessions stay isolated while checker work and spam are bounded", async (t) => {
   let activeReports = 0;
   let maximumReports = 0;
   const reports = [];
@@ -80,7 +80,7 @@ test("40 participant sessions stay isolated while checker work and spam are boun
   t.after(() => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())));
   const origin = `http://127.0.0.1:${server.address().port}`;
 
-  const participantIds = Array.from({ length: 40 }, (_, index) => `load-participant-${index}`);
+  const participantIds = Array.from({ length: 50 }, (_, index) => `load-participant-${index}`);
   const cookies = new Map();
   await Promise.all(participantIds.map(async (participantId) => {
     const ticket = issueParticipantTicket(
@@ -173,17 +173,18 @@ test("public health spam coalesces Redis and RPC probes", async (t) => {
     fetchImpl,
     capacityProbe: async (provisionedParticipants) => ({
       sufficient: true,
+      canProvisionAnother: true,
       payer: "signet-load-payer",
-      requiredBalance: 1,
-      expectedParticipants: 40,
+      minimumOperatorLamports: 1,
+      provisionLamportsPerParticipant: 1,
       provisionedParticipants,
-      remainingParticipants: 40 - provisionedParticipants,
+      availableProvisionSlots: 100,
     }),
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const responses = await Promise.all(Array.from({ length: 40 }, () => fetch(`${origin}/api/health`)));
+  const responses = await Promise.all(Array.from({ length: 50 }, () => fetch(`${origin}/api/health`)));
   assert.ok(responses.every((response) => response.status === 200));
   assert.equal(redisCalls, 2);
   assert.equal(rpcCalls, 1);

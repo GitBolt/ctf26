@@ -9,7 +9,7 @@ import { start } from "../src/server.mjs";
 const SECRET = "after-hours-load-ticket-secret-at-least-32-bytes";
 const EVENT = "load-event";
 
-test("40 participants stay isolated while launch spam and global work are bounded", async (t) => {
+test("50 participants stay isolated while launch spam and global work are bounded", async (t) => {
   const { server, store } = await start({
     PORT: "0",
     CTF_EVENT_GENERATION: EVENT,
@@ -24,7 +24,6 @@ test("40 participants stay isolated while launch spam and global work are bounde
     CHALLENGE_TICKET_SECRET: SECRET,
     AFTER_HOURS_LAUNCH_RATE_MAX: "4",
     AFTER_HOURS_MAX_ACTIVE_OPERATIONS: "8",
-    AFTER_HOURS_EXPECTED_PARTICIPANTS: "40",
     AFTER_HOURS_MIN_TREASURY_LAMPORTS: "100000000",
   }, {
     nightDistributor: {
@@ -40,17 +39,17 @@ test("40 participants stay isolated while launch spam and global work are bounde
   let healthCalls = 0;
   const health = store.health.bind(store);
   store.health = async () => { healthCalls += 1; await delay(20); return health(); };
-  const healthResponses = await Promise.all(Array.from({ length: 40 }, () => fetch(`${origin}/health`)));
+  const healthResponses = await Promise.all(Array.from({ length: 50 }, () => fetch(`${origin}/health`)));
   assert.ok(healthResponses.every(({ status }) => status === 200));
   assert.equal(healthCalls, 1);
-  const participants = Array.from({ length: 40 }, (_, index) => `load-${index}`);
+  const participants = Array.from({ length: 50 }, (_, index) => `load-${index}`);
   const launches = await Promise.all(participants.map(async (participantId, index) => {
     const response = await fetch(`${origin}/launch?ticket=${encodeURIComponent(ticket(participantId, `launch-${index}`))}`);
     const html = await response.text();
     return { participantId, status: response.status, passage: html.match(/passage:([A-Za-z0-9_-]{12})/)?.[1] };
   }));
   assert.deepEqual(new Set(launches.map(({ status }) => status)), new Set([200]));
-  assert.equal(new Set(launches.map(({ passage }) => passage)).size, 40);
+  assert.equal(new Set(launches.map(({ passage }) => passage)).size, 50);
 
   await Promise.all(launches.map(async ({ participantId, passage }, index) => {
     const bound = await store.bindPassage(passage, String(10_000_000 + index));

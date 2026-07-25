@@ -42,7 +42,7 @@ completed challenge only for an explicitly named future revision or event-config
 | THE BROADCAST | Done for the current iteration | signature-variant mechanic and claim workbench unless testing finds a concrete defect |
 | EVIDENCE ROOM | Done for the current iteration | account-allocation race and reserve-factory interaction unless testing finds a concrete defect |
 | SECOND KEY | Done for the current iteration | Token-2022 custody mechanic and collateral-desk interaction unless testing finds a concrete defect |
-| THE CHAMBER | Built, service not yet hosted | Three-lock vault reusing the prototype's live devnet program and inherited admin/hidden keys — deliberately not redeployed; needs a Railway deployment and programmed venue cards |
+| THE CHAMBER | Deployed; venue batch preparation in progress | Three-lock vault reusing the prototype's live Devnet program and inherited admin/hidden keys, hosted at `https://st26-chamber.up.railway.app`; program and read the shared signer as a Base64 NDEF Text record on every venue card |
 
 The live catalogue now contains eleven challenges. PLAYER TWO and THE BROADCAST were promoted
 from retained prototype and companion status after their hosted implementations, authoritative
@@ -81,7 +81,7 @@ writeup/signature construction.
   simulation results live in
   `event.md` §3.
 - Prize projections use integer cents, conserve the full configured pool exactly, and apply a
-  configurable individual award floor, defaulting to $10, before the points-weighted pool and top-ten boost. The public board
+  configurable individual award floor, defaulting to $0 until organizers explicitly configure official scoring, before the points-weighted pool and top-ten boost. The public board
   shows two decimal places and visibly marks a
   stale or unavailable Reward Sniper source instead of presenting partial data as fully live.
 - Public handles come from the optional `displayName` or `handle` in the participant roster. If none

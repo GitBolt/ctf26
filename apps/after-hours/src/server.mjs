@@ -64,9 +64,8 @@ function config(env) {
     launchRateMax: boundedInteger(env.AFTER_HOURS_LAUNCH_RATE_MAX, 4, 1, 30, "AFTER_HOURS_LAUNCH_RATE_MAX"),
     commandRateMax: boundedInteger(env.AFTER_HOURS_COMMAND_RATE_MAX, 30, 1, 300, "AFTER_HOURS_COMMAND_RATE_MAX"),
     interactionIpRateMax: boundedInteger(env.AFTER_HOURS_INTERACTION_IP_RATE_MAX, 900, 60, 5_000, "AFTER_HOURS_INTERACTION_IP_RATE_MAX"),
-    maxActiveOperations: boundedInteger(env.AFTER_HOURS_MAX_ACTIVE_OPERATIONS, 8, 1, 40, "AFTER_HOURS_MAX_ACTIVE_OPERATIONS"),
+    maxActiveOperations: boundedInteger(env.AFTER_HOURS_MAX_ACTIVE_OPERATIONS, 24, 1, 80, "AFTER_HOURS_MAX_ACTIVE_OPERATIONS"),
     maxActiveDistributions: boundedInteger(env.AFTER_HOURS_MAX_ACTIVE_DISTRIBUTIONS, 1, 1, 1, "AFTER_HOURS_MAX_ACTIVE_DISTRIBUTIONS"),
-    expectedParticipants: requiredProductionInteger(env, "AFTER_HOURS_EXPECTED_PARTICIPANTS", 40, 1, 10_000),
     minimumTreasuryLamports: requiredProductionInteger(env, "AFTER_HOURS_MIN_TREASURY_LAMPORTS", 100_000_000, 1, Number.MAX_SAFE_INTEGER),
   });
 }
@@ -110,7 +109,6 @@ export async function start(env = process.env, options = {}) {
         nightDistributor.inventory(),
       ]);
       const capacity = evaluateAfterHoursCapacity({
-        expectedParticipants: cfg.expectedParticipants,
         issuedAllotments,
         nightBaseUnits: inventory.nightBaseUnits,
         payerLamports: inventory.payerLamports,
@@ -124,11 +122,9 @@ export async function start(env = process.env, options = {}) {
           ok,
           capacity: {
             reachable: true,
-            expectedParticipants: capacity.expectedParticipants,
             issuedAllotments: capacity.issuedAllotments,
-            remainingAllotments: capacity.remainingAllotments,
-            withinConfiguredField: capacity.withinConfiguredField,
-            nightSufficient: capacity.nightSufficient,
+            availableAllotments: capacity.availableAllotments,
+            maxParticipants: capacity.maxParticipants,
             feePayerSufficient: capacity.feePayerSufficient,
           },
         },
@@ -142,7 +138,6 @@ export async function start(env = process.env, options = {}) {
           ok: false,
           capacity: {
             reachable: false,
-            expectedParticipants: cfg.expectedParticipants,
           },
         },
       };
@@ -262,22 +257,20 @@ function withTimeout(promise, timeoutMs, message) { let timer; return Promise.ra
 function cachedProbe(probe, ttlMs = 15_000) { let cached = null; let inFlight = null; return async () => { const now = Date.now(); if (cached && cached.expiresAt > now) return cached.value; if (inFlight) return inFlight; inFlight = Promise.resolve().then(probe).then((value) => { cached = { value, expiresAt: Date.now() + ttlMs }; return value; }).finally(() => { inFlight = null; }); return inFlight; }; }
 function authorized(request, secret) { const value = String(request.headers.authorization || ""); const supplied = value.startsWith("Bearer ") ? Buffer.from(value.slice(7)) : null; const expected = Buffer.from(secret); return supplied && supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected); }
 
-export function evaluateAfterHoursCapacity({ expectedParticipants, issuedAllotments, nightBaseUnits, payerLamports, minimumTreasuryLamports }) {
-  if (!Number.isSafeInteger(expectedParticipants) || expectedParticipants < 1) throw new Error("expected participant count is invalid");
+export function evaluateAfterHoursCapacity({ issuedAllotments, nightBaseUnits, payerLamports, minimumTreasuryLamports }) {
   if (!Number.isSafeInteger(issuedAllotments) || issuedAllotments < 0) throw new Error("issued allotment count is invalid");
-  const withinConfiguredField = issuedAllotments <= expectedParticipants;
-  const remainingAllotments = Math.max(0, expectedParticipants - issuedAllotments);
-  const requiredNightBaseUnits = BigInt(remainingAllotments) * NIGHT_ALLOTMENT_BASE_UNITS;
-  const nightSufficient = BigInt(nightBaseUnits) >= requiredNightBaseUnits;
+  const availableAllotmentsBigInt = BigInt(nightBaseUnits) / NIGHT_ALLOTMENT_BASE_UNITS;
+  if (availableAllotmentsBigInt > BigInt(Number.MAX_SAFE_INTEGER - issuedAllotments)) {
+    throw new Error("NIGHT inventory exceeds the safe participant capacity range");
+  }
+  const availableAllotments = Number(availableAllotmentsBigInt);
+  const maxParticipants = issuedAllotments + availableAllotments;
   const feePayerSufficient = BigInt(payerLamports) >= BigInt(minimumTreasuryLamports);
   return Object.freeze({
-    ok: withinConfiguredField && nightSufficient && feePayerSufficient,
-    expectedParticipants,
+    ok: feePayerSufficient,
     issuedAllotments,
-    remainingAllotments,
-    withinConfiguredField,
-    requiredNightBaseUnits,
-    nightSufficient,
+    availableAllotments,
+    maxParticipants,
     feePayerSufficient,
   });
 }

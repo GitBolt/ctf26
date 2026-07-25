@@ -2,6 +2,7 @@ const state = { identity: null, target: null };
 
 const elements = Object.fromEntries([
   "connection-status",
+  "access-key-download",
   "copy-flag",
   "flag-output",
   "global-message",
@@ -22,6 +23,7 @@ async function boot() {
   elements["submission-form"].addEventListener("submit", submitTransaction);
   elements["transaction-signature"].addEventListener("input", clearError);
   elements["copy-flag"].addEventListener("click", copyFlag);
+  elements["access-key-download"].addEventListener("click", downloadAccessKey);
 
   const ticket = new URL(location.href).searchParams.get("ticket");
   if (ticket) {
@@ -40,6 +42,7 @@ async function boot() {
     const data = await api("/api/target", { retryBusy: true });
     state.identity = data.identity;
     state.target = data.target;
+    elements["access-key-download"].hidden = !Array.isArray(data.target.accessKeypair);
     await event("app-boot");
     if (navigator.webdriver) await event("automation-present");
     renderAssignment();
@@ -57,6 +60,7 @@ function renderAssignment() {
     ["Program", target.programId],
     ["Control account", target.vaultAccount],
     ["Authority", target.vaultAuthority],
+    ...(target.accessAuthority ? [["Access authority", target.accessAuthority]] : []),
     ["Reserve", target.reserveAccount],
     ["Escrow", target.escrowAccount],
     ["Mint", target.mint],
@@ -138,6 +142,17 @@ function setStatus(name, label) {
 async function copyFlag() {
   void event("copy-flag");
   await copyText(elements["flag-output"].value, elements["copy-flag"]);
+}
+
+function downloadAccessKey() {
+  const secret = state.target?.accessKeypair;
+  if (!Array.isArray(secret) || secret.length !== 64) return;
+  const blob = new Blob([JSON.stringify(secret)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "signet-access-keypair.json";
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 async function copyText(value, button) {

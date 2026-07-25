@@ -18,12 +18,12 @@ function request(ip = "203.0.113.20") {
   return new Request("https://imprint.example/api/test", { headers: { "x-forwarded-for": ip } });
 }
 
-test("IMPRINT session budget accepts 40 participants and rejects a sustained source flood", async () => {
+test("IMPRINT session budget accepts 50 participants and rejects a sustained source flood", async () => {
   const execute = createMemoryBudgetExecutor();
-  await Promise.all(Array.from({ length: 40 }, () => consumeImprintRequestBudget("session", {
+  await Promise.all(Array.from({ length: 50 }, () => consumeImprintRequestBudget("session", {
     request: request(), env: ENV, execute,
   })));
-  for (let index = 0; index < 80; index += 1) {
+  for (let index = 0; index < 70; index += 1) {
     await consumeImprintRequestBudget("session", { request: request(), env: ENV, execute });
   }
   await assert.rejects(
@@ -32,9 +32,9 @@ test("IMPRINT session budget accepts 40 participants and rejects a sustained sou
   );
 });
 
-test("IMPRINT participant budgets isolate 40 concurrent claims and repeated spam", async () => {
+test("IMPRINT participant budgets isolate 50 concurrent claims and repeated spam", async () => {
   const execute = createMemoryBudgetExecutor();
-  const participants = Array.from({ length: 40 }, (_, index) => `imprint-player-${index + 1}`);
+  const participants = Array.from({ length: 50 }, (_, index) => `imprint-player-${index + 1}`);
   const scoreState = new Map([["existing-player", 100]]);
   const eligibilityState = new Map([["existing-player", "eligible"]]);
   await Promise.all(participants.map((participantId) => consumeImprintRequestBudget("passkeyClaim", {
@@ -57,7 +57,7 @@ test("IMPRINT participant budgets isolate 40 concurrent claims and repeated spam
 
 test("weighted RPC budgets bound expensive batches without coupling identities", async () => {
   const execute = createMemoryBudgetExecutor();
-  const participants = Array.from({ length: 40 }, (_, index) => `rpc-player-${index + 1}`);
+  const participants = Array.from({ length: 50 }, (_, index) => `rpc-player-${index + 1}`);
   const lightCalls = [{ method: "getAccountInfo" }];
   const heavyCalls = Array.from({ length: 10 }, () => ({ method: "sendTransaction" }));
   assert.equal(imprintRpcCost(lightCalls), 1);

@@ -12,9 +12,9 @@ function request(ip = "203.0.113.10") {
   return new Request("https://portal.example/api/test", { headers: { "x-forwarded-for": ip } });
 }
 
-test("portal budgets accept a 40-participant burst and isolate participant spam", async () => {
+test("portal budgets accept a 50-participant burst and isolate participant spam", async () => {
   const execute = createMemoryBudgetExecutor();
-  const participants = Array.from({ length: 40 }, (_, index) => `participant-${index + 1}`);
+  const participants = Array.from({ length: 50 }, (_, index) => `participant-${index + 1}`);
   await Promise.all(participants.map((participantId) => consumePortalRequestBudget("launch", {
     request: request(), participantId, env: ENV, execute,
   })));
@@ -31,9 +31,9 @@ test("portal budgets accept a 40-participant burst and isolate participant spam"
   }));
 });
 
-test("score ingest and completion recovery remain isolated at 40-person concurrency", async () => {
+test("score ingest and completion recovery remain isolated at 50-person concurrency", async () => {
   const execute = createMemoryBudgetExecutor();
-  const participants = Array.from({ length: 40 }, (_, index) => `scorer-${index + 1}`);
+  const participants = Array.from({ length: 50 }, (_, index) => `scorer-${index + 1}`);
   const scores = new Map([["existing-player", 100]]);
 
   await Promise.all(participants.flatMap((participantId, index) => [
@@ -74,7 +74,7 @@ test("unsigned score floods are bounded before body parsing without coupling sou
 
 test("public leaderboard polling supports the field but bounds one-source invocation spam", async () => {
   const execute = createMemoryBudgetExecutor();
-  const normalMinute = Array.from({ length: 40 * 12 }, () => consumePortalRequestBudget("leaderboardRead", {
+  const normalMinute = Array.from({ length: 50 * 12 }, () => consumePortalRequestBudget("leaderboardRead", {
     request: request("198.51.100.42"), env: ENV, execute,
   }));
   await Promise.all(normalMinute);
@@ -107,7 +107,7 @@ test("completion recovery is charged by downstream fanout", async () => {
   }));
 });
 
-test("40 concurrent duplicate solve deliveries remain idempotent and isolated from legacy review state", async () => {
+test("50 concurrent duplicate solve deliveries remain idempotent and isolated from legacy review state", async () => {
   const hashes = new Map();
   const touched = [];
   const command = async (parts) => {
@@ -136,7 +136,7 @@ test("40 concurrent duplicate solve deliveries remain idempotent and isolated fr
     throw new Error(`unsupported fake Redis command ${verb}`);
   };
   const store = createLeaderboardStore({ command, env: { LEADERBOARD_EVENT_GENERATION: "load-test" } });
-  const results = await Promise.all(Array.from({ length: 40 }, (_, index) => {
+  const results = await Promise.all(Array.from({ length: 50 }, (_, index) => {
     const participantId = `duplicate-player-${index + 1}`;
     return ["first", "retry"].map((sourceId) => store.recordSolve({
       challenge: "imprint",
@@ -145,7 +145,7 @@ test("40 concurrent duplicate solve deliveries remain idempotent and isolated fr
       occurredAt: "2026-07-26T08:00:00.000Z",
     }));
   }).flat());
-  assert.equal(results.filter(Boolean).length, 40);
-  assert.equal((await store.solves()).length, 40);
+  assert.equal(results.filter(Boolean).length, 50);
+  assert.equal((await store.solves()).length, 50);
   assert.equal(touched.some((key) => key.includes("participant-adjustment")), false);
 });

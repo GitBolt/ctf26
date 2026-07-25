@@ -4,7 +4,7 @@ import { eventGeneration } from "@ctf26/leaderboard";
 import { deterministicAddress, isBase58Address } from "./encoding.mjs";
 import { redisCommand, signetRedisKey } from "./redis.mjs";
 
-export const VULNERABLE_PROGRAM_ID = "9xN3K7QfVtkUhFUgVawMuNvWPePvfrmnDmBGDxpo3grD";
+export const VULNERABLE_PROGRAM_ID = "GvX54HkYCVcM946oTSWMaV3MHhqWgHPf4CcLab2LZahR";
 export const TARGET_INVENTORY_SCHEMA = "signet-target-inventory-v1";
 const PARTICIPANT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const REQUIRED_ADDRESS_FIELDS = [
@@ -233,6 +233,7 @@ export function publicTarget(target, state, env = process.env) {
     escrowAccount: target.escrowAccount,
     mint: target.mint,
     escrowAuthority: target.escrowAuthority,
+    ...(target.accessAuthority ? { accessAuthority: target.accessAuthority } : {}),
     buildFingerprint: target.buildFingerprint,
     thresholdRaw: target.thresholdRaw,
     initialReserveRaw: target.initialReserveRaw,

@@ -1,6 +1,6 @@
 # Internal staging runbook
 
-Last updated: 2026-07-22 (Asia/Kolkata)
+Last updated: 2026-07-25 (Asia/Kolkata)
 
 This document records the currently deployed **internal test environment**. It is not the final event
 release manifest. Never copy secret values, ignored keypairs, or `.keys/` contents into this file.
@@ -20,7 +20,7 @@ release manifest. Never copy secret values, ignored keypairs, or `.keys/` conten
 | THE BROADCAST | `https://st26-broadcast.up.railway.app/` | Wallet-signature protocol and completion verifier |
 | EVIDENCE ROOM | `https://st26-evidence.up.railway.app/` | Account-lifecycle service with Redis and payer-capacity health |
 | SECOND KEY | `https://st26-secondkey.up.railway.app/` | Token-2022 custody service with Redis and payer-capacity health |
-| THE CHAMBER | _service not yet hosted_ | Vault program already live on devnet (`Ekw4Zx3N…GmnzX`, admin funded at 10.01 SOL); the Node service still needs a Railway deployment and programmed venue cards |
+| THE CHAMBER | `https://st26-chamber.up.railway.app/` | Three-lock Devnet vault, Redis-backed participant binding, and balance-derived provisioning capacity |
 
 AFTER HOURS deliberately retains its longer Railway hostname because immutable on-chain NIGHT
 metadata references that origin. Do not rename it without a migration plan for the published mint.
@@ -30,7 +30,7 @@ base URL until the new callback is added and tested in Google Cloud.
 The active event model is individual-only. The portal has one organizer dashboard for lifecycle,
 leaderboard finalization and read-only integrity telemetry. A solve under five minutes records a
 passive timing observation without changing visibility, score, rank, or access. The final concurrency
-simulation passed 23 of 23 tests with 40 concurrent participant sessions across every
+simulation passed 24 of 24 tests with 50 concurrent participant sessions across every
 service plus invalid and repeated traffic. Score freeze and integrity intake sealing are separate
 atomic controls, and integrity observations never change scores or block finalization.
 Lifecycle changes are durable, one-way organizer actions. Deployments cannot silently advance or roll
@@ -98,12 +98,10 @@ and add the complete map in the same configuration change.
 
 ### SIGNET
 
-- Staging vulnerable program: `9xN3K7QfVtkUhFUgVawMuNvWPePvfrmnDmBGDxpo3grD`
-- Staging program SHA-256:
-  `0f6ee1aa84f95189c3880e16eb4400954e333663f9a4ab8497248c332f07c854`
-- Sacrificial solve transaction:
-  `21Wg7QwmqfK2C11cL3q1ZZcysSCgbHBjRV7vs2yvN5gNJWMLdy9866de2ueDKeA8RmePQRwZ3ppC6AW3kJqXjsHv`
-- The live checker accepted that transaction and returned a server-side HMAC flag.
+- Staging vulnerable program: `GvX54HkYCVcM946oTSWMaV3MHhqWgHPf4CcLab2LZahR`
+- Each participant receives an isolated target plus a participant-specific execution credential.
+- The retired shared program's sacrificial solve is not evidence for this deployment and is intentionally
+  omitted from the current release record.
 - Fresh `internal-player` assignment remains unsolved: reserve `1,088,141`, escrow `0`, threshold
   `785,964` raw QRY.
 - Twenty-nine app/service/build checks and both executable Anchor tests pass.
@@ -237,6 +235,7 @@ curl -fsS https://st26-player2.up.railway.app/health
 curl -fsS https://st26-broadcast.up.railway.app/health
 curl -fsS https://st26-evidence.up.railway.app/health
 curl -fsS https://st26-secondkey.up.railway.app/health
+curl -fsS https://st26-chamber.up.railway.app/health
 curl -fsS https://st26-imprint.vercel.app/api/health
 ```
 

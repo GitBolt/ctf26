@@ -49,7 +49,7 @@ export async function createBroadcastServer(options = {}) {
   const rateWindowMs = boundedInteger(env.RATE_LIMIT_WINDOW_MS, 60_000, 1_000, 3_600_000, "RATE_LIMIT_WINDOW_MS");
   const sessionRateMax = boundedInteger(env.BROADCAST_SESSION_RATE_MAX, 4, 1, 30, "BROADCAST_SESSION_RATE_MAX");
   const powRateMax = boundedInteger(env.BROADCAST_POW_RATE_MAX, 60, 1, 600, "BROADCAST_POW_RATE_MAX");
-  const maxActiveClaims = boundedInteger(env.BROADCAST_MAX_ACTIVE_CLAIMS, 16, 1, 64, "BROADCAST_MAX_ACTIVE_CLAIMS");
+  const maxActiveClaims = boundedInteger(env.BROADCAST_MAX_ACTIVE_CLAIMS, 32, 1, 128, "BROADCAST_MAX_ACTIVE_CLAIMS");
   const winningVideo = env.BROADCAST_VIDEO_ID || env.BROADCAST_VIDEO_URL || "Zg97oEONXk4";
   const claimTarget = Number(options.claimTarget ?? env.CLAIM_TARGET ?? DEFAULT_TARGET);
   if (!Number.isSafeInteger(claimTarget) || claimTarget < 1 || claimTarget > 15) {

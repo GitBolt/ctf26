@@ -39,6 +39,7 @@ const COMPLETION_CHALLENGES = new Set([
 ]);
 
 const READINESS_PARTICIPANT_ID = "portal-readiness";
+const TRANSIENT_HEALTH_RETRY_DELAY_MS = 150;
 
 function required(value, name, minimum = 1) {
   if (typeof value !== "string" || Buffer.byteLength(value) < minimum) {
@@ -86,11 +87,17 @@ async function readJson(response, label) {
 }
 
 async function probeChallengeHealth(challenge, destination, fetchImpl, signal) {
-  const response = await fetchImpl(new URL(HEALTH_PATHS[challenge.key], destination.url), {
-    cache: "no-store",
-    headers: { accept: "application/json" },
-    signal,
-  });
+  const url = new URL(HEALTH_PATHS[challenge.key], destination.url);
+  const request = () => fetchImpl(url, {
+      cache: "no-store",
+      headers: { accept: "application/json" },
+      signal,
+    });
+  let response = await request();
+  if (response?.status >= 500 && response.status <= 599 && !signal?.aborted) {
+    await new Promise((resolve) => setTimeout(resolve, TRANSIENT_HEALTH_RETRY_DELAY_MS));
+    response = await request();
+  }
   const body = await readJson(response, `${challenge.name} health`);
   if (body.ok !== true) throw new Error(`${challenge.name} is not ready`);
   return body;
@@ -168,9 +175,9 @@ async function probeRewardScoreboard(baseUrl, expectedEventId, expectedGeneratio
 }
 
 function expectedCapacityFor(challengeKey, body) {
-  if (challengeKey === "evidence-room") return body?.chain?.expectedParticipants;
+  if (challengeKey === "evidence-room") return body?.chain?.maxParticipants;
   if (new Set(["after-hours", "player-two", "second-key", "signet", "the-chamber"]).has(challengeKey)) {
-    return body?.capacity?.expectedParticipants;
+    return body?.capacity?.maxParticipants;
   }
   return null;
 }

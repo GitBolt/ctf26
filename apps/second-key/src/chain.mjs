@@ -20,7 +20,6 @@ export function createSecondKeyChain(env = process.env) {
   const secret = required(env.SECOND_KEY_CHAIN_SECRET, "SECOND_KEY_CHAIN_SECRET");
   const certificateSecret = required(env.SECOND_KEY_CERTIFICATE_SECRET || env.SECOND_KEY_CHAIN_SECRET, "SECOND_KEY_CERTIFICATE_SECRET");
   const minimumPayerBalance = positiveIntegerSetting(env, "SECOND_KEY_MIN_PAYER_LAMPORTS", 100_000_000);
-  const expectedParticipants = positiveIntegerSetting(env, "SECOND_KEY_EXPECTED_PARTICIPANTS", 50);
   const feeBudgetLamports = positiveIntegerSetting(env, "SECOND_KEY_FEE_BUDGET_LAMPORTS", 100_000);
   const capacityBufferBps = nonnegativeIntegerSetting(env, "SECOND_KEY_CAPACITY_BUFFER_BPS", 1_000, 10_000);
 
@@ -158,7 +157,6 @@ export function createSecondKeyChain(env = process.env) {
       const payerHealth = evaluateSecondKeyPayerCapacity({
         balance,
         minimumPayerBalance,
-        expectedParticipants,
         provisionedParticipants,
         mintRent,
         tokenAccountRent,
@@ -180,18 +178,24 @@ export function evaluateSecondKeyPayerCapacity({ balance, minimumPayerBalance, .
   const payerBalance = capacityInteger(balance, "balance");
   const minimumBalance = capacityInteger(minimumPayerBalance, "minimumPayerBalance");
   const capacity = estimateSecondKeyCapacity(capacityInput);
-  const requiredBalance = Math.max(minimumBalance, capacity.requiredRemainingBalance);
+  const availableProvisionSlots = Math.floor(
+    Math.max(0, payerBalance - minimumBalance) / capacity.bufferedPerParticipantLamports,
+  );
+  const maxParticipants = capacity.provisionedParticipants + availableProvisionSlots;
   return {
-    ok: !capacity.capacityExceeded && payerBalance >= requiredBalance,
+    ok: payerBalance >= minimumBalance,
     balance: payerBalance,
     minimumPayerBalance: minimumBalance,
-    requiredBalance,
-    capacity,
+    requiredBalance: minimumBalance,
+    capacity: {
+      ...capacity,
+      availableProvisionSlots,
+      maxParticipants,
+    },
   };
 }
 
 export function estimateSecondKeyCapacity({
-  expectedParticipants,
   provisionedParticipants = 0,
   mintRent,
   tokenAccountRent,
@@ -201,7 +205,6 @@ export function estimateSecondKeyCapacity({
   advanceLamports = ADVANCE_LAMPORTS,
   capacityBufferBps = 1_000,
 }) {
-  const expected = capacityInteger(expectedParticipants, "expectedParticipants", { minimum: 1 });
   const provisioned = capacityInteger(provisionedParticipants, "provisionedParticipants");
   const components = {
     walletFundingLamports: capacityInteger(walletFundingLamports, "walletFundingLamports"),
@@ -213,18 +216,12 @@ export function estimateSecondKeyCapacity({
   };
   const bufferBps = capacityInteger(capacityBufferBps, "capacityBufferBps", { maximum: 10_000 });
   const perParticipantLamports = safeSum(Object.values(components), "per-participant capacity");
-  const remainingParticipants = Math.max(0, expected - provisioned);
-  const baseRemainingBalance = safeProduct(perParticipantLamports, remainingParticipants, "remaining field capacity");
-  const requiredRemainingBalance = bufferedAmount(baseRemainingBalance, bufferBps);
+  const bufferedPerParticipantLamports = bufferedAmount(perParticipantLamports, bufferBps);
   return {
-    expectedParticipants: expected,
     provisionedParticipants: provisioned,
-    remainingParticipants,
-    capacityExceeded: provisioned > expected,
     perParticipantLamports,
-    baseRemainingBalance,
+    bufferedPerParticipantLamports,
     capacityBufferBps: bufferBps,
-    requiredRemainingBalance,
     components,
   };
 }

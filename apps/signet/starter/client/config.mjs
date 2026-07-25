@@ -21,3 +21,9 @@ export function walletKeypair() {
   const filename = configured.startsWith("~/") ? path.join(os.homedir(), configured.slice(2)) : configured;
   return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(filename, "utf8"))));
 }
+
+export function accessKeypair() {
+  const configured = required("SIGNET_ACCESS_KEYPAIR");
+  const filename = configured.startsWith("~/") ? path.join(os.homedir(), configured.slice(2)) : configured;
+  return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(filename, "utf8"))));
+}

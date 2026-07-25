@@ -80,10 +80,11 @@ function healthyFetch(calls = [], options = {}) {
           },
           funding: { payer: "signet-payer" },
         } : {}),
-        ...(["after-hours.example", "player-two.example", "second-key.example", "signet.example", "the-chamber.example"].includes(url.hostname)
-          ? { capacity: { expectedParticipants: fieldSize } }
+        ...(["after-hours.example", "player-two.example", "second-key.example", "signet.example"].includes(url.hostname)
+          ? { capacity: { maxParticipants: fieldSize } }
           : {}),
-        ...(url.hostname === "evidence-room.example" ? { chain: { expectedParticipants: fieldSize, payer: "evidence-payer" } } : {}),
+        ...(url.hostname === "the-chamber.example" ? { capacity: { maxParticipants: fieldSize } } : {}),
+        ...(url.hostname === "evidence-room.example" ? { chain: { maxParticipants: fieldSize, payer: "evidence-payer" } } : {}),
         ...(url.hostname === "second-key.example" ? { payer: "second-key-payer" } : {}),
         ...(url.hostname === "player-two.example" ? { funding: { payer: "player-two-payer" } } : {}),
         ...(url.hostname === "the-chamber.example" ? { funding: { payer: "the-chamber-payer" } } : {}),
@@ -174,7 +175,7 @@ test("portal health rejects independently budgeted challenges sharing one payer"
       if (url.hostname === "player-two.example" && url.pathname === "/health") {
         return Response.json({
           ok: true,
-          capacity: { expectedParticipants: 50 },
+          capacity: { maxParticipants: 50 },
           funding: { payer: "evidence-payer" },
         });
       }
@@ -203,7 +204,7 @@ test("official readiness binds every funded inventory to the checked-in field", 
     fetchImpl: async (input, options) => {
       const url = new URL(input);
       if (url.hostname === "after-hours.example" && url.pathname === "/health") {
-        return Response.json({ ok: true, capacity: { expectedParticipants: 1 } });
+        return Response.json({ ok: true, capacity: { maxParticipants: 1 } });
       }
       return baseFetch(input, options);
     },
@@ -232,7 +233,7 @@ test("official readiness requires the exact SIGNET target inventory", async () =
         return Response.json({
           ok: true,
           targetInventory: { count: 2, participantIdsSha256: "f".repeat(64) },
-          capacity: { expectedParticipants: 2 },
+          capacity: { maxParticipants: 2 },
           funding: { payer: "signet-payer" },
         });
       }
@@ -273,17 +274,41 @@ test("portal health fails when Redis is unavailable", async () => {
 
 test("portal health fails closed when a challenge dependency is unavailable", async () => {
   const baseFetch = healthyFetch();
+  let driftHealthCalls = 0;
   await assert.rejects(() => portalHealth({
     env: healthyEnv(),
     redisCommand: async () => "PONG",
     fetchImpl: async (input, options) => {
       const url = new URL(input);
       if (url.hostname === "drift.example" && url.pathname === "/health") {
+        driftHealthCalls += 1;
         return Response.json({ ok: false }, { status: 503 });
       }
       return baseFetch(input, options);
     },
   }), /DRIFT health returned 503/);
+  assert.equal(driftHealthCalls, 2);
+});
+
+test("portal health tolerates one transient dependency probe failure", async () => {
+  const baseFetch = healthyFetch();
+  let afterHoursHealthCalls = 0;
+  const health = await portalHealth({
+    env: healthyEnv(),
+    redisCommand: async () => "PONG",
+    fetchImpl: async (input, options) => {
+      const url = new URL(input);
+      if (url.hostname === "after-hours.example" && url.pathname === "/health") {
+        afterHoursHealthCalls += 1;
+        if (afterHoursHealthCalls === 1) {
+          return Response.json({ ok: false }, { status: 503 });
+        }
+      }
+      return baseFetch(input, options);
+    },
+  });
+  assert.equal(health.ok, true);
+  assert.equal(afterHoursHealthCalls, 2);
 });
 
 test("portal health rejects stale challenge and Reward event dependencies", async () => {

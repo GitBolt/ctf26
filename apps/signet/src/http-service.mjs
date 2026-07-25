@@ -20,7 +20,7 @@ import {
   sessionCookie,
 } from "./session.mjs";
 import { loadTargetForParticipant, loadTargetInventory, publicTarget } from "./targets.mjs";
-import { ensureParticipantTarget, participantProvisionCapacity } from "./auto-provision.mjs";
+import { ensureParticipantTarget, participantAccessKeypair, participantProvisionCapacity } from "./auto-provision.mjs";
 import { forwardDisclosure, forwardIntegrityEvent, policyFor, publicPolicyFor, verifyMarker } from "@ctf26/agent-integrity";
 import { eventGeneration, reportSolveEventBestEffort } from "@ctf26/leaderboard";
 import { trustedClientAddress } from "@ctf26/request-budget";
@@ -195,9 +195,15 @@ export async function handleTarget(request, response, options = {}) {
         if (!(error instanceof RpcError)) throw error;
         state = { status: "unavailable", reserveRaw: null, escrowRaw: null, slot: null };
       }
+      const publicAssignment = publicTarget(target, state, env);
+      if (target.accessAuthority) {
+        const accessKeypair = participantAccessKeypair(identity.participantId, { env });
+        if (accessKeypair.publicKey.toBase58() !== target.accessAuthority) throw new Error("SIGNET access credential does not match its assigned target");
+        publicAssignment.accessKeypair = [...accessKeypair.secretKey];
+      }
       jsonResponse(response, 200, {
         identity: { participantId: identity.participantId },
-        target: publicTarget(target, state, env),
+        target: publicAssignment,
       });
     } finally {
       await (options.releaseLease || releaseSubmissionLease)(lease, { env });
@@ -324,16 +330,23 @@ export async function handleHealth(request, response, options = {}) {
     const cacheMs = Number(env.SIGNET_HEALTH_CACHE_MS || 15_000);
     if (!Number.isSafeInteger(cacheMs) || cacheMs < 1 || cacheMs > 60_000) throw new Error("SIGNET_HEALTH_CACHE_MS is invalid");
     const [redisHealth, , targetInventory, capacity] = await cachedHealthProbe(env, cacheMs, async () => {
-      const [redisResult, rpcResult, inventory] = await Promise.all([
+      const [redisResult, rpcResult, storedInventory] = await Promise.all([
         redisCommand(["PING"], { env, fetchImpl }),
         checkRpcHealth({ env, fetchImpl }),
-        loadTargetInventory({ env, fetchImpl }),
+        loadTargetInventory({ env, fetchImpl }).catch((error) => {
+          if (error?.message !== "Target inventory has not been published for this event generation") throw error;
+          return null;
+        }),
       ]);
+      const inventory = storedInventory || {
+        count: 0,
+        participantIdsSha256: crypto.createHash("sha256").update("[]").digest("hex"),
+      };
       const capacityResult = await (options.capacityProbe || participantProvisionCapacity)(inventory.count, { env });
       return [redisResult, rpcResult, inventory, capacityResult];
     });
     if (redisHealth !== "PONG") throw new Error("replay store health check failed");
-    if (!capacity.sufficient) throw new Error("SIGNET operator cannot provision the configured field");
+    if (!capacity.sufficient) throw new Error("SIGNET operator balance is below its protected minimum");
     jsonResponse(response, 200, {
       ok: true,
       service: "signet",
@@ -344,14 +357,16 @@ export async function handleHealth(request, response, options = {}) {
         participantIdsSha256: targetInventory.participantIdsSha256,
       },
       capacity: {
-        expectedParticipants: capacity.expectedParticipants,
         provisionedParticipants: capacity.provisionedParticipants,
-        remainingParticipants: capacity.remainingParticipants,
+        availableProvisionSlots: capacity.availableProvisionSlots,
+        maxParticipants: capacity.provisionedParticipants + capacity.availableProvisionSlots,
+        canProvisionAnother: capacity.canProvisionAnother,
         sufficient: capacity.sufficient,
       },
       funding: {
         payer: capacity.payer,
-        requiredBalance: capacity.requiredBalance,
+        minimumOperatorLamports: capacity.minimumOperatorLamports,
+        provisionLamportsPerParticipant: capacity.provisionLamportsPerParticipant,
       },
     });
   });

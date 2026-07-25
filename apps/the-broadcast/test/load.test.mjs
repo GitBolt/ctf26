@@ -10,7 +10,7 @@ import { createStore } from "../src/store.mjs";
 
 const SECRET = "broadcast-load-ticket-secret-at-least-32-bytes";
 
-test("40 participant sessions stay isolated and claim spam has hard bounds", async (t) => {
+test("50 participant sessions stay isolated and claim spam has hard bounds", async (t) => {
   const backing = await createStore({ CTF_EVENT_GENERATION: "load-event" });
   let slowClaims = false;
   let activeWrites = 0;
@@ -44,10 +44,10 @@ test("40 participant sessions stay isolated and claim spam has hard bounds", asy
   const address = await service.listen(0);
   t.after(() => service.close());
   const origin = `http://127.0.0.1:${address.port}`;
-  const healthResponses = await Promise.all(Array.from({ length: 40 }, () => fetch(`${origin}/health`)));
+  const healthResponses = await Promise.all(Array.from({ length: 50 }, () => fetch(`${origin}/health`)));
   assert.ok(healthResponses.every(({ status }) => status === 200));
   assert.equal(healthCalls, 1);
-  const participants = Array.from({ length: 40 }, (_, index) => `load-${index}`);
+  const participants = Array.from({ length: 50 }, (_, index) => `load-${index}`);
 
   const launched = await Promise.all(participants.map(async (participantId) => {
     const response = await fetch(`${origin}/launch?participantId=${participantId}`, { redirect: "manual" });
@@ -80,8 +80,8 @@ test("40 participant sessions stay isolated and claim spam has hard bounds", asy
   })));
   const accepted = responses.filter(({ status }) => status === 200).length;
   const busy = responses.filter(({ status }) => status === 429).length;
-  assert.ok(accepted >= 6 && accepted < 40);
-  assert.equal(accepted + busy, 40);
+  assert.ok(accepted >= 6 && accepted < 50);
+  assert.equal(accepted + busy, 50);
   assert.ok(peakWrites <= 6);
 
   const repeated = claims[0];
