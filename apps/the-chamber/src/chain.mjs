@@ -160,19 +160,26 @@ export function createChamberChain(env = process.env) {
       return decodeLocks(info?.data || null);
     },
     /**
-     * The finalized block time of the transaction that last wrote the PDA, used
-     * as the solve time so scoring reflects when the chamber actually opened
-     * rather than when the service happened to notice.
+     * The block time of the transaction that last wrote the PDA, used as the
+     * solve time so scoring reflects when the chamber actually opened rather
+     * than when the service happened to notice.
      *
-     * Returns null when the RPC has pruned that history, and the caller then
-     * falls back to the observation time. That fallback only ever makes a solve
-     * look slower than it was, so it can under-flag fast-solve review but never
-     * manufacture a false one. A provider with short signature retention degrades
-     * this silently — prefer one that keeps at least the event window.
+     * Queried at `confirmed`, matching the commitment the lock read itself uses.
+     * Asking for `finalized` here looks safer but is wrong in practice: a solve
+     * is detected within a second or two of landing, finality lags well behind
+     * that, so the lookup would return nothing and silently fall back to the
+     * observation time on essentially every real solve. Reading at a stricter
+     * commitment than the state that triggered the read buys nothing — if the
+     * transaction were dropped, the locks would not read open either.
+     *
+     * Still returns null when the RPC has pruned that history, and the caller
+     * then falls back to the observation time. That fallback only ever makes a
+     * solve look slower than it was, so it can under-flag fast-solve review but
+     * never manufacture a false one.
      */
     async openedAt(wallet) {
       const pda = deriveUserPda(programId, new PublicKey(wallet));
-      const [latest] = await connection.getSignaturesForAddress(pda, { limit: 1 }, "finalized");
+      const [latest] = await connection.getSignaturesForAddress(pda, { limit: 1 }, "confirmed");
       return latest?.blockTime ? new Date(latest.blockTime * 1_000).toISOString() : null;
     },
     /**

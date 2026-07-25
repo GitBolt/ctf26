@@ -29,7 +29,7 @@ The earlier locks are ordinary sequencing. `unlock_second` requires `first_unloc
 4. Call `unlock_third` directly, receive the deliberately vague `ThirdLockResists` message, and work out that the caller must itself be a program.
 5. Write, deploy, and invoke a minimal Solana program that CPIs into `unlock_third`. The participant's signature on the outer transaction propagates through the invocation, so the vault still sees them as the PDA owner.
 
-The service polls the account and reports the solve the moment all three locks are open, using the finalized block time of the opening transaction as the solve time. It derives that state rather than reading the account's `chamber_open` byte, which the deployed program sets false at creation and never writes again. The portal's private completion contract performs the same reconciliation, so a participant who never reopens the page is still scored.
+The service polls the account and reports the solve the moment all three locks are open, using the block time of the opening transaction as the solve time, read at the same commitment as the lock state that triggered it. It derives that state rather than reading the account's `chamber_open` byte, which the deployed program sets false at creation and never writes again. The portal's private completion contract performs the same reconciliation, so a participant who never reopens the page is still scored.
 
 ## Delivery and integrity
 

@@ -384,6 +384,18 @@ test("the open chamber is derived from the locks, never from the stored flag", (
   );
 });
 
+test("the solve-time lookup reads at the same commitment as the lock state", async () => {
+  // A solve is detected within a second or two of landing, well before finality.
+  // Querying signatures at "finalized" therefore returns nothing on essentially
+  // every real solve and silently falls back to the observation time, which is
+  // how this regressed once already.
+  const source = await fs.readFile(fileURLToPath(new URL("../src/chain.mjs", import.meta.url)), "utf8");
+  const lookup = source.slice(source.indexOf("async openedAt("));
+  const commitment = lookup.slice(0, lookup.indexOf("\n    },"));
+  assert.match(commitment, /getSignaturesForAddress\([^)]*"confirmed"\)/s);
+  assert.doesNotMatch(commitment, /"finalized"/);
+});
+
 test("wallet parsing rejects program-derived addresses", () => {
   assert.ok(parseWallet(WALLET_A));
   assert.equal(parseWallet("Sysvar1nstructions1111111111111111111111111"), null);
