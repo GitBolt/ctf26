@@ -3444,6 +3444,82 @@ button {
   opacity: .7;
 }
 
+/*
+ * Movement. A rank change is animated by the client with a FLIP transform, so a
+ * moving row must paint above its neighbours for the duration of the slide.
+ */
+.leader-row {
+  will-change: transform;
+}
+
+.leader-row[style*="translateY"] {
+  z-index: 2;
+}
+
+.leader-move {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  margin-left: 10px;
+  padding: 0 7px;
+  border-radius: 4px;
+  /* Sized to stay readable on a projected room board, not just a laptop. */
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+  vertical-align: middle;
+  animation: leader-move-in 220ms ease-out both;
+}
+
+.leader-move-up {
+  color: #6ee7a8;
+  background: rgb(110 231 168 / 14%);
+}
+
+.leader-move-down {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.leader-move-held {
+  color: var(--meta);
+  background: rgb(255 255 255 / 7%);
+}
+
+.leader-move-new {
+  color: var(--accent);
+  background: var(--accent-soft);
+  letter-spacing: .06em;
+}
+
+/* The row that just scored pulses once so the sound has something to point at. */
+.leader-row-gained::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgb(110 231 168 / 22%), transparent 62%);
+  animation: leader-row-flash 1400ms ease-out both;
+  content: "";
+}
+
+@keyframes leader-move-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes leader-row-flash {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leader-row { will-change: auto; }
+  .leader-move { animation: none; }
+  .leader-row-gained::after { animation: none; opacity: .5; }
+}
+
 .leader-rank {
   color: var(--muted);
   font-size: 17px;
@@ -3459,6 +3535,20 @@ button {
   min-width: 0;
   display: grid;
   gap: 3px;
+}
+
+/*
+ * A row carries at most the name plus one movement badge, so laying the cell out
+ * as a flex line keeps the badge beside the name instead of stacking it under.
+ */
+.leader-person {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.leader-move {
+  flex: none;
 }
 
 .leader-person strong {

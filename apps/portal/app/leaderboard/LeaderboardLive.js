@@ -1,10 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import { verifiedSolveCount } from "./solve-alerts.mjs";
+import { rowMovement, verifiedSolveCount } from "./solve-alerts.mjs";
 
 const SOLVE_ALERT_PATH = "/audio/solve-achievement.mp3";
+// How long a ▲/▼ badge and the scored-row flash stay up after a change. Long
+// enough to read from across a room, short enough that the board settles.
+const MOVEMENT_HOLD_MS = 8_000;
+const FLIP_MS = 450;
+
+function prefersReducedMotion() {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -36,14 +46,38 @@ function syncLabel(snapshot) {
   return `Updated ${time.format(new Date(snapshot.generatedAt))}`;
 }
 
-function LeaderboardRow({ row, snapshot }) {
+function MovementBadge({ movement }) {
+  if (!movement) return null;
+  const { delta, gained, debut } = movement;
+  // Arriving on the board is the largest move a row can make, and it has no
+  // numeric delta because an unranked row has no rank to subtract from.
+  if (debut) return <span className="leader-move leader-move-new" aria-label="New entry on the board">NEW</span>;
+  if (delta > 0) {
+    return <span className="leader-move leader-move-up" aria-label={`Climbed ${delta} ${delta === 1 ? "place" : "places"}`}>▲{delta}</span>;
+  }
+  if (delta < 0) {
+    const places = Math.abs(delta);
+    return <span className="leader-move leader-move-down" aria-label={`Dropped ${places} ${places === 1 ? "place" : "places"}`}>▼{places}</span>;
+  }
+  if (gained) return <span className="leader-move leader-move-held" aria-label="Scored, holding position">▬</span>;
+  return null;
+}
+
+function LeaderboardRow({ row, snapshot, movement, rowRef }) {
+  const classes = [
+    "leader-row",
+    row.rank && row.rank <= 3 ? `leader-row-top leader-row-top-${row.rank}` : "",
+    !row.rank ? "leader-row-unranked" : "",
+    movement?.gained ? "leader-row-gained" : "",
+  ].filter(Boolean).join(" ");
   return (
-    <article className={`leader-row${row.rank && row.rank <= 3 ? ` leader-row-top leader-row-top-${row.rank}` : ""}${!row.rank ? " leader-row-unranked" : ""}`}>
+    <article className={classes} ref={rowRef}>
       <div className="leader-rank" aria-label={row.rank ? `Rank ${row.rank}` : "Not yet ranked"}>
         {row.rank ? String(row.rank).padStart(2, "0") : "••"}
       </div>
       <div className="leader-person">
         <strong>{row.displayName}</strong>
+        <MovementBadge movement={movement} />
       </div>
       <div className="leader-score">
         <strong>{number.format(row.points)}</strong>
@@ -67,6 +101,23 @@ export default function LeaderboardLive({ initialSnapshot }) {
   const previousSolveCount = useRef(verifiedSolveCount(initialSnapshot));
   const alertQueue = useRef({ pending: 0, playing: false });
   const drainAlerts = useRef(() => {});
+
+  const [movements, setMovements] = useState(() => new Map());
+  const rowNodes = useRef(new Map());
+  const lastOffsets = useRef(new Map());
+  const rankHistory = useRef(new Map());
+  const pointsHistory = useRef(new Map());
+  const historySeeded = useRef(false);
+  const hasComparedOnce = useRef(false);
+  if (!historySeeded.current) {
+    // Seed from the server-rendered snapshot so the first live update produces a
+    // real delta instead of treating every row as brand new.
+    for (const row of initialSnapshot?.rows || []) {
+      rankHistory.current.set(row.participantId, row.rank);
+      pointsHistory.current.set(row.participantId, row.points);
+    }
+    historySeeded.current = true;
+  }
 
   useEffect(() => {
     const player = new Audio(SOLVE_ALERT_PATH);
@@ -113,6 +164,70 @@ export default function LeaderboardLive({ initialSnapshot }) {
       alertQueue.current.pending += newSolves;
       drainAlerts.current();
     }
+  }, [snapshot]);
+
+  // Rank and score deltas are derived here rather than served: the snapshot is a
+  // shared, cached document with no per-viewer history, so "what changed since I
+  // last looked" only exists on the client.
+  useEffect(() => {
+    const rows = snapshot?.rows;
+    if (!rows?.length) return;
+    const fresh = [];
+    const firstComparison = !hasComparedOnce.current;
+    for (const row of rows) {
+      const movement = rowMovement({
+        row,
+        priorRank: rankHistory.current.get(row.participantId),
+        priorPoints: pointsHistory.current.get(row.participantId),
+        firstComparison,
+      });
+      if (movement) fresh.push([row.participantId, { ...movement, at: Date.now() }]);
+      rankHistory.current.set(row.participantId, row.rank);
+      pointsHistory.current.set(row.participantId, row.points);
+    }
+    hasComparedOnce.current = true;
+    if (!fresh.length) return;
+    setMovements((current) => {
+      const merged = new Map(current);
+      for (const [participantId, value] of fresh) merged.set(participantId, value);
+      return merged;
+    });
+  }, [snapshot]);
+
+  useEffect(() => {
+    if (movements.size === 0) return undefined;
+    const timer = window.setInterval(() => {
+      const cutoff = Date.now() - MOVEMENT_HOLD_MS;
+      setMovements((current) => {
+        const kept = new Map([...current].filter(([, value]) => value.at > cutoff));
+        return kept.size === current.size ? current : kept;
+      });
+    }, 1_000);
+    return () => window.clearInterval(timer);
+  }, [movements]);
+
+  // FLIP: measure where each row sat before this paint, then animate it from its
+  // old position to the new one so a rank change reads as motion, not a snap.
+  useLayoutEffect(() => {
+    const nextOffsets = new Map();
+    const animate = !prefersReducedMotion();
+    for (const [participantId, node] of rowNodes.current) {
+      if (!node) continue;
+      // offsetTop, not getBoundingClientRect: immune to page scroll between frames.
+      const top = node.offsetTop;
+      nextOffsets.set(participantId, top);
+      if (!animate) continue;
+      const priorTop = lastOffsets.current.get(participantId);
+      if (priorTop === undefined) continue;
+      const shift = priorTop - top;
+      if (Math.abs(shift) < 1) continue;
+      node.style.transition = "none";
+      node.style.transform = `translateY(${shift}px)`;
+      void node.offsetHeight;
+      node.style.transition = `transform ${FLIP_MS}ms cubic-bezier(.22,.61,.36,1)`;
+      node.style.transform = "translateY(0)";
+    }
+    lastOffsets.current = nextOffsets;
   }, [snapshot]);
 
   useEffect(() => {
@@ -234,7 +349,16 @@ export default function LeaderboardLive({ initialSnapshot }) {
       </div>
       <div className="leader-table">
         {rows.length ? rows.map((row) => (
-          <LeaderboardRow key={row.participantId} row={row} snapshot={snapshot} />
+          <LeaderboardRow
+            key={row.participantId}
+            row={row}
+            snapshot={snapshot}
+            movement={movements.get(row.participantId) || null}
+            rowRef={(node) => {
+              if (node) rowNodes.current.set(row.participantId, node);
+              else rowNodes.current.delete(row.participantId);
+            }}
+          />
         )) : (
           <div className="leaderboard-empty">
             <span className="capture-flag" aria-hidden="true" />

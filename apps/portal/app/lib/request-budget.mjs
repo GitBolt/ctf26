@@ -12,7 +12,11 @@ import { leaderboardRedisCommand } from "./leaderboard-redis.mjs";
 
 const WINDOW_MS = 60_000;
 const POLICIES = Object.freeze({
-  launch: Object.freeze({ global: 2_400, ip: 120, participant: 12 }),
+  // The whole field sits behind one venue NAT, so every participant shares an IP
+  // bucket. A 120/min ceiling turns kickoff — 50 people opening several
+  // challenges at once — into a burst of 429s. The per-participant cap below is
+  // the real abuse guard; the IP bucket only needs to stop a single hostile host.
+  launch: Object.freeze({ global: 2_400, ip: 1_200, participant: 12 }),
   scoreAttempt: Object.freeze({ global: 12_000, ip: 240 }),
   scoreIngest: Object.freeze({ global: 3_000, ip: 1_200, participant: 30 }),
   completionRecovery: Object.freeze({ global: 1_200, participant: 16 }),
