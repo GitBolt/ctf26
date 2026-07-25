@@ -19,7 +19,7 @@ apps/the-chamber/
 ├── src/                        # hosted service (server, chain adapter, store)
 ├── web/                        # participant surface
 ├── test/                       # service tests (node --test)
-└── .keys/                      # gitignored operator + hidden keypairs
+└── .keys/                      # tracked operator + hidden keypairs (organizer-only)
 ```
 
 ## Running
@@ -49,18 +49,29 @@ THE CHAMBER.
 
 ### Keys
 
-Both keypairs are inherited from the prototype and live in gitignored `.keys/`:
+Both keypairs are inherited from the prototype and are **committed to this repo**
+under `.keys/`, because they are compiled into the already-deployed program and
+cannot be rotated without a redeploy:
 
 | file | pubkey | role |
 | --- | --- | --- |
 | `the-chamber-operator.json` | `2pqmreJi…v7AGZ` | `ADMIN_KEY`, rent payer, program upgrade authority |
 | `the-chamber-hidden.json` | `AnCccXSJ…tXaty` | `HIDDEN_KEY`; the value written to the venue cards |
 
-Both are challenge-scoped rather than personal wallets, so `docs/strategy/anti-ai.md`
-§9's substantive rule holds. The caveat it does not satisfy: these two are committed
-in the **private** `KunalBagaria/ctf-2026` repository's history. That repo must stay
-private for the duration of the event — publishing it would expose the lock-two
-answer and the admin key at once. Rotating either would require a redeploy.
+Both are challenge-scoped rather than personal wallets, so the substantive rule in
+`docs/strategy/anti-ai.md` §9 holds — but tracking them departs from that section's
+"gitignored" requirement, deliberately and with the consequences below.
+
+**This repository is now itself a control on the challenge.** Anyone who can read it
+can turn lock two without the physical card, which is the venue-local gate the
+challenge's anti-agent property rests on. Keep `GitBolt/ctf26` private for the
+duration of the event, keep write access to the people running it, and treat repo
+access as equivalent to handing out a card. The same is true of
+`KunalBagaria/ctf-2026`, which holds the same two keys plus the full writeup.
+
+Only `.keys/the-chamber-operator.json` and `.keys/the-chamber-hidden.json` are
+tracked; anything else placed in `.keys/` stays ignored. Neither file may be served
+to participants — `.keys` is listed organizer-only in `packaging/challenges.json`.
 
 ### `chamber_open` is derived, never read
 

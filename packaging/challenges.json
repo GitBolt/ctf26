@@ -215,6 +215,7 @@
       "generatedPlayerPaths": [],
       "strictPlayerRoots": [],
       "organizerOnlyPaths": [
+        "apps/the-chamber/.keys",
         "apps/the-chamber/Dockerfile",
         "apps/the-chamber/INTERNAL_ANSWER_KEY.md",
         "apps/the-chamber/README.md",

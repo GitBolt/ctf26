@@ -45,4 +45,8 @@ private/
 .vscode/
 .idea/
 .keys/
+# THE CHAMBER's two keys are compiled into an already-deployed program and
+# cannot be rotated without a redeploy, so they are tracked deliberately. Only
+# descent is allowed here; apps/the-chamber/.gitignore names the exact files.
+!apps/the-chamber/.keys/
 *-keypair.json

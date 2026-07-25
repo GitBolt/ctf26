@@ -6,9 +6,11 @@ of `.keys/` to participants.
 The vault is the already-deployed prototype program at
 `Ekw4Zx3Nu9zTvCYsuzn1ubHNtgWjRAtm8PMUNavgmPXj`; it is not redeployed for the event,
 and `ADMIN_KEY` / `HIDDEN_KEY` are the inherited keys compiled into that bytecode.
-The full public writeup for this challenge exists in the **private**
-`KunalBagaria/ctf-2026` repository, along with both keypairs. Keep it private for
-the duration of the event.
+Both keypairs are committed to this repository at `apps/the-chamber/.keys/`, and the
+full writeup plus the same keys also live in the **private** `KunalBagaria/ctf-2026`
+repository. Read access to either repo is enough to turn lock two without the
+physical card, so both must stay private for the duration of the event and access
+should be limited to the people running it.
 
 ## Shape
 
