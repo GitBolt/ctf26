@@ -23,6 +23,7 @@ const HEALTH_PATHS = Object.freeze({
   "the-broadcast": "/health",
   "evidence-room": "/health",
   "second-key": "/health",
+  "the-chamber": "/health",
 });
 
 const COMPLETION_CHALLENGES = new Set([
@@ -34,6 +35,7 @@ const COMPLETION_CHALLENGES = new Set([
   "the-broadcast",
   "evidence-room",
   "second-key",
+  "the-chamber",
 ]);
 
 const READINESS_PARTICIPANT_ID = "portal-readiness";
@@ -167,7 +169,7 @@ async function probeRewardScoreboard(baseUrl, expectedEventId, expectedGeneratio
 
 function expectedCapacityFor(challengeKey, body) {
   if (challengeKey === "evidence-room") return body?.chain?.expectedParticipants;
-  if (new Set(["after-hours", "player-two", "second-key", "signet"]).has(challengeKey)) {
+  if (new Set(["after-hours", "player-two", "second-key", "signet", "the-chamber"]).has(challengeKey)) {
     return body?.capacity?.expectedParticipants;
   }
   return null;
@@ -209,7 +211,7 @@ function assertIndependentOnChainFunding(dependencies, healthResults) {
       ? body?.chain?.payer
       : challenge.key === "second-key"
         ? body?.payer
-        : challenge.key === "player-two" || challenge.key === "signet"
+        : challenge.key === "player-two" || challenge.key === "signet" || challenge.key === "the-chamber"
           ? body?.funding?.payer
           : null;
     if (!payer) continue;

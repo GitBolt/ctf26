@@ -32,6 +32,7 @@ const CHALLENGES = {
   "the-broadcast": "THE BROADCAST",
   "evidence-room": "EVIDENCE ROOM",
   "second-key": "SECOND KEY",
+  "the-chamber": "THE CHAMBER",
 };
 
 function valueOf(result, fallback) {

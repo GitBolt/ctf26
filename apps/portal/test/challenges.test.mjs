@@ -8,7 +8,7 @@ import {
 } from "../app/lib/challenges.mjs";
 
 test("challenge catalog has unique, launch-safe keys", () => {
-  assert.equal(CHALLENGES.length, 10);
+  assert.equal(CHALLENGES.length, 11);
   assert.equal(new Set(CHALLENGES.map(({ key }) => key)).size, CHALLENGES.length);
   assert.equal(
     new Set(CHALLENGES.map(({ audience }) => audience)).size,
@@ -49,6 +49,7 @@ test("route slugs and signed ticket audiences stay intentionally distinct", () =
       "the-broadcast": "the-broadcast",
       "evidence-room": "evidence-room",
       "second-key": "second-key",
+      "the-chamber": "the-chamber",
     },
   );
 });

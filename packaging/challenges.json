@@ -204,6 +204,27 @@
         "apps/second-key/test",
         "apps/second-key/web"
       ]
+    },
+    {
+      "id": "the-chamber",
+      "appPath": "apps/the-chamber",
+      "delivery": "hosted-onchain",
+      "portalUrlEnv": "THE_CHAMBER_URL",
+      "launchAudience": "the-chamber",
+      "playerPaths": [],
+      "generatedPlayerPaths": [],
+      "strictPlayerRoots": [],
+      "organizerOnlyPaths": [
+        "apps/the-chamber/.keys",
+        "apps/the-chamber/Dockerfile",
+        "apps/the-chamber/INTERNAL_ANSWER_KEY.md",
+        "apps/the-chamber/README.md",
+        "apps/the-chamber/programs",
+        "apps/the-chamber/src",
+        "apps/the-chamber/test",
+        "apps/the-chamber/tests",
+        "apps/the-chamber/web"
+      ]
     }
   ]
 }

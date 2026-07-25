@@ -80,12 +80,13 @@ function healthyFetch(calls = [], options = {}) {
           },
           funding: { payer: "signet-payer" },
         } : {}),
-        ...(["after-hours.example", "player-two.example", "second-key.example", "signet.example"].includes(url.hostname)
+        ...(["after-hours.example", "player-two.example", "second-key.example", "signet.example", "the-chamber.example"].includes(url.hostname)
           ? { capacity: { expectedParticipants: fieldSize } }
           : {}),
         ...(url.hostname === "evidence-room.example" ? { chain: { expectedParticipants: fieldSize, payer: "evidence-payer" } } : {}),
         ...(url.hostname === "second-key.example" ? { payer: "second-key-payer" } : {}),
         ...(url.hostname === "player-two.example" ? { funding: { payer: "player-two-payer" } } : {}),
+        ...(url.hostname === "the-chamber.example" ? { funding: { payer: "the-chamber-payer" } } : {}),
       });
     }
     return Response.json({ error: "unexpected readiness probe" }, { status: 404 });
@@ -118,22 +119,22 @@ test("portal health covers every challenge and shared launch dependency", async 
   });
   assert.deepEqual(health, {
     ok: true,
-    challenges: 10,
+    challenges: 11,
     registration: "open-staging",
     storage: "redis",
     scoring: "staging",
     checkedInParticipants: 0,
     organizers: { count: 2, required: 2, ready: true },
     dependencies: {
-      health: 10,
-      completions: 8,
+      health: 11,
+      completions: 9,
       rewardScoreboard: "ready",
       rewardIntegrity: "ready",
     },
   });
   assert.deepEqual(commands, [["PING"]]);
-  assert.equal(calls.filter(({ url }) => url.pathname === "/api/health" || url.pathname === "/health").length, 10);
-  assert.equal(calls.filter(({ url }) => url.pathname === "/api/completion").length, 8);
+  assert.equal(calls.filter(({ url }) => url.pathname === "/api/health" || url.pathname === "/health").length, 11);
+  assert.equal(calls.filter(({ url }) => url.pathname === "/api/completion").length, 9);
   assert.equal(calls.every(({ options }) => options.signal instanceof AbortSignal), true);
   const completionCalls = calls.filter(({ url }) => url.pathname === "/api/completion");
   assert.equal(completionCalls.every(({ url }) => url.searchParams.get("participantId") === "portal-readiness"), true);
@@ -158,7 +159,9 @@ test("portal readiness coalesces concurrent probes and reuses the short cache", 
   const third = await cachedPortalHealth(options);
   assert.equal(first, second);
   assert.equal(second, third);
-  assert.equal(calls.length, 20);
+  // 11 challenge health probes + 9 private completion contracts + the Reward
+  // Sniper scoreboard and integrity reads, fetched once and served from cache.
+  assert.equal(calls.length, 22);
 });
 
 test("portal health rejects independently budgeted challenges sharing one payer", async () => {

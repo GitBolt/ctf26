@@ -10,12 +10,12 @@ Read this after `event.md` when you need the full context quickly.
 
 ## Current operating model
 
-CTF26 is an individual event with ten shipped challenges: Reward Sniper, IMPRINT, SIGNET, DRIFT,
-LAST STOP, AFTER HOURS, PLAYER TWO, THE BROADCAST, EVIDENCE ROOM, and SECOND KEY. Google-authenticated
+CTF26 is an individual event with eleven shipped challenges: Reward Sniper, IMPRINT, SIGNET, DRIFT,
+LAST STOP, AFTER HOURS, PLAYER TWO, THE BROADCAST, EVIDENCE ROOM, SECOND KEY, and THE CHAMBER. Google-authenticated
 participants receive one-time signed launch tickets. Challenge services remain the authoritative source
 of completion; the portal owns the shared score, leaderboard, passive integrity observations, and
 organizer lifecycle controls. Current operational detail lives in `../ops/final-audit.md`,
-`../ops/staging.md`, `../ops/integrity.md`, and the ten challenge specifications.
+`../ops/staging.md`, `../ops/integrity.md`, and the eleven challenge specifications.
 
 Integrity observations never change a participant's access, score, rank, or eligibility. They are
 bounded context for a separate manual review process, not a ticketing or adjudication system in the
@@ -42,8 +42,9 @@ completed challenge only for an explicitly named future revision or event-config
 | THE BROADCAST | Done for the current iteration | signature-variant mechanic and claim workbench unless testing finds a concrete defect |
 | EVIDENCE ROOM | Done for the current iteration | account-allocation race and reserve-factory interaction unless testing finds a concrete defect |
 | SECOND KEY | Done for the current iteration | Token-2022 custody mechanic and collateral-desk interaction unless testing finds a concrete defect |
+| THE CHAMBER | Built, service not yet hosted | Three-lock vault reusing the prototype's live devnet program and inherited admin/hidden keys — deliberately not redeployed; needs a Railway deployment and programmed venue cards |
 
-The live catalogue now contains ten challenges. PLAYER TWO and THE BROADCAST were promoted
+The live catalogue now contains eleven challenges. PLAYER TWO and THE BROADCAST were promoted
 from retained prototype and companion status after their hosted implementations, authoritative
 completion paths, packaging boundaries, and distinct interaction models were completed. Their earlier
 status remains historical context, not the current launch decision. THE BROADCAST keeps real Solana
@@ -68,12 +69,12 @@ writeup/signature construction.
 - Challenge completion is reported automatically, not through a player-copyable flag form. The
   challenge service remains the authority and sends a challenge-keyed HMAC event only after its
   existing verifier succeeds. Events are idempotent by challenge and participant. LAST STOP, THE BROADCAST,
-  AFTER HOURS, PLAYER TWO, EVIDENCE ROOM, and SECOND KEY retain private completion reads that
+  AFTER HOURS, PLAYER TWO, EVIDENCE ROOM, SECOND KEY, and THE CHAMBER retain private completion reads that
   automatically repair a missed leaderboard event when the participant returns to the portal. Reward Sniper remains authoritative
   through its native scoreboard. A delivery failure never revokes a valid challenge result.
 - Every participant must accept the current signed rules version before the first challenge launch.
   Acknowledgments are retained independently per participant.
-- The public portal leaderboard uses one shared scoring package. Nine binary challenges receive the
+- The public portal leaderboard uses one shared scoring package. Ten binary challenges receive the
   same solve-count rarity curve, while Reward Sniper keeps direct market-performance normalization.
   No challenge author assigns difficulty, no later solver receives fewer points, and solve time is not
   a tiebreaker. The exact formulas, all-scorer points-share prize model, top-ten boost, research rationale, and

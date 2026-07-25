@@ -16,7 +16,7 @@
     "verify:portal": "npm run test:integration && npm run build:portal",
     "issue:test-launch": "node scripts/issue-test-launch.mjs",
     "simulate:leaderboard": "node packages/leaderboard/scripts/simulate.mjs",
-    "simulate:load": "node --test apps/reward-sniper/test/load.test.mjs apps/imprint/web/test/load.test.mjs apps/portal/test/load.test.mjs apps/signet/test/load.test.mjs apps/drift/test/load.test.mjs apps/last-stop/test/load.test.mjs apps/after-hours/test/load.test.mjs apps/player-two/test/load.test.mjs apps/the-broadcast/test/load.test.mjs apps/evidence-room/test/load.test.mjs apps/second-key/test/load.test.mjs"
+    "simulate:load": "node --test apps/reward-sniper/test/load.test.mjs apps/imprint/web/test/load.test.mjs apps/portal/test/load.test.mjs apps/signet/test/load.test.mjs apps/drift/test/load.test.mjs apps/last-stop/test/load.test.mjs apps/after-hours/test/load.test.mjs apps/player-two/test/load.test.mjs apps/the-broadcast/test/load.test.mjs apps/evidence-room/test/load.test.mjs apps/second-key/test/load.test.mjs apps/the-chamber/test/load.test.mjs"
   },
   "engines": {
     "node": ">=20"

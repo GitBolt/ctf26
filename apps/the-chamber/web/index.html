@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>THE CHAMBER</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <header>
+        <p class="eyebrow">CTF26 &middot; challenge 11</p>
+        <h1>THE CHAMBER</h1>
+        <p class="sub">
+          Three locks guard one chamber. Each is bound to your own account and
+          must be turned in order.
+        </p>
+      </header>
+
+      <section id="setup">
+        <h2>Your account</h2>
+        <p class="note" id="program-note">Connecting&hellip;</p>
+        <label class="field">
+          <span>Working wallet address</span>
+          <input
+            id="wallet"
+            type="text"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="Base58 address of the wallet you will sign with"
+          />
+        </label>
+        <div class="actions">
+          <button id="register" type="button">Open an account</button>
+          <a class="ghost" id="idl" href="/api/idl">Download interface</a>
+        </div>
+        <p class="note" id="setup-note"></p>
+      </section>
+
+      <section id="locks" hidden>
+        <h2>Locks</h2>
+        <ol class="lock-list">
+          <li class="lock" data-lock="first">
+            <span class="name">First &mdash; prove the account is yours</span>
+            <span class="pill" data-pill="first">locked</span>
+          </li>
+          <li class="lock" data-lock="second">
+            <span class="name">Second &mdash; co-sign with the key issued to you at the venue</span>
+            <span class="pill" data-pill="second">locked</span>
+          </li>
+          <li class="lock" data-lock="third">
+            <span class="name">Third &mdash; turn the last lock</span>
+            <span class="pill" data-pill="third">locked</span>
+          </li>
+        </ol>
+        <p class="note" id="lock-note">Reading your locks from the chain&hellip;</p>
+      </section>
+
+      <section id="done" hidden>
+        <h2>Chamber</h2>
+        <p class="open-line">The chamber is open. Your solve has been recorded.</p>
+        <p class="note">Nothing further is required here; the standings update on the portal.</p>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

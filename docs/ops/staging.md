@@ -20,6 +20,7 @@ release manifest. Never copy secret values, ignored keypairs, or `.keys/` conten
 | THE BROADCAST | `https://st26-broadcast.up.railway.app/` | Wallet-signature protocol and completion verifier |
 | EVIDENCE ROOM | `https://st26-evidence.up.railway.app/` | Account-lifecycle service with Redis and payer-capacity health |
 | SECOND KEY | `https://st26-secondkey.up.railway.app/` | Token-2022 custody service with Redis and payer-capacity health |
+| THE CHAMBER | _service not yet hosted_ | Vault program already live on devnet (`Ekw4Zx3N…GmnzX`, admin funded at 10.01 SOL); the Node service still needs a Railway deployment and programmed venue cards |
 
 AFTER HOURS deliberately retains its longer Railway hostname because immutable on-chain NIGHT
 metadata references that origin. Do not rename it without a migration plan for the published mint.
@@ -37,8 +38,8 @@ back the event, and finalization atomically locks solve intake before sealing th
 
 The portal route slug and cryptographic ticket audience are intentionally separate. In particular,
 `/api/launch/signet` issues an `aud=signet` ticket. Regression tests cover every catalogue mapping.
-The portal health contract verifies all ten ticket secrets and hosted destinations, probes every
-challenge health endpoint, exercises all eight private completion contracts, checks Reward Sniper's
+The portal health contract verifies all eleven ticket secrets and hosted destinations, probes every
+challenge health endpoint, exercises all nine private completion contracts, checks Reward Sniper's
 scoreboard and authenticated integrity administration, confirms the active event generation and
 Reward scoring configuration across all three Reward endpoints, and requires Redis to respond. Every
 dependency probe has a short timeout and the public response exposes
@@ -133,9 +134,14 @@ The following work cannot be safely guessed or automated from this repository:
 
 > **Event-generation parity:** choose one new identifier for each rehearsal or scored run. Set that
 > exact value as `CTF_EVENT_GENERATION` on AFTER HOURS, LAST STOP, PLAYER TWO, THE BROADCAST, Evidence
-> Room, SECOND KEY, DRIFT, and SIGNET, and as `LEADERBOARD_EVENT_GENERATION` on the portal. A mismatch
+> Room, SECOND KEY, THE CHAMBER, DRIFT, and SIGNET, and as `LEADERBOARD_EVENT_GENERATION` on the portal. A mismatch
 > makes completion recovery fail closed. Never reuse a rehearsal generation for the live event, and
 > provision fresh IMPRINT targets for the same run.
+
+> **Scoring config hash:** `BINARY_CHALLENGE_KEYS` is part of the immutable event config hash, so
+> adding THE CHAMBER changed it. Any lifecycle config already sealed in Redis under an earlier
+> generation will reject the new hash. Start the next rehearsal and the scored run on a fresh
+> `LEADERBOARD_EVENT_GENERATION` / `CTF_EVENT_GENERATION` rather than reusing an existing one.
 
 > **Production identity and SIGNET setup note:** event production now rejects unregistered accounts
 > when `PARTICIPANT_ROSTER_JSON` is absent. An intentionally open production staging deployment must

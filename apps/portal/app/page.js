@@ -13,6 +13,7 @@ import {
   recoverLeaderboardCompletions,
   secondKeyCompletion,
   signetCompletion,
+  theChamberCompletion,
 } from "@/lib/completions.mjs";
 import { resolveLeaderboardConfig } from "@/lib/leaderboard-lifecycle.mjs";
 import { createLeaderboardStore } from "@/lib/leaderboard-store.mjs";
@@ -28,6 +29,7 @@ const COMPLETION_READERS = Object.freeze([
   ["the-broadcast", broadcastCompletion],
   ["evidence-room", evidenceRoomCompletion],
   ["second-key", secondKeyCompletion],
+  ["the-chamber", theChamberCompletion],
 ]);
 
 export default async function Home({ searchParams }) {
@@ -171,16 +173,16 @@ export default async function Home({ searchParams }) {
     }
   }));
   const completionByChallenge = new Map(recoveredPairs);
-  const [signet, drift, lastStop, afterHours, playerTwo, broadcast, evidenceRoom, secondKey] = COMPLETION_READERS
-    .map(([challenge]) => completionByChallenge.get(challenge) || null);
+  // Ordered by COMPLETION_READERS so adding a challenge stays a one-line change.
+  const completions = COMPLETION_READERS.map(([challenge]) => completionByChallenge.get(challenge) || null);
   await recoverLeaderboardCompletions(
     user,
-    [signet, drift, lastStop, afterHours, playerTwo, broadcast, evidenceRoom, secondKey],
+    completions,
     leaderboardStore,
     { config },
   ).catch(() => []);
   const completedChallenges = completedChallengeKeys({
-    completions: [signet, drift, lastStop, afterHours, playerTwo, broadcast, evidenceRoom, secondKey],
+    completions,
     solves: recordedSolves,
     participantId: user.participant_id,
     eventGeneration: config.eventGeneration,

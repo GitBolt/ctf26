@@ -1081,10 +1081,16 @@ button:active {
   grid-column: 1 / -1;
 }
 
+/*
+ * A trailing odd card spans the full width and lays its content out
+ * horizontally. Align to the start so the title shares a top edge with the
+ * number in the rail, exactly as it does on a paired card; bottom-aligning
+ * here strands the number above a gap.
+ */
 .challenge:last-child:nth-child(odd) .challenge-content {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
+  align-items: start;
   gap: var(--space-4) var(--space-6);
 }
 
@@ -3730,6 +3736,17 @@ button {
 }
 .challenge-second-key .challenge-visual-glyph { width: 12px; height: 12px; border-radius: 50%; }
 
+.challenge-the-chamber {
+  --challenge-accent: #c9a227;
+  --challenge-surface: rgb(20 16 8 / 96%);
+}
+.challenge-the-chamber .challenge-visual::before {
+  background: linear-gradient(90deg, transparent 0 30%, rgb(201 162 39 / 14%) 30% 30.6%, transparent 30.6%),
+    linear-gradient(90deg, transparent 0 50%, rgb(201 162 39 / 14%) 50% 50.6%, transparent 50.6%),
+    linear-gradient(90deg, transparent 0 70%, rgb(201 162 39 / 14%) 70% 70.6%, transparent 70.6%);
+}
+.challenge-the-chamber .challenge-visual-glyph { width: 13px; height: 13px; border-radius: 3px; }
+
 .challenge-reward-sniper .challenge-action::before { content: "↗"; }
 .challenge-imprint .challenge-action { border-radius: 999px; }
 .challenge-imprint .challenge-action::before { content: "◈"; }
@@ -3745,6 +3762,7 @@ button {
 .challenge-the-broadcast .challenge-action::before { content: "⌁"; }
 .challenge-evidence-room .challenge-action::before { content: "⊙"; }
 .challenge-second-key .challenge-action::before { content: "◇"; }
+.challenge-the-chamber .challenge-action::before { content: "⛬"; }
 
 @media (max-width: 560px) {
   .challenge {

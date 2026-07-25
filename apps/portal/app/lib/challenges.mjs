@@ -129,6 +129,18 @@ export const CHALLENGES = Object.freeze([
     urlEnv: "SECOND_KEY_URL",
     localUrl: "http://localhost:3011",
   }),
+  Object.freeze({
+    key: "the-chamber",
+    audience: "the-chamber",
+    number: "11",
+    label: "cross-program invocation",
+    name: "THE CHAMBER",
+    copy: "Open the three-lock chamber.",
+    format: "Live vault",
+    starts: Object.freeze([Object.freeze({ kind: "launch", label: "Approach the chamber" })]),
+    urlEnv: "THE_CHAMBER_URL",
+    localUrl: "http://localhost:3012",
+  }),
 ]);
 
 const CHALLENGE_BY_KEY = new Map(

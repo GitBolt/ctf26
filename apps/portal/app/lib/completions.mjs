@@ -136,6 +136,15 @@ export function secondKeyCompletion(user, options = {}) {
   }, options);
 }
 
+export function theChamberCompletion(user, options = {}) {
+  return challengeCompletion(user, {
+    challenge: "the-chamber",
+    label: "THE CHAMBER",
+    urlEnv: "THE_CHAMBER_URL",
+    secretEnv: "CHALLENGE_TICKET_SECRET_THE_CHAMBER",
+  }, options);
+}
+
 export async function recoverLeaderboardCompletions(user, completions, store, options = {}) {
   const participantId = String(user?.participant_id || "");
   if (!PARTICIPANT_ID_PATTERN.test(participantId)) {
