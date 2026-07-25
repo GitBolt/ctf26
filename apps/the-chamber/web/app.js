@@ -2,6 +2,10 @@ const SESSION_ATTEMPTS = 12;
 const POLL_INTERVAL_MS = 5_000;
 
 const $ = (selector) => document.querySelector(selector);
+// Every poll costs an RPC account read and a service lease slot. Once the
+// chamber is open the state can no longer change, so a tab left open must stop
+// asking rather than spend the shared budget for the rest of the event.
+let solved = false;
 const pills = {
   first: $('[data-pill="first"]'),
   second: $('[data-pill="second"]'),
@@ -54,6 +58,7 @@ function note(id, message, isError = false) {
 }
 
 function render(state) {
+  solved = Boolean(state.completedAt || state.locks?.chamberOpen);
   $("#program-note").textContent = `Program ${state.programId} on ${state.network}.`;
   if (!state.registered) {
     $("#locks").hidden = true;
@@ -118,7 +123,10 @@ async function boot() {
   }
   $("#register").addEventListener("click", register);
   await refresh();
-  setInterval(refresh, POLL_INTERVAL_MS);
+  const poll = setInterval(() => {
+    if (solved) return clearInterval(poll);
+    void refresh();
+  }, POLL_INTERVAL_MS);
 }
 
 boot();

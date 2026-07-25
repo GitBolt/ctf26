@@ -236,7 +236,9 @@ fails; and portal recovery discovers a completed on-chain state.
   discovery takes, every direct third-lock attempt, and the deployed caller program ID.
 - Close the browser immediately after the successful CPI, then return to the portal. The private
   completion check must reconcile chain state without a final browser poll.
-- A solve is only `chamber_open` set true on the participant's own PDA.
+- A solve is only all three locks standing open on the participant's own PDA. The service
+  derives that from the locks; the account's `chamber_open` byte is never written by the
+  deployed program and must not be treated as the signal.
 
 Provisional launch gate: a second wallet cannot be bound to a registered participant and a registered
 wallet cannot be claimed by a second participant; `create_user` is idempotent across repeated

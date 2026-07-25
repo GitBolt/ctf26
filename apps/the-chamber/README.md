@@ -2,8 +2,9 @@
 
 Challenge 11. An Anchor vault program with three locks per participant, plus the
 hosted Node service that provisions accounts, watches the chain, and reports
-solves to the portal. Participants never submit a flag: the program's own
-`chamber_open` flag is the solve.
+solves to the portal. Participants never submit a flag: the solve is all three
+locks standing open on the participant's own PDA, derived by the service rather
+than read from the program's `chamber_open` byte (see below).
 
 Player-facing framing lives on the hosted surface in `web/`. The full solution is
 in [`INTERNAL_ANSWER_KEY.md`](INTERNAL_ANSWER_KEY.md) — organizer-only, never
@@ -13,7 +14,7 @@ shipped.
 
 ```
 apps/the-chamber/
-├── programs/the-chamber/       # the vault program
+├── programs/st-chamber-of-secrets/  # the vault program (deployed crate name)
 ├── programs/chamber-caller/    # organizer-only reference CPI caller (test fixture)
 ├── tests/                      # anchor suite, needs a local validator
 ├── src/                        # hosted service (server, chain adapter, store)

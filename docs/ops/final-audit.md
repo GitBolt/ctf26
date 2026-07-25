@@ -65,7 +65,7 @@ change, and the last stable leaderboard remains available while the final snapsh
 | The Broadcast | Ed25519 representation malleability | eight accepted encodings of one authorization |
 | Evidence Room | uninitialized SPL account race | factory failure, participant initialization, close |
 | Second Key | Token-2022 permanent delegate | pledge and exact delegated removal |
-| The Chamber | CPI-shape check mistaken for authorization | `chamber_open` set on the participant PDA through a participant-deployed caller |
+| The Chamber | CPI-shape check mistaken for authorization | all three locks open on the participant PDA, the third turned through a participant-deployed caller |
 
 ## Reliability and abuse controls
 

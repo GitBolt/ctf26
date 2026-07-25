@@ -344,6 +344,17 @@ test("the browser client keeps its launch retry contract", async () => {
   assert.match(client, /app-boot/);
 });
 
+test("the browser client stops polling once the chamber is open", async () => {
+  // /api/state costs an RPC account read and a lease slot from a pool shared by
+  // the whole field. An open chamber cannot close again, so a solved tab left
+  // open all afternoon must not keep drawing on that budget.
+  const client = await fs.readFile(fileURLToPath(new URL("../web/app.js", import.meta.url)), "utf8");
+  assert.match(client, /clearInterval/, "the poll must be cancellable");
+  const boot = client.slice(client.indexOf("async function boot("));
+  assert.match(boot, /if \(solved\) return clearInterval\(poll\)/);
+  assert.match(client, /solved = Boolean\(state\.completedAt \|\| state\.locks\?\.chamberOpen\)/);
+});
+
 function userAccount({ first = 0, second = 0, third = 0, storedChamberOpen = 0 } = {}) {
   const data = Buffer.alloc(USER_ACCOUNT_BYTES);
   Buffer.from([159, 117, 95, 227, 239, 151, 58, 236]).copy(data, 0);

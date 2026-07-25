@@ -291,8 +291,10 @@ export async function createChamberServer(options = {}) {
   }
 
   /**
-   * The chain is the only authority on a solve. When the program's own
-   * chamber flag is set, record the completion once and report it.
+   * The chain is the only authority on a solve. The open chamber is derived
+   * from the three locks by `decodeLocks`, never read from the account's stored
+   * `chamber_open` byte, which the deployed program never writes. When all
+   * three are open, record the completion once and report it.
    */
   async function reconcile(identity, instance, locks) {
     if (instance.completedAt || !locks?.chamberOpen) return instance;
