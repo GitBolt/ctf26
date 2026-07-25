@@ -1077,14 +1077,20 @@ button:active {
 }
 
 .challenge:last-child:nth-child(odd) {
-  min-height: 176px;
+  min-height: 0;
   grid-column: 1 / -1;
 }
 
+/*
+ * A trailing odd card spans the full width and lays its content out
+ * horizontally. Align to the start so the title shares a top edge with the
+ * number in the rail, exactly as it does on a paired card; bottom-aligning
+ * here strands the number above a gap.
+ */
 .challenge:last-child:nth-child(odd) .challenge-content {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
+  align-items: start;
   gap: var(--space-4) var(--space-6);
 }
 
