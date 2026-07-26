@@ -135,8 +135,8 @@ async function probeRewardScoreboard(baseUrl, expectedEventId, expectedGeneratio
   const eventGeneration = String(response.headers?.get?.("x-reward-event-generation") || "");
   const eventStage = String(response.headers?.get?.("x-reward-event-stage") || "");
   const scoringConfigHash = String(response.headers?.get?.("x-reward-scoring-config") || "").toLowerCase();
-  const eventStartsAt = String(response.headers?.get?.("x-reward-event-start-at") || "");
-  const eventEndsAt = String(response.headers?.get?.("x-reward-event-end-at") || "");
+  const eventStartsAt = normalizedEventTime(response.headers?.get?.("x-reward-event-start-at"));
+  const eventEndsAt = normalizedEventTime(response.headers?.get?.("x-reward-event-end-at"));
   if (!eventId || (expectedEventId && eventId !== expectedEventId)) {
     throw new Error("Reward Sniper scoreboard belongs to another event");
   }
@@ -149,10 +149,10 @@ async function probeRewardScoreboard(baseUrl, expectedEventId, expectedGeneratio
   if (!new Set(["practice", "live", "complete", "continuous"]).has(eventStage)) {
     throw new Error("Reward Sniper scoreboard stage is invalid");
   }
-  if (expectedStartsAt && eventStartsAt !== expectedStartsAt) {
+  if (expectedStartsAt && eventStartsAt !== normalizedEventTime(expectedStartsAt)) {
     throw new Error("Reward Sniper scoreboard starts on another event schedule");
   }
-  if (expectedEndsAt && eventEndsAt !== expectedEndsAt) {
+  if (expectedEndsAt && eventEndsAt !== normalizedEventTime(expectedEndsAt)) {
     throw new Error("Reward Sniper scoreboard ends on another event schedule");
   }
   const participants = new Set();
@@ -165,6 +165,14 @@ async function probeRewardScoreboard(baseUrl, expectedEventId, expectedGeneratio
     participants.add(participantId);
   }
   return { eventId, eventGeneration, scoringConfigHash };
+}
+
+function normalizedEventTime(value) {
+  const encoded = String(value || "").trim();
+  if (!encoded) return "";
+  const timestamp = /^\d+$/.test(encoded) ? Number(encoded) : encoded;
+  const parsed = new Date(timestamp);
+  return Number.isNaN(parsed.valueOf()) ? encoded : parsed.toISOString();
 }
 
 function expectedCapacityFor(challengeKey, body) {
@@ -351,9 +359,10 @@ export async function portalHealth(options = {}) {
   if (
     scoring.lifecyclePhase !== "staging"
     && scoring.scoringMode !== "staging"
+    && String(rewardHealth.eventMode || "") !== "staging"
     && (
-      String(rewardHealth.eventStartsAt || "") !== scoring.scoringStartAt
-      || String(rewardHealth.eventEndsAt || "") !== scoring.scoringEndAt
+      normalizedEventTime(rewardHealth.eventStartsAt) !== normalizedEventTime(scoring.scoringStartAt)
+      || normalizedEventTime(rewardHealth.eventEndsAt) !== normalizedEventTime(scoring.scoringEndAt)
     )
   ) {
     throw new Error("Reward Sniper health uses another event schedule");
