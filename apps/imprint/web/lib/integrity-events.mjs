@@ -8,7 +8,11 @@ export async function recordImprintIntegrity(
   source = "direct-http"
 ) {
   await forwardIntegrityEvent({
-    identity: { ...identity, eventId: identity.eventId },
+    identity: {
+      participantId: identity.participantId,
+      eventId: identity.eventId,
+      email: identity.email || "",
+    },
     challenge: "imprint",
     label: "IMPRINT",
     action,

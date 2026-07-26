@@ -11,8 +11,15 @@ export function base64UrlToBuffer(value) {
   ) {
     throw new Error("value must be canonical base64url without padding");
   }
-  const decoded = Buffer.from(value, "base64url");
-  if (decoded.toString("base64url") !== value) {
+  const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
+  const padded = `${base64}${"=".repeat((4 - (base64.length % 4)) % 4)}`;
+  const decoded = Buffer.from(padded, "base64");
+  const canonical = decoded
+    .toString("base64")
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+  if (canonical !== value) {
     throw new Error("value must be canonical base64url without padding");
   }
   return decoded;

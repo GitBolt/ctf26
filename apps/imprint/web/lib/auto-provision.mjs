@@ -41,6 +41,33 @@ function normalizedParticipantId(value) {
   return id;
 }
 
+function participantTargetRevision(participantId, env) {
+  const encoded = String(
+    env.IMPRINT_PARTICIPANT_TARGET_REVISIONS_JSON || ""
+  ).trim();
+  if (!encoded) return 0;
+  let revisions;
+  try {
+    revisions = JSON.parse(encoded);
+  } catch {
+    throw new Error("IMPRINT_PARTICIPANT_TARGET_REVISIONS_JSON is invalid");
+  }
+  if (!revisions || Array.isArray(revisions) || typeof revisions !== "object") {
+    throw new Error("IMPRINT_PARTICIPANT_TARGET_REVISIONS_JSON is invalid");
+  }
+  const revision = revisions[participantId] ?? 0;
+  if (
+    !Number.isSafeInteger(revision) ||
+    revision < 0 ||
+    revision > 1_000_000
+  ) {
+    throw new Error(
+      "IMPRINT participant target revision must be a non-negative integer"
+    );
+  }
+  return revision;
+}
+
 export function loadImprintOperator(env = process.env) {
   let bytes;
   try {
@@ -57,9 +84,13 @@ export function loadImprintOperator(env = process.env) {
 export function participantTarget(participantId, env = process.env) {
   const id = normalizedParticipantId(participantId);
   const operator = loadImprintOperator(env);
+  const revision = participantTargetRevision(id, env);
+  const derivation = `ctf26:imprint:vault:${eventGeneration(env)}:${id}${
+    revision > 0 ? `:revision:${revision}` : ""
+  }`;
   const vaultId = crypto
     .createHmac("sha256", required(env, "IMPRINT_INSTANCE_SECRET", 32))
-    .update(`ctf26:imprint:vault:${eventGeneration(env)}:${id}`)
+    .update(derivation)
     .digest()
     .subarray(0, 16);
   const [vault] = PublicKey.findProgramAddressSync(
@@ -83,6 +114,7 @@ export function participantTarget(participantId, env = process.env) {
   }
   return Object.freeze({
     participantId: id,
+    revision,
     operator,
     vaultId,
     vault,

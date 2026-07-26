@@ -95,12 +95,21 @@ export function createSecondKeyChain(env = process.env) {
     },
     async inspect(participantId, nonce) {
       const a = addresses(participantId, nonce);
-      const [source, vault, loanInfo, walletBalance] = await Promise.all([
-        tokenAccountOrNull(connection, a.source), tokenAccountOrNull(connection, a.vault),
-        connection.getAccountInfo(a.loan.publicKey, "confirmed"), connection.getBalance(a.wallet.publicKey, "confirmed"),
-      ]);
+      const [sourceInfo, vaultInfo, loanInfo, walletInfo] =
+        await connection.getMultipleAccountsInfo(
+          [a.source, a.vault, a.loan.publicKey, a.wallet.publicKey],
+          "confirmed",
+        );
+      const source = tokenAccountFromInfo(sourceInfo);
+      const vault = tokenAccountFromInfo(vaultInfo);
       const loan = decodeLoan(loanInfo?.data);
-      return { sourceBalance: Number(source?.amount || 0n), vaultBalance: Number(vault?.amount || 0n), outstanding: loan?.outstanding || false, advanceLamports: loan?.advanceLamports || 0, walletBalance };
+      return {
+        sourceBalance: Number(source?.amount || 0n),
+        vaultBalance: Number(vault?.amount || 0n),
+        outstanding: loan?.outstanding || false,
+        advanceLamports: loan?.advanceLamports || 0,
+        walletBalance: walletInfo?.lamports || 0,
+      };
     },
     async findPledge(participantId, nonce) {
       const a = addresses(participantId, nonce);
@@ -263,19 +272,22 @@ function publicAddresses(a, programId, certificate) { return { wallet: a.wallet.
 async function tokenAccountOrNull(connection, address) {
   try {
     const info = await connection.getAccountInfo(address, "confirmed");
-    // Token and Token-2022 accounts share this fixed 165-byte base layout. Read
-    // only the amount after checking owner, minimum length, and initialized
-    // state, instead of routing public RPC bytes through bigint-buffer.
-    if (
-      !info
-      || !info.owner.equals(TOKEN_2022_PROGRAM_ID)
-      || info.data.length < 165
-      || info.data[108] === 0
-    ) return null;
-    return { amount: info.data.readBigUInt64LE(64) };
+    return tokenAccountFromInfo(info);
   } catch {
     return null;
   }
+}
+function tokenAccountFromInfo(info) {
+  // Token and Token-2022 accounts share this fixed 165-byte base layout. Read
+  // only the amount after checking owner, minimum length, and initialized
+  // state, instead of routing public RPC bytes through bigint-buffer.
+  if (
+    !info
+    || !info.owner.equals(TOKEN_2022_PROGRAM_ID)
+    || info.data.length < 165
+    || info.data[108] === 0
+  ) return null;
+  return { amount: info.data.readBigUInt64LE(64) };
 }
 function decodeLoan(data) { if (!data || data.length !== LOAN_LEN || !data.subarray(0, 8).equals(Buffer.from("SECKEY26"))) return null; return { outstanding: data[104] === 1, advanceLamports: Number(data.readBigUInt64LE(105)) }; }
 async function submit(connection, transaction, signers, commitment = "confirmed") { transaction.feePayer = signers[0].publicKey; return sendAndConfirmTransaction(connection, transaction, signers, { commitment, preflightCommitment: "confirmed", maxRetries: 5 }); }

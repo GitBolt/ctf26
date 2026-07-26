@@ -36,6 +36,8 @@ export async function resolveLeaderboardConfig({
       ? await presentField({ store, env, rulesVersion })
       : {
         checkedInParticipantIds: configured.checkedInParticipantIds,
+        launchParticipantIds: configured.launchParticipantIds,
+        practiceParticipantIds: configured.practiceParticipantIds,
         fieldSize: configured.fieldSize,
         source: "config",
       };
@@ -44,6 +46,8 @@ export async function resolveLeaderboardConfig({
       ...configured,
       scoringMode,
       checkedInParticipantIds: presence.checkedInParticipantIds,
+      launchParticipantIds: presence.launchParticipantIds || configured.launchParticipantIds,
+      practiceParticipantIds: configured.practiceParticipantIds,
       fieldSize: presence.fieldSize,
       presenceSource: presence.source,
     });
@@ -99,6 +103,8 @@ export async function resolveLeaderboardConfig({
     ...effective,
     scoringMode,
     checkedInParticipantIds: presence.checkedInParticipantIds,
+    launchParticipantIds: presence.launchParticipantIds || effective.launchParticipantIds,
+    practiceParticipantIds: effective.practiceParticipantIds,
     fieldSize: Math.min(effective.registeredCount, presence.fieldSize),
     presenceSource: presence.source,
     lifecyclePhase: lifecycle.phase,

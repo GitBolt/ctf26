@@ -20,6 +20,7 @@ const POLICIES = Object.freeze({
 
 const RPC_WEIGHTS = Object.freeze({
   getAccountInfo: 1,
+  getBalance: 1,
   getLatestBlockhash: 1,
   getMinimumBalanceForRentExemption: 1,
   getMultipleAccounts: 3,

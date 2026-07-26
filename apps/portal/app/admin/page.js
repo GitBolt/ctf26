@@ -12,13 +12,16 @@ import { FinalizeControl, LifecycleControls } from "./AdminActions";
 export const dynamic = "force-dynamic";
 
 const REASONS = {
-  "agent-disclosure-followed": "Agent self-disclosure",
-  "agent-only-solver-context-fetched": "Agent-only link opened",
-  "known-ai-client-workflow": "Known AI client workflow",
-  "non-browser-interface-navigation": "Unusual interface navigation",
-  "missing-browser-execution-evidence": "Interface boot not observed",
-  "browser-automation-indicator": "Browser automation indicator",
-  "challenge-solved-unusually-fast": "Unusually fast completion",
+  "agent-disclosure-followed": { label: "Agent self-disclosure" },
+  "agent-only-solver-context-fetched": { label: "Agent-only link opened" },
+  "known-ai-client-workflow": {
+    label: "AI-identified request",
+    detail: "The request user agent identified an AI client. This is a review signal, not proof of AI use.",
+  },
+  "non-browser-interface-navigation": { label: "Unusual interface navigation" },
+  "missing-browser-execution-evidence": { label: "Interface boot not observed" },
+  "browser-automation-indicator": { label: "Browser automation indicator" },
+  "challenge-solved-unusually-fast": { label: "Unusually fast completion" },
 };
 
 const CHALLENGES = {
@@ -49,7 +52,16 @@ function dateTime(value) {
 }
 
 function reasonFor(observation) {
-  return REASONS[observation.reasonCode] || "Unusual activity";
+  return REASONS[observation.reasonCode] || { label: "Unusual activity" };
+}
+
+function evidenceValue(value, fallback = "Not recorded") {
+  const text = String(value || "").trim();
+  return text || fallback;
+}
+
+function evidenceRows(observation) {
+  return (observation.evidence || []).slice().reverse();
 }
 
 export default async function AdminDashboard() {
@@ -64,11 +76,26 @@ export default async function AdminDashboard() {
     leaderboardSnapshot({ store }),
     store.rulesAcknowledgments(),
     cachedPortalHealth(),
+    store.solves(),
+    store.profiles(),
   ]);
   const report = valueOf(results[0], { cases: [], event: {} });
   const snapshot = valueOf(results[1], null);
   const acknowledgments = valueOf(results[2], []);
   const health = valueOf(results[3], null);
+  const participantNames = new Map([
+    ...(snapshot?.rows || []),
+    ...valueOf(results[5], []),
+  ].map((row) => [row.participantId, row.displayName]));
+  const completedSolves = valueOf(results[4], [])
+    .filter((solve) => CHALLENGES[solve?.challenge])
+    .sort((left, right) => new Date(right.occurredAt).valueOf() - new Date(left.occurredAt).valueOf())
+    .map((solve) => ({
+      participantName: participantNames.get(solve.participantId) || solve.participantId,
+      challengeName: CHALLENGES[solve.challenge],
+      occurredAt: solve.occurredAt,
+      sourceId: solve.sourceId,
+    }));
   const observations = [...(report.cases || [])]
     .sort((left, right) => Number(right.updatedAt || 0) - Number(left.updatedAt || 0))
     .slice(0, 12);
@@ -156,6 +183,25 @@ export default async function AdminDashboard() {
         </article>
       </section>
 
+      <section className="organizer-section" aria-labelledby="solves-title">
+        <header className="organizer-section-head">
+          <div><span>Live activity</span><h2 id="solves-title">Completed challenges</h2></div>
+          <strong>{completedSolves.length} total</strong>
+        </header>
+        <p className="organizer-section-intro">A read-only record of the latest verified completions.</p>
+        <div className="solve-activity">
+          {completedSolves.length === 0 ? (
+            <div className="review-empty"><h2>No completed challenges yet</h2><p>Verified completions will appear here as they arrive.</p></div>
+          ) : completedSolves.map((solve) => (
+            <article className="solve-activity-row" key={solve.sourceId}>
+              <strong title={solve.participantName}>{solve.participantName}</strong>
+              <span>{solve.challengeName}</span>
+              <time dateTime={new Date(solve.occurredAt).toISOString()}>{dateTime(solve.occurredAt)}</time>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="organizer-section" aria-labelledby="observations-title">
         <header className="organizer-section-head">
           <div><span>Read only</span><h2 id="observations-title">Integrity observations</h2></div>
@@ -168,12 +214,48 @@ export default async function AdminDashboard() {
           ) : observations.map((observation) => (
             <article className="integrity-observation" key={observation.id}>
               <div>
-                <strong>{observation.email || observation.participantId || "Participant unavailable"}</strong>
+                <strong>{participantNames.get(observation.participantId) || observation.email || observation.participantId || "Participant unavailable"}</strong>
                 <span>{CHALLENGES[observation.challenge] || observation.challenge}</span>
               </div>
-              <strong>{reasonFor(observation)}</strong>
+              <div className="integrity-reason">
+                <strong>{reasonFor(observation).label}</strong>
+                {reasonFor(observation).detail ? <span>{reasonFor(observation).detail}</span> : null}
+              </div>
               <time dateTime={observation.createdAt ? new Date(observation.createdAt).toISOString() : undefined}>{dateTime(observation.createdAt)}</time>
               <span className={`signal signal-${observation.confidence}`}>{observation.confidence}</span>
+              <details className="integrity-detail" open={observation.confidence === "high"}>
+                <summary>Recorded details</summary>
+                <p>{observation.summary || "No additional summary recorded."}</p>
+                <div className="integrity-detail-grid">
+                  <div><span>Participant</span><strong>{observation.email || observation.participantId || "Not recorded"}</strong></div>
+                  <div><span>Occurrences</span><strong>{observation.occurrences || 1}</strong></div>
+                  <div><span>First recorded</span><strong>{dateTime(observation.createdAt)}</strong></div>
+                  <div><span>Last updated</span><strong>{dateTime(observation.updatedAt)}</strong></div>
+                </div>
+                {evidenceRows(observation).map((evidence, index) => (
+                  <section className="integrity-evidence" key={`${observation.id}-${evidence.at || index}`}>
+                    <header><strong>Evidence {evidenceRows(observation).length - index}</strong><time dateTime={evidence.at ? new Date(evidence.at).toISOString() : undefined}>{dateTime(evidence.at)}</time></header>
+                    <div className="integrity-detail-grid">
+                      <div><span>Reported agent</span><strong>{evidenceValue(evidence.details?.reportedAgent)}</strong></div>
+                      <div><span>Reported model</span><strong>{evidenceValue(evidence.details?.reportedModel)}</strong></div>
+                      <div><span>Client</span><strong>{evidenceValue(evidence.request?.userAgent)}</strong></div>
+                      <div><span>Policy location</span><strong>{evidenceValue(evidence.details?.placement)}</strong></div>
+                      <div><span>Request scope</span><strong>{evidenceValue(evidence.scope)}</strong></div>
+                      <div><span>Network reference</span><strong>{evidenceValue(evidence.request?.ipHash)}</strong></div>
+                    </div>
+                  </section>
+                ))}
+                {observation.timeline?.length ? (
+                  <section className="integrity-timeline">
+                    <h3>Session timeline</h3>
+                    <ol>
+                      {observation.timeline.slice(-12).map((entry, index) => (
+                        <li key={`${entry.at || index}-${entry.action || "activity"}`}><strong>{entry.action || "Activity"}</strong><time dateTime={entry.at ? new Date(entry.at).toISOString() : undefined}>{dateTime(entry.at)}</time></li>
+                      ))}
+                    </ol>
+                  </section>
+                ) : null}
+              </details>
             </article>
           ))}
         </div>

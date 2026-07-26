@@ -71,6 +71,9 @@ export async function POST(request) {
     try {
       config = assertScoreEventAllowed(event, process.env, new Date(), activeConfig);
     } catch {
+      if (activeConfig.practiceParticipantIds.includes(event.participantId)) {
+        return reply({ accepted: true, practice: true }, 202);
+      }
       return reply({ error: "score event is outside the active event field or scoring window" }, 409);
     }
     await store.assertEventConfig(config.configHash);

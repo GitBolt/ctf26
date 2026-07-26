@@ -3,28 +3,22 @@
 You have an unfamiliar native Solana program and a funded target reproduced by the event service.
 Recover enough of the instruction and account behavior to produce a profitable state transition.
 
-Included:
+Available in the hosted workspace:
 
 ```text
-dist/drift_vault.so   stripped Solana SBF artifact
-manifest.json         artifact hash and size
-client.mjs            authenticated target/replay/submission transport
+drift_vault.so        participant-bound stripped Solana SBF artifact
+Replay format         this guide
+Target metadata       program ID, artifact SHA-256, balances, and trace limit
 ```
 
 Not included: source, IDL, symbols, organizer harness, reference trace, JavaScript model, or checker.
 
-Set the launch ticket and service URL supplied by the event portal:
+Launch DRIFT from the event portal. The hosted workspace establishes the authenticated participant
+session, displays the canonical target, and provides the exact SBF artifact assigned to you.
+
+Download the SBF from the workspace and verify it against the displayed SHA-256:
 
 ```bash
-export DRIFT_URL='https://drift.example.org'
-export DRIFT_TICKET='<short-lived portal ticket>'
-```
-
-Inspect the target and download the exact artifact:
-
-```bash
-node client.mjs target
-node client.mjs artifact > drift_vault.so
 sha256sum drift_vault.so
 ```
 
@@ -38,17 +32,9 @@ llvm-objdump --arch-name=sbf --disassemble --no-show-raw-insn drift_vault.so
 Solana addresses embedded by a program may appear only as their raw 32-byte public keys rather than
 printable base58 strings. Standard Solana SDK or base58 tooling can convert between the two forms.
 
-The first command exchanges the one-time ticket and stores a participant session in `.drift-session` with
-owner-only permissions. Later commands reuse it. Delete that file when leaving the event machine; if
-it expires, launch DRIFT from the portal again to obtain a fresh ticket.
-
-The submission client accepts a JSON trace after you have reconstructed the relevant operations.
-It deliberately does not describe the program, derive an exploit, or trust reported final state.
-
-```bash
-node client.mjs replay submission.json
-node client.mjs submit submission.json
-```
+After reconstructing the relevant operations, enter a JSON trace in the workspace. Use
+**Run unscored replay** while investigating and **Submit scored trace** for the authoritative check.
+The workspace does not describe the program, derive an exploit, or trust reported final state.
 
 Every replay uses a fresh canonical instance for your participant. Only state produced by the published SBF
 program and the declared replay environment is scored.

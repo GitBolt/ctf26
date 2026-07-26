@@ -52,6 +52,7 @@ test("configured roster authorizes individuals without grouping them", () => {
     email: "one@example.com",
     participantId: expected,
     displayName: "Orbit One",
+    participation: "scored",
   });
   assert.equal(registrationForEmail(
     "missing@example.com",

@@ -26,27 +26,36 @@ function requireRpcUrl(env) {
   return value;
 }
 
+function rpcUrls(env) {
+  const primary = requireRpcUrl(env);
+  const fallback = env.SOLANA_RPC_FALLBACK_URL;
+  if (!fallback) return [primary];
+  if (!/^https?:\/\//.test(fallback)) throw new RpcError();
+  return fallback === primary ? [primary] : [primary, fallback];
+}
+
 async function rpc(method, params, { env = process.env, fetchImpl = fetch } = {}) {
-  let response;
-  try {
-    response = await fetchImpl(requireRpcUrl(env), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-      signal: AbortSignal.timeout(10_000),
-    });
-  } catch {
-    throw new RpcError();
+  for (const url of rpcUrls(env)) {
+    let response;
+    try {
+      response = await fetchImpl(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      continue;
+    }
+    if (!response.ok) continue;
+    try {
+      const body = await response.json();
+      if (!body.error) return body.result;
+    } catch {
+      // Try the fallback endpoint when the primary response is malformed.
+    }
   }
-  if (!response.ok) throw new RpcError();
-  let body;
-  try {
-    body = await response.json();
-  } catch {
-    throw new RpcError();
-  }
-  if (body.error) throw new RpcError();
-  return body.result;
+  throw new RpcError();
 }
 
 export async function checkRpcHealth(options = {}) {

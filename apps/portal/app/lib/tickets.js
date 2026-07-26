@@ -122,7 +122,13 @@ export function verifyRulesAcknowledgment(token, user) {
 }
 
 export function createChallengeTicket(user, audience, options = {}) {
-  assertChallengeLaunchAllowed(user?.participant_id, options.env || process.env, options.receivedAt || new Date(), options.config || null);
+  assertChallengeLaunchAllowed(
+    user?.participant_id,
+    options.env || process.env,
+    options.receivedAt || new Date(),
+    options.config || null,
+    options.challengeKey || audience,
+  );
   return issueParticipantTicket(
     {
       audience,

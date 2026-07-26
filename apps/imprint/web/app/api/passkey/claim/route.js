@@ -4,7 +4,12 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
-import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import {
+  Connection,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
 import { sha256 } from "@noble/hashes/sha256";
 
 import idl from "@/lib/imprint-idl.json";
@@ -30,6 +35,7 @@ import {
 } from "@/lib/request-budget.mjs";
 
 export const runtime = "nodejs";
+const PASSKEY_ACCOUNT_SIZE = 8 + 32 + 33 + 32 + 1 + 1;
 
 function rpcUrl() {
   return process.env.SOLANA_RPC_URL || "http://127.0.0.1:8899";
@@ -180,11 +186,28 @@ export async function POST(request) {
       .instruction();
     const { blockhash, lastValidBlockHeight } =
       await connection.getLatestBlockhash("confirmed");
+    const [ownerBalance, passkeyRent] = await Promise.all([
+      connection.getBalance(ownerPubkey, "confirmed"),
+      connection.getMinimumBalanceForRentExemption(
+        PASSKEY_ACCOUNT_SIZE,
+        "confirmed"
+      ),
+    ]);
     const tx = new Transaction({
-      feePayer: ownerPubkey,
+      feePayer: registrar.publicKey,
       blockhash,
       lastValidBlockHeight,
-    }).add(ix);
+    });
+    if (ownerBalance < passkeyRent) {
+      tx.add(
+        SystemProgram.transfer({
+          fromPubkey: registrar.publicKey,
+          toPubkey: ownerPubkey,
+          lamports: passkeyRent - ownerBalance,
+        })
+      );
+    }
+    tx.add(ix);
     tx.partialSign(registrar);
     jar.delete(CLAIM_CHALLENGE_COOKIE);
     jar.delete(CLAIM_MODE_COOKIE);

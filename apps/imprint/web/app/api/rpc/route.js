@@ -15,6 +15,7 @@ const MAX_BODY_BYTES = 128 * 1024;
 export const runtime = "nodejs";
 const ALLOWED_METHODS = new Set([
   "getAccountInfo",
+  "getBalance",
   "getLatestBlockhash",
   "getMinimumBalanceForRentExemption",
   "getMultipleAccounts",

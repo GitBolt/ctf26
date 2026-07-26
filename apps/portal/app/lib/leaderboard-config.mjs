@@ -56,7 +56,11 @@ function booleanSetting(env, name, fallback = false) {
 function parseCheckedInOverride(env, roster) {
   const encoded = String(env.LEADERBOARD_CHECKED_IN_PARTICIPANT_IDS || "").trim();
   if (!encoded) return null;
-  const rosterParticipants = roster ? new Set([...roster.values()].map((entry) => entry.participantId)) : null;
+  const rosterParticipants = roster ? new Set(
+    [...roster.values()]
+      .filter((entry) => entry.participation !== "practice")
+      .map((entry) => entry.participantId),
+  ) : null;
   let participants;
   try {
     const parsed = JSON.parse(encoded);
@@ -72,6 +76,23 @@ function parseCheckedInOverride(env, roster) {
     throw new Error("LEADERBOARD_CHECKED_IN_PARTICIPANT_IDS contains a participant outside the roster");
   }
   return Object.freeze([...participants].sort());
+}
+
+function scoredRosterEntries(roster) {
+  return roster ? [...roster.values()].filter((entry) => entry.participation !== "practice") : [];
+}
+
+function rosterParticipantIds(roster) {
+  return roster ? Object.freeze([...roster.values()].map((entry) => entry.participantId).sort()) : Object.freeze([]);
+}
+
+function practiceParticipantIds(roster) {
+  return roster ? Object.freeze(
+    [...roster.values()]
+      .filter((entry) => entry.participation === "practice")
+      .map((entry) => entry.participantId)
+      .sort(),
+  ) : Object.freeze([]);
 }
 
 /**
@@ -94,7 +115,7 @@ export async function presentField({
   }
 
   const registeredCount = roster
-    ? roster.size
+    ? scoredRosterEntries(roster).length
     : integerSetting(env, "LEADERBOARD_REGISTERED_COUNT", 50);
   const fieldSizeOverride = String(env.LEADERBOARD_FIELD_SIZE ?? "").trim()
     ? integerSetting(env, "LEADERBOARD_FIELD_SIZE", 1, { minimum: 1, maximum: 500 })
@@ -108,6 +129,9 @@ export async function presentField({
     const rosterIds = roster
       ? new Set([...roster.values()].map((entry) => entry.participantId))
       : null;
+    const scoringIds = roster
+      ? new Set(scoredRosterEntries(roster).map((entry) => entry.participantId))
+      : null;
     const acknowledgments = await store.rulesAcknowledgments();
     const present = [...new Set(
       acknowledgments
@@ -116,22 +140,26 @@ export async function presentField({
         .filter((participantId) => /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(participantId))
         .filter((participantId) => !rosterIds || rosterIds.has(participantId)),
     )].sort();
+    const scoringPresent = scoringIds ? present.filter((participantId) => scoringIds.has(participantId)) : present;
     return Object.freeze({
-      checkedInParticipantIds: Object.freeze(present),
-      fieldSize: Math.min(registeredCount, present.length),
+      checkedInParticipantIds: Object.freeze(scoringPresent),
+      launchParticipantIds: Object.freeze(present),
+      fieldSize: Math.min(registeredCount, scoringPresent.length),
       source: "rules-acknowledgments",
     });
   }
 
   const fieldSize = Math.min(registeredCount, fieldSizeOverride || registeredCount);
   let checkedInParticipantIds = Object.freeze([]);
-  if (roster && fieldSize === roster.size) {
+  if (roster && fieldSize === registeredCount) {
     checkedInParticipantIds = Object.freeze(
-      [...roster.values()].map((entry) => entry.participantId).sort(),
+      scoredRosterEntries(roster).map((entry) => entry.participantId).sort(),
     );
   }
   return Object.freeze({
     checkedInParticipantIds,
+    launchParticipantIds: rosterParticipantIds(roster),
+    practiceParticipantIds: practiceParticipantIds(roster),
     fieldSize,
     source: "config",
   });
@@ -183,7 +211,7 @@ export function clockDerivedScoringMode(config, lifecyclePhase, now = new Date()
 export function leaderboardConfig(env = process.env) {
   const roster = participantRoster(env);
   const registeredCount = roster
-    ? roster.size
+    ? scoredRosterEntries(roster).length
     : integerSetting(env, "LEADERBOARD_REGISTERED_COUNT", 50);
 
   const override = parseCheckedInOverride(env, roster);
@@ -197,9 +225,9 @@ export function leaderboardConfig(env = process.env) {
     throw new Error("scoring field size must not exceed the registered participant count");
   }
   let checkedInParticipantIds = override || Object.freeze([]);
-  if (!override && roster && fieldSize === roster.size) {
+  if (!override && roster && fieldSize === registeredCount) {
     checkedInParticipantIds = Object.freeze(
-      [...roster.values()].map((entry) => entry.participantId).sort(),
+      scoredRosterEntries(roster).map((entry) => entry.participantId).sort(),
     );
   }
 
@@ -310,6 +338,8 @@ export function leaderboardConfig(env = process.env) {
     scoringEndAt,
     recoveryMinutes,
     checkedInParticipantIds,
+    launchParticipantIds: rosterParticipantIds(roster),
+    practiceParticipantIds: practiceParticipantIds(roster),
     timedEvent,
     eventGeneration,
     rewardEventId,
@@ -335,7 +365,11 @@ export function assertScoreEventAllowed(event, env = process.env, receivedAt = n
   const received = new Date(receivedAt);
   if (Number.isNaN(received.valueOf())) throw new Error("score event receipt time is invalid");
   const start = new Date(config.scoringStartAt);
-  const end = new Date(config.scoringEndAt);
+  const configuredEnd = new Date(config.scoringEndAt);
+  const evidenceRoomExtensionEnd = new Date("2026-07-26T12:40:00.000Z");
+  const extendedEvidenceRoom = event?.challenge === "evidence-room"
+    && received <= evidenceRoomExtensionEnd;
+  const end = extendedEvidenceRoom ? evidenceRoomExtensionEnd : configuredEnd;
   if (occurredAt < start || occurredAt > end) throw new Error("score event is outside the scoring window");
   if (received < new Date(start.valueOf() - 90_000) || occurredAt > new Date(received.valueOf() + 90_000)) {
     throw new Error("score event timing is inconsistent with the active scoring window");
@@ -356,24 +390,27 @@ export class ChallengeLaunchError extends Error {
   }
 }
 
-export function assertChallengeLaunchAllowed(participantId, env = process.env, receivedAt = new Date(), activeConfig = null) {
+export function assertChallengeLaunchAllowed(participantId, env = process.env, receivedAt = new Date(), activeConfig = null, challengeKey = "") {
   const config = activeConfig || leaderboardConfig(env);
   if (config.launchPaused) {
     throw new ChallengeLaunchError(503, "Challenge launches are temporarily paused by the organizers.");
   }
   const timed = Boolean(config.scoringStartAt && config.scoringEndAt);
   if (config.scoringMode === "staging" && !timed) return config;
-  if (config.scoringMode !== "live") {
+  const received = new Date(receivedAt);
+  if (Number.isNaN(received.valueOf())) throw new Error("challenge launch time is invalid");
+  const evidenceRoomExtensionEnd = new Date("2026-07-26T12:40:00.000Z");
+  const extendedEvidenceRoom = challengeKey === "evidence-room"
+    && received <= evidenceRoomExtensionEnd;
+  if (config.scoringMode !== "live" && !extendedEvidenceRoom) {
     throw new ChallengeLaunchError(409, "New challenge sessions are closed outside live scoring.");
   }
   const identity = String(participantId || "");
-  if (!config.checkedInParticipantIds.includes(identity)) {
+  if (!config.launchParticipantIds.includes(identity)) {
     throw new ChallengeLaunchError(403, "This participant is not checked in for the active field.");
   }
-  const received = new Date(receivedAt);
-  if (Number.isNaN(received.valueOf())) throw new Error("challenge launch time is invalid");
   const start = new Date(config.scoringStartAt);
-  const end = new Date(config.scoringEndAt);
+  const end = extendedEvidenceRoom ? evidenceRoomExtensionEnd : new Date(config.scoringEndAt);
   if (received < start || received > end) {
     throw new ChallengeLaunchError(409, "Challenge access opens only during the official scoring window.");
   }

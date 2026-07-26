@@ -37,11 +37,22 @@ function loadStoredPasskey(participantId) {
   if (typeof window === "undefined") return null;
   const raw = window.localStorage.getItem(passkeyStorageKey(participantId));
   if (!raw) return null;
-  const parsed = JSON.parse(raw);
-  return {
-    credentialId: parsed.credentialId,
-    publicKey: Buffer.from(parsed.publicKey, "hex"),
-  };
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed.credentialId !== "string" ||
+      !/^[0-9a-f]{66}$/i.test(String(parsed.publicKey || ""))
+    ) {
+      throw new Error("stored passkey is invalid");
+    }
+    return {
+      credentialId: parsed.credentialId,
+      publicKey: Buffer.from(parsed.publicKey, "hex"),
+    };
+  } catch {
+    window.localStorage.removeItem(passkeyStorageKey(participantId));
+    return null;
+  }
 }
 
 function storePasskey(participantId, passkey) {
@@ -184,9 +195,12 @@ export default function Home() {
   const [passkey, setPasskey] = useState(null);
   const [target, setTarget] = useState(null);
   const [targetState, setTargetState] = useState(null);
+  const [targetError, setTargetError] = useState("");
   const [passkeyState, setPasskeyState] = useState(null);
   const [challengeInput, setChallengeInput] = useState("");
   const [assertionOutput, setAssertionOutput] = useState("");
+  const [withdrawalSignature, setWithdrawalSignature] = useState("");
+  const [solveResult, setSolveResult] = useState(null);
   const [logs, setLogs] = useState([]);
   const [busy, setBusy] = useState(false);
   const [toasts, setToasts] = useState([]);
@@ -196,10 +210,7 @@ export default function Home() {
   const toastTimers = useRef(new Map());
 
   const conn = useMemo(() => connection(), []);
-  const challengeProgram = useMemo(
-    () => (wallet ? program(wallet) : null),
-    [wallet]
-  );
+  const challengeProgram = useMemo(() => program(wallet), [wallet]);
   const passkeyAddress = passkey?.publicKey
     ? passkeyPda(passkey.publicKey)
     : null;
@@ -234,15 +245,46 @@ export default function Home() {
   }
 
   async function refresh() {
-    if (!wallet?.publicKey || !target) return;
+    if (!target) return;
     const targetAddress = target;
+    setTargetError("");
 
     try {
-      const account = await challengeProgram.account.vault.fetch(targetAddress);
-      const lamports = await conn.getBalance(targetAddress);
-      setTargetState({ account, lamports });
-    } catch {
+      let lastError;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const [account, accountInfo] = await Promise.all([
+            challengeProgram.account.vault.fetch(targetAddress),
+            conn.getAccountInfo(targetAddress, "confirmed"),
+          ]);
+          if (!accountInfo) throw new Error("assigned vault is unavailable");
+          const rentExemptLamports =
+            await conn.getMinimumBalanceForRentExemption(
+              accountInfo.data.length,
+              "confirmed"
+            );
+          setTargetState({
+            account,
+            lamports: accountInfo.lamports,
+            rentExemptLamports,
+            withdrawableLamports: Math.max(
+              0,
+              accountInfo.lamports - rentExemptLamports
+            ),
+          });
+          lastError = null;
+          break;
+        } catch (error) {
+          lastError = error;
+          if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 700));
+        }
+      }
+      if (lastError) throw lastError;
+    } catch (error) {
       setTargetState(null);
+      setTargetError(
+        error?.message || "The assigned vault could not be read from devnet."
+      );
     }
 
     if (passkeyAddress) {
@@ -323,7 +365,15 @@ export default function Home() {
     target?.toString(),
   ]);
 
-  const currentStep = !wallet?.publicKey ? 1 : !passkeyState ? 2 : 4;
+  const vaultDrained =
+    targetState && targetState.withdrawableLamports === 0;
+  const currentStep = !wallet?.publicKey
+    ? 1
+    : !passkeyState
+    ? 2
+    : vaultDrained
+    ? 5
+    : 4;
 
   useEffect(() => {
     setExpandedStep(currentStep);
@@ -442,6 +492,25 @@ export default function Home() {
     }
   }
 
+  async function submitWithdrawal() {
+    setBusy(true);
+    try {
+      const signature = withdrawalSignature.trim();
+      const response = await fetch("/api/solve", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ signature }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const result = await response.json();
+      setSolveResult(result);
+      notify("success", "IMPRINT completion recorded", signature);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function guarded(action) {
     try {
       await action();
@@ -469,6 +538,11 @@ export default function Home() {
     ? assertionOutput
       ? "done"
       : "current"
+    : "locked";
+  const step5Status = solveResult
+    ? "done"
+    : vaultDrained
+    ? "current"
     : "locked";
 
   return (
@@ -614,7 +688,9 @@ export default function Home() {
                 ? `${targetState.lamports / 1e9} SOL · nonce ${
                     targetState.account.nonce
                   }`
-                : "inspect the configured vault state"
+                : targetError
+                ? "vault read needs attention"
+                : "reading configured vault state"
             }
             status={step3Status}
             isOpen={expandedStep === 3}
@@ -625,14 +701,14 @@ export default function Home() {
             </p>
             <dl>
               <dt>target</dt>
-              <dd>{target?.toString() || "connect wallet"}</dd>
+              <dd>{target?.toString() || "loading assigned vault"}</dd>
               <dt>registered passkey</dt>
               <dd>
                 {targetState
                   ? Buffer.from(targetState.account.registeredPasskey).toString(
                       "hex"
                     )
-                  : "not initialized"}
+                  : targetError || "reading from devnet"}
               </dd>
               <dt>nonce</dt>
               <dd>
@@ -640,12 +716,31 @@ export default function Home() {
               </dd>
               <dt>lamports</dt>
               <dd>{targetState ? targetState.lamports.toString() : "-"}</dd>
+              <dt>withdrawable deposit</dt>
+              <dd>
+                {targetState
+                  ? targetState.withdrawableLamports.toString()
+                  : "-"}
+              </dd>
+              <dt>rent reserve</dt>
+              <dd>
+                {targetState
+                  ? targetState.rentExemptLamports.toString()
+                  : "-"}
+              </dd>
             </dl>
+            {vaultDrained ? (
+              <p className="note">
+                The challenge deposit is fully withdrawn. The remaining
+                lamports are the account&apos;s required rent reserve.
+              </p>
+            ) : null}
+            {targetError ? <p className="error">{targetError}</p> : null}
             <div className="actions">
               <button
                 className="secondary"
                 onClick={() => guarded(refresh)}
-                disabled={busy || !wallet}
+                disabled={busy || !target}
               >
                 refresh
               </button>
@@ -685,6 +780,56 @@ export default function Home() {
               </button>
             </div>
             <pre>{assertionOutput || "no assertion yet"}</pre>
+          </Step>
+
+          <Step
+            number={5}
+            title="submit withdrawal"
+            hint={
+              solveResult
+                ? "completion recorded"
+                : vaultDrained
+                ? "paste the successful withdrawal transaction"
+                : "withdraw the challenge deposit first"
+            }
+            status={step5Status}
+            isOpen={expandedStep === 5}
+            onToggle={() => toggleStep(5)}
+          >
+            <p className="note">
+              A rent-exempt reserve remains in the vault by design. Submit the
+              transaction that withdrew the challenge deposit.
+            </p>
+            <label>
+              transaction signature
+              <input
+                value={withdrawalSignature}
+                onChange={(event) =>
+                  setWithdrawalSignature(event.target.value)
+                }
+                placeholder="Solana transaction signature"
+              />
+            </label>
+            <div className="actions">
+              <button
+                onClick={() => guarded(submitWithdrawal)}
+                disabled={
+                  busy ||
+                  !withdrawalSignature.trim() ||
+                  !!solveResult
+                }
+              >
+                record completion
+              </button>
+            </div>
+            {solveResult ? (
+              <dl>
+                <dt>status</dt>
+                <dd className="ok">completed</dd>
+                <dt>withdrawn</dt>
+                <dd>{solveResult.transactionDrain} lamports</dd>
+              </dl>
+            ) : null}
           </Step>
         </div>
       )}

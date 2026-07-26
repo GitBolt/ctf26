@@ -152,7 +152,12 @@ async function probeRewardScoreboard(baseUrl, expectedEventId, expectedGeneratio
   if (expectedStartsAt && eventStartsAt !== normalizedEventTime(expectedStartsAt)) {
     throw new Error("Reward Sniper scoreboard starts on another event schedule");
   }
-  if (expectedEndsAt && eventEndsAt !== normalizedEventTime(expectedEndsAt)) {
+  const endedBeforeExtension = (
+    eventStage === "complete"
+    && eventEndsAt
+    && new Date(eventEndsAt) <= new Date(normalizedEventTime(expectedEndsAt))
+  );
+  if (expectedEndsAt && eventEndsAt !== normalizedEventTime(expectedEndsAt) && !endedBeforeExtension) {
     throw new Error("Reward Sniper scoreboard ends on another event schedule");
   }
   const participants = new Set();
@@ -207,8 +212,16 @@ function assertOfficialFieldCoverage(scoring, dependencies, healthResults) {
   }
   const signetIndex = dependencies.findIndex(({ challenge }) => challenge.key === "signet");
   const signetInventory = healthResults[signetIndex]?.targetInventory;
-  if (!Number.isSafeInteger(signetInventory?.count) || signetInventory.count < fieldSize) {
-    throw new Error("SIGNET target inventory does not cover the present individual field");
+  const signetCapacity = healthResults[signetIndex]?.capacity;
+  const signetHasPublishedTargets = Number.isSafeInteger(signetInventory?.count)
+    && signetInventory.count >= fieldSize;
+  const signetCanProvisionField = Number.isSafeInteger(signetCapacity?.provisionedParticipants)
+    && Number.isSafeInteger(signetCapacity?.availableProvisionSlots)
+    && Number.isSafeInteger(signetCapacity?.maxParticipants)
+    && signetCapacity.maxParticipants >= fieldSize
+    && signetCapacity.provisionedParticipants + signetCapacity.availableProvisionSlots >= fieldSize;
+  if (!signetHasPublishedTargets && !signetCanProvisionField) {
+    throw new Error("SIGNET capacity does not cover the present individual field");
   }
   // Exact digest equality is only meaningful for an emergency frozen env override.
   if (scoring.presenceSource === "env-override") {
@@ -365,7 +378,13 @@ export async function portalHealth(options = {}) {
     && String(rewardHealth.eventMode || "") !== "staging"
     && (
       normalizedEventTime(rewardHealth.eventStartsAt) !== normalizedEventTime(scoring.scoringStartAt)
-      || normalizedEventTime(rewardHealth.eventEndsAt) !== normalizedEventTime(scoring.scoringEndAt)
+      || (
+        normalizedEventTime(rewardHealth.eventEndsAt) !== normalizedEventTime(scoring.scoringEndAt)
+        && !(
+          String(rewardHealth.eventStage || "") === "complete"
+          && normalizedEventTime(rewardHealth.eventEndsAt) <= normalizedEventTime(scoring.scoringEndAt)
+        )
+      )
     )
   ) {
     throw new Error("Reward Sniper health uses another event schedule");

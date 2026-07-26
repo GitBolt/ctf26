@@ -25,6 +25,14 @@ function normalizeDisplayName(value, participantId) {
   return displayName;
 }
 
+function normalizeParticipation(value) {
+  const participation = String(value || "scored").trim().toLowerCase();
+  if (participation !== "scored" && participation !== "practice") {
+    throw new Error("participant roster contains an invalid participation mode");
+  }
+  return participation;
+}
+
 function assertRosterFields(entry, allowed) {
   if (Object.keys(entry).some((field) => !allowed.has(field))) {
     throw new Error("participant roster entry contains unsupported fields");
@@ -52,17 +60,18 @@ export function participantRoster(env = process.env) {
 
   const roster = new Map();
   const participantByDisplayName = new Map();
-  const add = (emailValue, displayNameValue) => {
+  const add = (emailValue, displayNameValue, participationValue) => {
     const email = normalizeEmail(emailValue);
     const participantId = participantIdForEmail(email, env);
     const displayName = normalizeDisplayName(displayNameValue, participantId);
+    const participation = normalizeParticipation(participationValue);
     if (roster.has(email)) throw new Error(`participant roster contains duplicate email ${email}`);
     const displayKey = displayName.toLocaleLowerCase("en-US");
     if (participantByDisplayName.has(displayKey)) {
       throw new Error(`participant roster contains duplicate display name ${displayName}`);
     }
     participantByDisplayName.set(displayKey, participantId);
-    roster.set(email, Object.freeze({ email, participantId, displayName }));
+    roster.set(email, Object.freeze({ email, participantId, displayName, participation }));
   };
 
   if (Array.isArray(parsed)) {
@@ -70,25 +79,25 @@ export function participantRoster(env = process.env) {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
         throw new Error("participant roster entries must be objects");
       }
-      assertRosterFields(entry, new Set(["email", "participantId", "displayName", "handle"]));
+      assertRosterFields(entry, new Set(["email", "participantId", "displayName", "handle", "participation"]));
       const email = normalizeEmail(entry.email);
       const derived = participantIdForEmail(email, env);
       if (entry.participantId !== undefined && String(entry.participantId) !== derived) {
         throw new Error(`participantId for ${email} does not match the stable derived ID`);
       }
-      add(email, entry.displayName || entry.handle);
+      add(email, entry.displayName || entry.handle, entry.participation);
     }
   } else if (parsed && typeof parsed === "object") {
     for (const [email, value] of Object.entries(parsed)) {
       if (value && typeof value === "object" && !Array.isArray(value)) {
-        assertRosterFields(value, new Set(["participantId", "displayName", "handle"]));
+        assertRosterFields(value, new Set(["participantId", "displayName", "handle", "participation"]));
         const derived = participantIdForEmail(email, env);
         if (value.participantId !== undefined && String(value.participantId) !== derived) {
           throw new Error(`participantId for ${normalizeEmail(email)} does not match the stable derived ID`);
         }
-        add(email, value.displayName || value.handle);
+        add(email, value.displayName || value.handle, value.participation);
       } else {
-        add(email, value);
+        add(email, value, undefined);
       }
     }
   } else {

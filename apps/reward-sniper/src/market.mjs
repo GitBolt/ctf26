@@ -224,8 +224,10 @@ export function resolveTick(market) {
   const batch = { tick: resolvingTick, results: clone(results) };
   market.lastBatch = batch;
   advanceTick(market, 1);
-  market.phase = "commit";
-  appendEvent(market, { tick: market.tick, type: "phase", phase: "commit" });
+  if (market.event?.stage !== "complete") {
+    market.phase = "commit";
+    appendEvent(market, { tick: market.tick, type: "phase", phase: "commit" });
+  }
   return clone(batch);
 }
 
@@ -466,21 +468,43 @@ function startNextRound(market) {
   if (market.event) {
     finalizeEventRound(market);
     const totalRounds = market.event.practiceRounds + market.event.scoredRounds;
-    if (market.round >= totalRounds) {
-      market.event.stage = "complete";
-      market.event.completedAtTick = market.tick;
-      market.roundEndsAtTick = Number.MAX_SAFE_INTEGER;
-      for (const participant of Object.values(market.participants)) {
-        participant.tickets = 0;
-        participant.liquidityBalance = 0;
-        participant.commits = {};
-        participant.reveals = {};
-      }
-      appendEvent(market, { tick: market.tick, round: market.round, type: "event-complete" });
+    if (market.round >= totalRounds && !market.event.continueUntilEventEnd) {
+      completeEvent(market);
       return;
     }
   }
   market.round += 1;
+  openRound(market);
+}
+
+export function resumeEventUntilEnd(market) {
+  if (!market.event || market.event.stage !== "complete") return false;
+  market.event.continueUntilEventEnd = true;
+  delete market.event.completedAtTick;
+  market.round += 1;
+  openRound(market);
+  market.phase = "commit";
+  appendEvent(market, { tick: market.tick, type: "phase", phase: "commit" });
+  appendEvent(market, { tick: market.tick, round: market.round, type: "event-resumed-until-deadline" });
+  return true;
+}
+
+export function completeEvent(market) {
+  if (!market.event || market.event.stage === "complete") return false;
+  market.event.stage = "complete";
+  market.event.completedAtTick = market.tick;
+  market.roundEndsAtTick = Number.MAX_SAFE_INTEGER;
+  for (const participant of Object.values(market.participants)) {
+    participant.tickets = 0;
+    participant.liquidityBalance = 0;
+    participant.commits = {};
+    participant.reveals = {};
+  }
+  appendEvent(market, { tick: market.tick, round: market.round, type: "event-complete" });
+  return true;
+}
+
+function openRound(market) {
   if (market.event) market.event.stage = market.round <= market.event.practiceRounds ? "practice" : "live";
   market.roundStartedAtTick = market.tick;
   market.roundEndsAtTick = market.tick + market.roundTicks;

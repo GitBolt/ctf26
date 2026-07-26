@@ -17,7 +17,10 @@ async function sshAccess(challenge, user, config) {
   const destination = challengeDestination(challenge);
   if (!destination.ticketed) return null;
 
-  const ticket = createChallengeTicket(user, challenge.audience, { config });
+  const ticket = createChallengeTicket(user, challenge.audience, {
+    config,
+    challengeKey: challenge.key,
+  });
   destination.url.searchParams.set("ticket", ticket);
 
   const response = await fetch(destination.url, {
@@ -58,7 +61,13 @@ export default async function ChallengeDetails({ params }) {
   if (!completion) {
     try {
       if (!activeConfig) throw new Error("event lifecycle unavailable");
-      assertChallengeLaunchAllowed(user.participant_id || user.participantId, process.env, new Date(), activeConfig);
+      assertChallengeLaunchAllowed(
+        user.participant_id || user.participantId,
+        process.env,
+        new Date(),
+        activeConfig,
+        challenge.key,
+      );
       await store.recordChallengeLaunch({
         participantId: user.participant_id || user.participantId,
         challenge: challenge.key,

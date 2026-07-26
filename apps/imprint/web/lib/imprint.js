@@ -30,7 +30,16 @@ export function connection() {
 }
 
 export function program(wallet) {
-  const provider = new anchor.AnchorProvider(connection(), wallet, {
+  const readOnlyWallet = {
+    publicKey: PROGRAM_ID,
+    signTransaction: async () => {
+      throw new Error("a connected wallet is required to sign a transaction");
+    },
+    signAllTransactions: async () => {
+      throw new Error("a connected wallet is required to sign transactions");
+    },
+  };
+  const provider = new anchor.AnchorProvider(connection(), wallet || readOnlyWallet, {
     commitment: "confirmed",
     preflightCommitment: "confirmed",
   });

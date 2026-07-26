@@ -66,7 +66,7 @@ export async function GET(request, { params }) {
   let activeConfig;
   try {
     activeConfig = await resolveLeaderboardConfig({ store });
-    assertChallengeLaunchAllowed(participantId, process.env, new Date(), activeConfig);
+    assertChallengeLaunchAllowed(participantId, process.env, new Date(), activeConfig, challenge.key);
   } catch (error) {
     if (error instanceof ChallengeLaunchError) {
       return noStore(NextResponse.json({ error: error.message }, { status: error.status }));
@@ -96,7 +96,10 @@ export async function GET(request, { params }) {
 
   let ticket;
   try {
-    ticket = createChallengeTicket(user, challenge.audience, { config: activeConfig });
+    ticket = createChallengeTicket(user, challenge.audience, {
+      config: activeConfig,
+      challengeKey: challenge.key,
+    });
   } catch {
     return noStore(
       NextResponse.json(

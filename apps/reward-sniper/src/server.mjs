@@ -10,6 +10,7 @@ import { trustedClientAddress } from "@ctf26/request-budget";
 
 import {
   beginRevealPhase,
+  completeEvent,
   commitAction,
   createMarket,
   DEFAULT_ROUND_TICKS,
@@ -19,6 +20,7 @@ import {
   MAX_ACTION_LIQUIDITY,
   MIN_QUALIFYING_SCORED_ROUNDS,
   registerParticipant,
+  resumeEventUntilEnd,
   restoreMarket,
   revealAction,
   resolveTick,
@@ -228,6 +230,20 @@ export function createRewardSniperServer(options = {}) {
   let eventStartedAt = Number.isSafeInteger(saved?.eventStartedAt) ? saved.eventStartedAt : null;
   const eventStartsAt = configuredEventStartsAt;
   const eventEndsAt = configuredEventEndsAt;
+  const continueUntilEventEnd = options.continueUntilEventEnd === true;
+  if (continueUntilEventEnd && market.event) market.event.continueUntilEventEnd = true;
+  if (continueUntilEventEnd && market.event?.stage === "complete" && !eventHasEnded()) {
+    resumeEventUntilEnd(market);
+  }
+  if (
+    continueUntilEventEnd
+    && market.event?.stage !== "complete"
+    && eventStartedAt
+    && !eventHasEnded()
+    && !Number.isSafeInteger(phaseEndsAt)
+  ) {
+    phaseEndsAt = boundedPhaseDeadline(eventClock() + durationForCurrentPhase());
+  }
   let persistenceQueue = Promise.resolve();
   let persistenceError = null;
   let ready = false;
@@ -955,7 +971,10 @@ export function createRewardSniperServer(options = {}) {
           resolve();
         });
       });
-      if (market.event?.stage === "complete") {
+      if (eventHasEnded()) {
+        completeEvent(market);
+        phaseEndsAt = null;
+      } else if (market.event?.stage === "complete") {
         phaseEndsAt = null;
       } else if (autoPhases) {
         if (eventStartedAt) {
@@ -1010,6 +1029,7 @@ export function createRewardSniperServer(options = {}) {
 
   function ensureEventActive() {
     if (eventHasEnded()) {
+      completeEvent(market);
       throw new HttpError(409, "Reward Sniper scoring window has ended");
     }
     if (autoPhases && market.event && !eventStartedAt) {
@@ -1029,6 +1049,7 @@ export function createRewardSniperServer(options = {}) {
     if (eventStartedAt || market.event?.stage === "complete") return;
     eventStartedAt = startedAt;
     if (eventHasEnded()) {
+      completeEvent(market);
       phaseEndsAt = null;
     } else {
       phaseEndsAt = boundedPhaseDeadline(startedAt + durationForCurrentPhase());
@@ -1064,6 +1085,7 @@ export function createRewardSniperServer(options = {}) {
     phaseTimer = setTimeout(async () => {
       phaseTimer = undefined;
       if (eventHasEnded()) {
+        completeEvent(market);
         phaseEndsAt = null;
         await persistState();
         return;
@@ -2121,6 +2143,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === MODULE_PATH) {
     scoredRounds: parseIntegerEnv("SCORED_ROUNDS", 0),
     eventMode: process.env.REWARD_EVENT_MODE,
     startOnFirstSession: process.env.START_ON_FIRST_SESSION === "true",
+    continueUntilEventEnd: process.env.CONTINUE_UNTIL_EVENT_END === "true",
     eventStartsAt: parseEventTimeEnv("EVENT_START_AT"),
     eventEndsAt: parseEventTimeEnv("EVENT_END_AT"),
     stateFile: process.env.STATE_FILE,
