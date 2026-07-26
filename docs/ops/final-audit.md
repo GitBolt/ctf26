@@ -142,7 +142,7 @@ preserved evidence, an author-led solve defense, two organizers, private notice,
 
 | Surface | Canonical staging URL |
 | --- | --- |
-| Portal | `https://ctf26-eta.vercel.app` |
+| Portal | `https://superteamctf.vercel.app` |
 | Reward Sniper | `https://st26-reward.up.railway.app` |
 | IMPRINT | `https://st26-imprint.vercel.app` |
 | SIGNET | `https://st26-signet.up.railway.app` |
@@ -171,7 +171,7 @@ short alias callback is added in Google Cloud and verified with a real sign-in.
 7. Use a private primary RPC plus an independent fallback and keep lock-sensitive services at one replica.
 8. Run an authenticated launch, meaningful action, and completion canary for every challenge.
 9. Rotate ticket, session, flag, Redis, integrity, Discord, organizer, and payer secrets after rehearsal.
-10. Keep `https://ctf26-eta.vercel.app/api/auth/google/callback` registered until the final custom domain is ready.
+10. Keep `https://superteamctf.vercel.app/api/auth/google/callback` registered in Google OAuth.
 11. Revoke the Discord webhook and QuickNode RPC credentials exposed in repository history before making
     the repository public.
 12. Have two organizers independently verify the final snapshot and payout ledger.

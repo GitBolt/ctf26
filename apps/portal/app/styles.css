@@ -3388,9 +3388,9 @@ button {
 .leader-table-header,
 .leader-row {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) 190px 100px;
+  grid-template-columns: 58px minmax(0, 1fr) minmax(280px, 320px) 110px;
   align-items: center;
-  gap: var(--space-4);
+  column-gap: var(--space-6);
 }
 
 .leader-table-header {
@@ -3667,8 +3667,8 @@ button {
 @media (max-width: 960px) {
   .leader-table-header,
   .leader-row {
-    grid-template-columns: 48px minmax(0, 1fr) 166px 78px;
-    gap: 12px;
+    grid-template-columns: 48px minmax(0, 1fr) 280px 90px;
+    column-gap: 20px;
   }
 
   .leader-table-header,

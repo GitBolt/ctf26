@@ -9,7 +9,7 @@ release manifest. Never copy secret values, ignored keypairs, or `.keys/` conten
 
 | Surface | URL | Verified state |
 | --- | --- | --- |
-| Central portal | `https://ctf26-eta.vercel.app` | Unified individual portal, leaderboard, and organizer console |
+| Central portal | `https://superteamctf.vercel.app` | Unified individual portal, leaderboard, and organizer console |
 | Reward Sniper | `https://st26-reward.up.railway.app/` | **Challenge complete**; bounded market and immutable event cutoff |
 | IMPRINT | `https://st26-imprint.vercel.app` | **Challenge complete**; passkey console and participant inventory health |
 | SIGNET | `https://st26-signet.up.railway.app/` | Repository, live checker, and generation-bound target inventory |
@@ -152,7 +152,7 @@ The following work cannot be safely guessed or automated from this repository:
 
 1. **Google OAuth:** production credentials are configured. Add and verify
    the final custom-domain callback before changing the portal base URL. Until then, keep
-   `https://ctf26-eta.vercel.app/api/auth/google/callback` registered and complete a real
+   `https://superteamctf.vercel.app/api/auth/google/callback` registered and complete a real
    browser sign-in and sign-out rehearsal with the final roster.
 2. **Approved Google accounts:** set `PARTICIPANT_ROSTER_JSON` with the final approved emails and display
    names. Participant IDs are derived by the portal. Keep `ALLOW_OPEN_REGISTRATION=false` for the event.
@@ -220,7 +220,7 @@ git diff --check
 Public health checks:
 
 ```bash
-curl -fsS https://ctf26-eta.vercel.app/api/health
+curl -fsS https://superteamctf.vercel.app/api/health
 curl -fsS https://st26-reward.up.railway.app/api/health
 curl -fsS https://st26-signet.up.railway.app/api/health
 curl -fsS https://st26-drift.up.railway.app/health
