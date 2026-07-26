@@ -10,7 +10,9 @@ export function ticketReplayConfiguration(env = process.env) {
   const generation = eventGeneration(env);
   const redisUrl = String(env.REDIS_URL || "").trim();
   if (env.NODE_ENV === "production" && !redisUrl) {
-    throw new Error("REDIS_URL is required for production ticket replay protection");
+    throw new Error(
+      "REDIS_URL is required for production ticket replay protection"
+    );
   }
   const prefix = String(env.IMPRINT_REDIS_PREFIX || DEFAULT_PREFIX).trim();
   if (!/^[A-Za-z0-9:_-]{1,128}$/.test(prefix)) {
@@ -19,9 +21,13 @@ export function ticketReplayConfiguration(env = process.env) {
   return Object.freeze({ generation, prefix, redisUrl });
 }
 
-export async function createImprintTicketReplayStore(env = process.env, options = {}) {
+export async function createImprintTicketReplayStore(
+  env = process.env,
+  options = {}
+) {
   const config = ticketReplayConfiguration(env);
-  if (!config.redisUrl && !options.redis) return createMemoryStore(config.generation);
+  if (!config.redisUrl && !options.redis)
+    return createMemoryStore(config.generation);
 
   const redis = options.redis || createClient({ url: config.redisUrl });
   if (!options.redis) {
@@ -61,7 +67,9 @@ function createMemoryStore(generation) {
       seen.add(jti);
       return true;
     },
-    async health() { return true; },
+    async health() {
+      return true;
+    },
     async close() {},
   });
 }

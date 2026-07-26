@@ -198,9 +198,12 @@ function assertOfficialFieldCoverage(scoring, dependencies, healthResults) {
     }
   }
   const imprintIndex = dependencies.findIndex(({ challenge }) => challenge.key === "imprint");
-  const imprintParticipants = healthResults[imprintIndex]?.participantCount;
-  if (!Number.isSafeInteger(imprintParticipants) || imprintParticipants < fieldSize) {
-    throw new Error("IMPRINT credential inventory does not cover the present individual field");
+  const imprintHealth = healthResults[imprintIndex];
+  if (imprintHealth?.dynamicProvisioning !== true) {
+    const imprintParticipants = imprintHealth?.participantCount;
+    if (!Number.isSafeInteger(imprintParticipants) || imprintParticipants < fieldSize) {
+      throw new Error("IMPRINT credential inventory does not cover the present individual field");
+    }
   }
   const signetIndex = dependencies.findIndex(({ challenge }) => challenge.key === "signet");
   const signetInventory = healthResults[signetIndex]?.targetInventory;

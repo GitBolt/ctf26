@@ -89,12 +89,9 @@ event operations for the final roster, not missing challenge mechanics.
 - The Anchor integration, Rust unit, and web/security suites pass.
 - Production dependency audit is clean.
 
-Before the event, seed one unique target per final roster participant and configure the complete server-only
-`IMPRINT_PARTICIPANT_TARGETS_JSON` map in Vercel. Its participant IDs must exactly match the credential roster.
-Before deploying the checker update to the current internal environment, set
-`IMPRINT_TARGET_MODE=single-target-rehearsal` so the existing target remains an explicit non-event
-fallback. For the event release, change the mode to `per-participant`, remove all legacy target variables,
-and add the complete map in the same configuration change.
+IMPRINT now creates one deterministic funded target and one participant-controlled platform passkey on
+first launch. There is no static credential roster or target map. Keep Redis and the operator wallet
+available, and confirm health reports `targetMode: "on-demand"` with `dynamicProvisioning: true`.
 
 ### SIGNET
 
@@ -163,15 +160,13 @@ The following work cannot be safely guessed or automated from this repository:
 3. **Replica safety:** keep PLAYER TWO, EVIDENCE ROOM, and SECOND KEY at one Railway replica unless their
    transaction queues are replaced with distributed Redis locks. Redis makes their state durable, but
    the current per-participant transaction mutexes are process-local.
-4. **IMPRINT platform passkeys:** enroll one unique approved platform credential per final participant in
-   person, verify the production credential roster and registrar key, then disable enrollment and
-   rotate/remove the enrollment admin secret.
-5. **IMPRINT isolation:** seed one unique funded target per final participant with a unique 16-byte vault ID,
-   merge the script outputs into `IMPRINT_PARTICIPANT_TARGETS_JSON`, and confirm `/api/health` reports the same
-   participant count as the credential roster with `eventReady: true`. Set `IMPRINT_TARGET_MODE=per-participant` and
-   do not configure the rehearsal single-target variables in event production. Per-participant vaults
-   prevent accidental reserve collisions, but the intentional owner-binding flaw means malicious
-   cross-participant draining still requires per-participant program instances or an operator reset or reseed plan.
+4. **IMPRINT dynamic setup:** confirm a fresh approved identity creates a platform passkey and a unique
+   funded target on first launch, refresh returns the same state, and a second identity receives a
+   different target. Keep the registrar and operator keys separate and the operator above its funding
+   reserve. Self-enrollment deliberately accepts virtual-authenticator risk.
+5. **IMPRINT isolation:** deterministic per-participant vaults prevent accidental reserve collisions.
+   The intentional owner-binding flaw still means a participant who discovers another target address
+   could drain it without scoring, so monitor target balances and keep a reset procedure available.
 6. **SIGNET automatic participant setup:** remove the requirement for an organizer to manually publish a
    target for every participant. On the first authenticated SIGNET launch, atomically create or assign
    the participant-specific vault, reserve, escrow, mint, and challenge record from the portal-bound participant
@@ -281,11 +276,11 @@ distinct anti-agent pressure.
 - Core: secp256r1/WebAuthn owner-binding miss in a passkey-controlled Solana vault.
 - Built: Anchor program, WebAuthn registration/assertion web app, registrar co-sign flow, devnet
   deployment, target seeding, exploit tests, and negative tests.
-- Anti-agent layer: organizer-pre-enrolled physical security key, live key assertion, and Solana
-  wallet approval. The player service accepts no public WebAuthn registration.
+- Anti-agent layer: live platform-passkey assertion and Solana wallet approval, backed by integrity
+  telemetry and prize-contender review. First-launch registration is self-service, so virtual
+  authenticators remain an acknowledged limitation.
 - Status: complete. The hardened v2 program, canonical-target HMAC checker, deployed web console,
-  physical-passkey gate, and autonomous-agent evaluation are complete. Final roster enrollment and
-  target funding are event operations, not unfinished challenge mechanics.
+  passkey interaction, lazy target provisioning, and autonomous-agent evaluation are complete.
 
 #### SIGNET
 
@@ -350,7 +345,6 @@ Known remaining work before a real public event:
   against its generated manifest.
 - DRIFT: complete the measured human, AI-assisted, and autonomous playtest matrix and decide timed
   release points for the organizer-only hint ladder. Its hosted exact-SBF service is already portal-wired.
-- IMPRINT: pre-enroll the final physical-key roster, seed one isolated target per participant, publish the
-  exact matching target map, disable the organizer enrollment route, and run the clean-room human
-  solve. These are event operations; the challenge itself is complete.
+- IMPRINT: verify first-launch passkey registration, idempotent lazy target provisioning, operator
+  funding, the assigned-target checker, and one clean-room human solve.
 - All challenges: run the required human-driven, AI-assisted-human, and autonomous-agent playtest matrix.

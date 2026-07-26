@@ -224,7 +224,7 @@ live in [`../challenges/`](../challenges/).
 | # | Challenge | Style | Real Solana bug | Unique anti-AI mechanism |
 |---|---|---|---|---|
 | 1 | **[Reward Sniper](../challenges/reward-sniper.md)** | dynamic DeFi KOTH / searcher game (Meteora) | DLMM-style JIT reward-accounting | dynamic env + relative scoring + scarce high-value attempts |
-| 2 | **[IMPRINT](../challenges/imprint.md)** | hardware-auth / crypto | secp256r1/WebAuthn owner-binding bug | **passkey biometric touch** + Solana wallet approval + on-site enrollment |
+| 2 | **[IMPRINT](../challenges/imprint.md)** | hardware-auth / crypto | secp256r1/WebAuthn owner-binding bug | platform-passkey verification + wallet approval + integrity review |
 | 3 | **[SIGNET](../challenges/signet.md)** | N-day / source archaeology | stale pre-fix CPI/PDA authority bug discovered via silent patch | messy repo history + per-participant target + live exploit, with canaries as telemetry |
 | 4 | **[DRIFT](../challenges/drift.md)** | reverse-engineering / runtime | bytecode-only vault with adversarial local runtime assumptions | no-source RE + replay checker |
 | 5 | **[LAST STOP](../challenges/last-stop.md)** | hosted SSH text adventure | variable-length PDA seed-boundary collision | one-use passage + live native replay + terminal-native discovery |

@@ -529,8 +529,10 @@ Why it is good:
 
 Risk:
 
-- virtual authenticators and remote help. Mitigate with organizer-pre-enrolled physical keys, a fixed
-  credential roster, live assertion at key claim, wallet approval, and prize-contender replay/proctoring.
+- virtual authenticators and remote help. The event deliberately accepts self-enrollment because it has
+  no staff enrollment capacity. Mitigate with a live assertion at key claim, wallet approval, integrity
+  telemetry, and prize-contender review. Do not represent this as a hardware-enforced autonomous-agent
+  block.
 
 ### 3. SIGNET
 

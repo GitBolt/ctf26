@@ -8,13 +8,13 @@ import {
   IMPRINT_SESSION_COOKIE,
   verifyChallengeSession,
 } from "@/lib/challenge-session.mjs";
-import { credentialForParticipant } from "@/lib/credential-roster.mjs";
+import { ensureParticipantTarget } from "@/lib/auto-provision.mjs";
 import { PROGRAM_ID } from "@/lib/registrar.mjs";
 import {
   claimedPasskeyOwner,
   qualifyingImprintDrain,
 } from "@/lib/solve-verifier.mjs";
-import { eventTargetForParticipant } from "@/lib/target-config.mjs";
+import { imprintStateStore } from "@/lib/state-store.mjs";
 import { recordImprintIntegrity } from "@/lib/integrity-events.mjs";
 import {
   consumeImprintRequestBudget,
@@ -59,13 +59,21 @@ export async function POST(request) {
       throw new Error("a Solana transaction signature is required");
     }
 
-    const credential = credentialForParticipant(session.participantId);
+    const state = await imprintStateStore();
+    const credential = await state.credentialForParticipant(
+      session.participantId
+    );
+    if (!credential) {
+      throw new Error("create and claim your IMPRINT passkey first");
+    }
     const passkeySeed = Buffer.from(sha256(credential.passkeyPubkey));
     const [passkey] = PublicKey.findProgramAddressSync(
       [Buffer.from("passkey"), passkeySeed],
       PROGRAM_ID
     );
-    const target = eventTargetForParticipant(session.participantId);
+    const target = await ensureParticipantTarget(session.participantId, {
+      store: state,
+    });
     const connection = new Connection(rpcUrl(), "finalized");
     const [passkeyInfo, vaultInfo, transaction] = await Promise.all([
       connection.getAccountInfo(passkey, "finalized"),
@@ -110,7 +118,10 @@ export async function POST(request) {
       occurredAt: new Date(blockTime * 1_000).toISOString(),
       timeoutMs: 1_500,
     });
-    if (process.env.NODE_ENV === "production" && scoreDelivery?.reported !== true) {
+    if (
+      process.env.NODE_ENV === "production" &&
+      scoreDelivery?.reported !== true
+    ) {
       return new Response(
         "solve verified, but scoring is temporarily unavailable; resubmit this signature",
         { status: 503 }

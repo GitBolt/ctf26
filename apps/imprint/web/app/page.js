@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Buffer } from "buffer";
 import { PublicKey } from "@solana/web3.js";
-import { startAuthentication } from "@simplewebauthn/browser";
+import {
+  startAuthentication,
+  startRegistration,
+} from "@simplewebauthn/browser";
 import {
   PROGRAM_ID,
   Transaction,
@@ -26,9 +29,13 @@ function short(value) {
   return `${text.slice(0, 6)}...${text.slice(-6)}`;
 }
 
-function loadStoredPasskey() {
+function passkeyStorageKey(participantId) {
+  return `imprint-passkey:${participantId}`;
+}
+
+function loadStoredPasskey(participantId) {
   if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem("imprint-passkey");
+  const raw = window.localStorage.getItem(passkeyStorageKey(participantId));
   if (!raw) return null;
   const parsed = JSON.parse(raw);
   return {
@@ -37,9 +44,9 @@ function loadStoredPasskey() {
   };
 }
 
-function storePasskey(passkey) {
+function storePasskey(participantId, passkey) {
   window.localStorage.setItem(
-    "imprint-passkey",
+    passkeyStorageKey(participantId),
     JSON.stringify({
       credentialId: passkey.credentialId,
       publicKey: Buffer.from(passkey.publicKey).toString("hex"),
@@ -170,6 +177,7 @@ function Step({ number, title, hint, status, isOpen, onToggle, children }) {
 
 export default function Home() {
   const [wallet, setWallet] = useState(null);
+  const [participantId, setParticipantId] = useState(null);
   const [walletName, setWalletName] = useState(null);
   const [walletOptions, setWalletOptions] = useState([]);
   const [selectedWalletId, setSelectedWalletId] = useState("");
@@ -250,7 +258,6 @@ export default function Home() {
   }
 
   useEffect(() => {
-    setPasskey(loadStoredPasskey());
     const discovered = discoverSolanaWallets();
     setWalletOptions(discovered);
     setSelectedWalletId(discovered[0]?.id || "");
@@ -269,7 +276,10 @@ export default function Home() {
       ? fetch("/api/session", {
           method: "POST",
           headers: { "content-type": "application/json", ...uiHeaders },
-          body: JSON.stringify({ directTest: true, participantId: testParticipant }),
+          body: JSON.stringify({
+            directTest: true,
+            participantId: testParticipant,
+          }),
         })
       : ticket
       ? fetch("/api/session", {
@@ -285,6 +295,11 @@ export default function Home() {
         if (typeof session.target?.vault !== "string") {
           throw new Error("this participant has no assigned IMPRINT target");
         }
+        if (typeof session.participantId !== "string") {
+          throw new Error("IMPRINT session identity is unavailable");
+        }
+        setParticipantId(session.participantId);
+        setPasskey(loadStoredPasskey(session.participantId));
         setTarget(new PublicKey(session.target.vault));
         if (ticket || testParticipant)
           window.history.replaceState({}, "", window.location.pathname);
@@ -344,9 +359,17 @@ export default function Home() {
         method: "POST",
       });
       if (!optionsResponse.ok) throw new Error(await optionsResponse.text());
-      const optionsJSON = await optionsResponse.json();
-      notify("info", "requesting a Touch ID, Face ID, or passkey assertion");
-      const assertionResponse = await startAuthentication({ optionsJSON });
+      const { mode, options: optionsJSON } = await optionsResponse.json();
+      notify(
+        "info",
+        mode === "register"
+          ? "creating a platform passkey with Face ID, Touch ID, or Windows Hello"
+          : "requesting a platform passkey assertion"
+      );
+      const assertionResponse =
+        mode === "register"
+          ? await startRegistration({ optionsJSON })
+          : await startAuthentication({ optionsJSON });
       const response = await fetch("/api/passkey/claim", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -356,18 +379,23 @@ export default function Home() {
         }),
       });
       if (!response.ok) throw new Error(await response.text());
-      const { transaction, credentialId, passkeyPubkey } =
+      const { transaction, credentialId, passkeyPubkey, alreadyRegistered } =
         await response.json();
-      const tx = Transaction.from(Buffer.from(transaction, "base64"));
-      const signed = await wallet.signTransaction(tx);
-      const sig = await conn.sendRawTransaction(signed.serialize());
-      await conn.confirmTransaction(sig, "confirmed");
       const registeredPasskey = {
         credentialId,
         publicKey: Buffer.from(passkeyPubkey, "hex"),
       };
-      storePasskey(registeredPasskey);
+      storePasskey(participantId, registeredPasskey);
       setPasskey(registeredPasskey);
+      if (alreadyRegistered) {
+        notify("success", "platform passkey restored");
+        await refresh();
+        return;
+      }
+      const tx = Transaction.from(Buffer.from(transaction, "base64"));
+      const signed = await wallet.signTransaction(tx);
+      const sig = await conn.sendRawTransaction(signed.serialize());
+      await conn.confirmTransaction(sig, "confirmed");
       notify("success", "platform passkey claimed on-chain", sig);
       await refresh();
     } finally {
@@ -537,16 +565,16 @@ export default function Home() {
             hint={
               passkeyState
                 ? "claimed on-chain"
-                : "use the platform passkey assigned to you"
+                : "create or verify your platform passkey"
             }
             status={step2Status}
             isOpen={expandedStep === 2}
             onToggle={() => toggleStep(2)}
           >
             <p className="note">
-              Claiming requires a live user-verifying passkey assertion. Use
-              Touch ID, Face ID, Windows Hello, or another platform passkey
-              during the organizer enrollment ceremony and again when claiming.
+              First launch creates a platform passkey for this event. Returning
+              launches verify the same passkey. Use Touch ID, Face ID, Windows
+              Hello, or another platform authenticator.
             </p>
             {passkey ? (
               <dl>

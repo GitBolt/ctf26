@@ -1,22 +1,14 @@
-import { parseCredentialRoster } from "./credential-roster.mjs";
-import { validateTargetConfiguration } from "./target-config.mjs";
+import { participantTarget } from "./auto-provision.mjs";
 import { ticketReplayConfiguration } from "./ticket-replay.mjs";
 
-export function imprintHealth(
-  env = process.env,
-  { parseRoster = parseCredentialRoster } = {}
-) {
-  const roster = parseRoster(env.IMPRINT_CREDENTIAL_ROSTER_JSON);
-  const targets = validateTargetConfiguration(
-    env,
-    roster.map((credential) => credential.participantId)
-  );
+export function imprintHealth(env = process.env) {
+  participantTarget("health-check", env);
   const replay = ticketReplayConfiguration(env);
   return Object.freeze({
     ok: true,
-    eventReady: targets.mode === "per-participant",
-    targetMode: targets.mode,
-    participantCount: targets.participantCount,
+    eventReady: true,
+    targetMode: "on-demand",
+    dynamicProvisioning: true,
     eventGeneration: replay.generation,
     ticketReplay: replay.redisUrl ? "redis" : "memory",
   });

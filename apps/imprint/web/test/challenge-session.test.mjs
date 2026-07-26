@@ -38,7 +38,12 @@ function replayStore() {
 
 test("creates a session only from a valid one-time IMPRINT launch ticket", async () => {
   const consumeJti = replayStore();
-  const session = await createChallengeSession(ticket(), env, Date.now(), consumeJti);
+  const session = await createChallengeSession(
+    ticket(),
+    env,
+    Date.now(),
+    consumeJti
+  );
   const identity = verifyChallengeSession(session, env);
   assert.deepEqual(identity, {
     eventId: "ctf26-final",
@@ -49,7 +54,7 @@ test("creates a session only from a valid one-time IMPRINT launch ticket", async
 
   await assert.rejects(
     createChallengeSession(ticket(), env, Date.now(), async () => false),
-    /already been consumed/,
+    /already been consumed/
   );
 });
 
@@ -59,7 +64,7 @@ test("rejects a replay of the exact same launch ticket", async () => {
   await createChallengeSession(launchTicket, env, Date.now(), consumeJti);
   await assert.rejects(
     createChallengeSession(launchTicket, env, Date.now(), consumeJti),
-    /already been consumed/,
+    /already been consumed/
   );
 });
 
@@ -74,22 +79,39 @@ test("rejects a launch ticket from another event generation", async () => {
   );
   await assert.rejects(
     createChallengeSession(ticket, env, Date.now(), replayStore()),
-    /another event/,
+    /another event/
   );
 });
 
 test("direct test access can never be enabled in production", () => {
-  assert.equal(directTestAccessAllowed({ NODE_ENV: "development", ALLOW_DIRECT_TEST_ACCESS: "true" }), true);
-  assert.equal(directTestAccessAllowed({ NODE_ENV: "production", ALLOW_DIRECT_TEST_ACCESS: "true" }), false);
+  assert.equal(
+    directTestAccessAllowed({
+      NODE_ENV: "development",
+      ALLOW_DIRECT_TEST_ACCESS: "true",
+    }),
+    true
+  );
+  assert.equal(
+    directTestAccessAllowed({
+      NODE_ENV: "production",
+      ALLOW_DIRECT_TEST_ACCESS: "true",
+    }),
+    false
+  );
 });
 
 test("rejects a tampered session and a ticket for another challenge", async () => {
   await assert.rejects(
     createChallengeSession(ticket("drift"), env, Date.now(), replayStore()),
-    /another challenge/,
+    /another challenge/
   );
 
-  const session = await createChallengeSession(ticket(), env, Date.now(), replayStore());
+  const session = await createChallengeSession(
+    ticket(),
+    env,
+    Date.now(),
+    replayStore()
+  );
   assert.throws(
     () => verifyChallengeSession(`${session}x`, env),
     /signature is invalid/

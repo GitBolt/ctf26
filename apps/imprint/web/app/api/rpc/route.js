@@ -1,6 +1,9 @@
 import { cookies } from "next/headers";
 
-import { IMPRINT_SESSION_COOKIE, verifyChallengeSession } from "@/lib/challenge-session.mjs";
+import {
+  IMPRINT_SESSION_COOKIE,
+  verifyChallengeSession,
+} from "@/lib/challenge-session.mjs";
 import {
   consumeImprintRequestBudget,
   imprintRequestErrorResponse,
@@ -26,10 +29,14 @@ export async function POST(request) {
     const jar = await cookies();
     session = verifyChallengeSession(jar.get(IMPRINT_SESSION_COOKIE)?.value);
   } catch {
-    return Response.json({ error: "challenge session is required" }, { status: 401 });
+    return Response.json(
+      { error: "challenge session is required" },
+      { status: 401 }
+    );
   }
   const rpcUrl = String(process.env.SOLANA_RPC_URL || "");
-  if (!rpcUrl) return Response.json({ error: "RPC unavailable" }, { status: 503 });
+  if (!rpcUrl)
+    return Response.json({ error: "RPC unavailable" }, { status: 503 });
 
   let body;
   try {
@@ -40,9 +47,17 @@ export async function POST(request) {
     throw error;
   }
   let payload;
-  try { payload = JSON.parse(body); } catch { return Response.json({ error: "invalid JSON" }, { status: 400 }); }
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    return Response.json({ error: "invalid JSON" }, { status: 400 });
+  }
   const calls = Array.isArray(payload) ? payload : [payload];
-  if (!calls.length || calls.length > 10 || calls.some((call) => !ALLOWED_METHODS.has(call?.method))) {
+  if (
+    !calls.length ||
+    calls.length > 10 ||
+    calls.some((call) => !ALLOWED_METHODS.has(call?.method))
+  ) {
     return Response.json({ error: "RPC method unavailable" }, { status: 403 });
   }
   try {
@@ -67,10 +82,17 @@ export async function POST(request) {
       signal: AbortSignal.timeout(10_000),
     });
   } catch {
-    return Response.json({ error: "RPC upstream unavailable" }, { status: 504 });
+    return Response.json(
+      { error: "RPC upstream unavailable" },
+      { status: 504 }
+    );
   }
   return new Response(await upstream.arrayBuffer(), {
     status: upstream.status,
-    headers: { "content-type": upstream.headers.get("content-type") || "application/json", "cache-control": "no-store" },
+    headers: {
+      "content-type":
+        upstream.headers.get("content-type") || "application/json",
+      "cache-control": "no-store",
+    },
   });
 }

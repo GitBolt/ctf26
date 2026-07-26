@@ -41,11 +41,19 @@ export class ImprintRequestError extends Error {
 }
 
 function digest(value) {
-  return crypto.createHash("sha256").update(String(value || "unknown")).digest("hex").slice(0, 24);
+  return crypto
+    .createHash("sha256")
+    .update(String(value || "unknown"))
+    .digest("hex")
+    .slice(0, 24);
 }
 
 function requestAddress(request) {
-  for (const name of ["x-vercel-forwarded-for", "cf-connecting-ip", "x-forwarded-for"]) {
+  for (const name of [
+    "x-vercel-forwarded-for",
+    "cf-connecting-ip",
+    "x-forwarded-for",
+  ]) {
     const values = String(request?.headers?.get?.(name) || "").split(",");
     const value = values[values.length - 1].trim();
     if (value) return value.slice(0, 128);
@@ -67,7 +75,10 @@ async function redisExecutor(command, env) {
       url,
       socket: {
         connectTimeout: 5_000,
-        reconnectStrategy: (retries) => (retries >= 4 ? new Error("Redis reconnect limit reached") : Math.min(100 * 2 ** retries, 1_500)),
+        reconnectStrategy: (retries) =>
+          retries >= 4
+            ? new Error("Redis reconnect limit reached")
+            : Math.min(100 * 2 ** retries, 1_500),
       },
     });
     client.on("error", () => {});
@@ -84,28 +95,45 @@ async function redisExecutor(command, env) {
 
 function executor(env, override) {
   if (override) return override;
-  if (String(env.REDIS_URL || "").trim()) return (command) => redisExecutor(command, env);
+  if (String(env.REDIS_URL || "").trim())
+    return (command) => redisExecutor(command, env);
   if (env.NODE_ENV !== "production") return memoryExecute;
-  return async () => { throw new Error("REDIS_URL is required for production request controls"); };
+  return async () => {
+    throw new Error("REDIS_URL is required for production request controls");
+  };
 }
 
-export async function consumeImprintRequestBudget(name, {
-  request,
-  participantId,
-  cost = 1,
-  env = process.env,
-  execute,
-  now,
-} = {}) {
+export async function consumeImprintRequestBudget(
+  name,
+  { request, participantId, cost = 1, env = process.env, execute, now } = {}
+) {
   const policy = POLICIES[name];
   if (!policy) throw new TypeError("unknown IMPRINT request budget");
-  const buckets = [{ key: `${name}:global`, limit: policy.global, cost, windowMs: WINDOW_MS }];
-  if (policy.ip) buckets.push({ key: `${name}:ip:${digest(requestAddress(request))}`, limit: policy.ip, cost, windowMs: WINDOW_MS });
+  const buckets = [
+    { key: `${name}:global`, limit: policy.global, cost, windowMs: WINDOW_MS },
+  ];
+  if (policy.ip)
+    buckets.push({
+      key: `${name}:ip:${digest(requestAddress(request))}`,
+      limit: policy.ip,
+      cost,
+      windowMs: WINDOW_MS,
+    });
   if (policy.participant) {
-    if (!participantId) throw new TypeError("participant identity is required for this request budget");
-    buckets.push({ key: `${name}:participant:${digest(participantId)}`, limit: policy.participant, cost, windowMs: WINDOW_MS });
+    if (!participantId)
+      throw new TypeError(
+        "participant identity is required for this request budget"
+      );
+    buckets.push({
+      key: `${name}:participant:${digest(participantId)}`,
+      limit: policy.participant,
+      cost,
+      windowMs: WINDOW_MS,
+    });
   }
-  const generation = String(env.CTF_EVENT_GENERATION || "rehearsal").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 64);
+  const generation = String(env.CTF_EVENT_GENERATION || "rehearsal")
+    .replace(/[^A-Za-z0-9_-]/g, "_")
+    .slice(0, 64);
   return consumeFixedWindowBudget({
     execute: executor(env, execute),
     prefix: `ctf26:imprint:budget:v1:${generation}`,
@@ -115,13 +143,18 @@ export async function consumeImprintRequestBudget(name, {
 }
 
 export function imprintRpcCost(calls) {
-  if (!Array.isArray(calls) || calls.length === 0) throw new TypeError("RPC calls are required");
-  return calls.reduce((total, call) => total + (RPC_WEIGHTS[call?.method] || 1), 0);
+  if (!Array.isArray(calls) || calls.length === 0)
+    throw new TypeError("RPC calls are required");
+  return calls.reduce(
+    (total, call) => total + (RPC_WEIGHTS[call?.method] || 1),
+    0
+  );
 }
 
 export async function readBoundedText(request, maximumBytes) {
   const contentLength = Number(request.headers.get("content-length") || 0);
-  if (contentLength > maximumBytes) throw new ImprintRequestError(413, "request body is too large");
+  if (contentLength > maximumBytes)
+    throw new ImprintRequestError(413, "request body is too large");
   if (!request.body) return "";
   const reader = request.body.getReader();
   const chunks = [];
@@ -143,7 +176,8 @@ export async function readBoundedJson(request, maximumBytes) {
   const body = await readBoundedText(request, maximumBytes);
   try {
     const value = JSON.parse(body || "{}");
-    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      throw new Error();
     return value;
   } catch {
     throw new ImprintRequestError(400, "request body must be a JSON object");
@@ -152,13 +186,29 @@ export async function readBoundedJson(request, maximumBytes) {
 
 export function imprintRequestErrorResponse(error) {
   if (error instanceof ImprintRequestError) {
-    return Response.json({ error: error.message }, { status: error.status, headers: { "cache-control": "no-store" } });
+    return Response.json(
+      { error: error.message },
+      { status: error.status, headers: { "cache-control": "no-store" } }
+    );
   }
-  if (!(error instanceof RequestBudgetExceededError) && !(error instanceof RequestBudgetStorageError)) return null;
+  if (
+    !(error instanceof RequestBudgetExceededError) &&
+    !(error instanceof RequestBudgetStorageError)
+  )
+    return null;
   const status = error instanceof RequestBudgetExceededError ? 429 : 503;
-  return Response.json({
-    error: status === 429 ? "too many requests; wait for the current rate window" : "request controls are temporarily unavailable",
-  }, { status, headers: retryAfterHeaders(error) });
+  return Response.json(
+    {
+      error:
+        status === 429
+          ? "too many requests; wait for the current rate window"
+          : "request controls are temporarily unavailable",
+    },
+    { status, headers: retryAfterHeaders(error) }
+  );
 }
 
-export { POLICIES as IMPRINT_REQUEST_BUDGETS, RPC_WEIGHTS as IMPRINT_RPC_WEIGHTS };
+export {
+  POLICIES as IMPRINT_REQUEST_BUDGETS,
+  RPC_WEIGHTS as IMPRINT_RPC_WEIGHTS,
+};

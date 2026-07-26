@@ -6,7 +6,9 @@ export const IMPRINT_SESSION_COOKIE = "imprint_session";
 const SESSION_TTL_SECONDS = 12 * 60 * 60;
 
 export function directTestAccessAllowed(env = process.env) {
-  return env.NODE_ENV !== "production" && env.ALLOW_DIRECT_TEST_ACCESS === "true";
+  return (
+    env.NODE_ENV !== "production" && env.ALLOW_DIRECT_TEST_ACCESS === "true"
+  );
 }
 
 function secret(env, name) {
@@ -37,7 +39,7 @@ export async function createChallengeSession(
   ticket,
   env = process.env,
   now = Date.now(),
-  consumeJti,
+  consumeJti
 ) {
   const generation = eventGeneration(env);
   const claims = await consumeParticipantTicket(
@@ -50,7 +52,9 @@ export async function createChallengeSession(
       consumeJti,
     }
   );
-  const participantId = String(claims.participant_id || claims.participantId || "");
+  const participantId = String(
+    claims.participant_id || claims.participantId || ""
+  );
   const issuedAt = Math.floor(now / 1000);
   const body = {
     eventId: claims.event_id,
@@ -62,11 +66,21 @@ export async function createChallengeSession(
   return `v1.${payload}.${mac(payload, secret(env, "IMPRINT_SESSION_SECRET"))}`;
 }
 
-export function createDirectTestSession(participantId, env = process.env, now = Date.now()) {
+export function createDirectTestSession(
+  participantId,
+  env = process.env,
+  now = Date.now()
+) {
   const value = String(participantId || "").trim();
-  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(value)) throw new Error("a valid test participant is required");
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(value))
+    throw new Error("a valid test participant is required");
   const issuedAt = Math.floor(now / 1000);
-  const payload = encode({ eventId: eventGeneration(env), participantId: value, email: "", exp: issuedAt + SESSION_TTL_SECONDS });
+  const payload = encode({
+    eventId: eventGeneration(env),
+    participantId: value,
+    email: "",
+    exp: issuedAt + SESSION_TTL_SECONDS,
+  });
   return `v1.${payload}.${mac(payload, secret(env, "IMPRINT_SESSION_SECRET"))}`;
 }
 

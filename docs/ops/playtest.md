@@ -119,19 +119,20 @@ files.
 
 ### IMPRINT
 
-- Enroll the tester's platform credential through the organizer-only ceremony before the run; do not
-  expose the enrollment route or accept a player-supplied registration key.
-- Give only the portal console, assigned target, public program/IDL material, starter client, and the
-  participant wallet. Confirm the browser, credential, and wallet approval path before timing begins.
+- Start with a fresh participant ID and no stored passkey or target. Confirm first launch creates one
+  deterministic target and self-enrolls one platform passkey.
+- Give only the portal console, assigned target, public program and IDL material, and a
+  participant-selected wallet. Confirm the browser, passkey, and wallet approval path before timing.
 - Suggested timebox: 90 minutes. Record the first legitimate passkey action, the owner-binding
   hypothesis, assertion attempts, wallet approvals, and any virtual-authenticator or cross-vault failure.
 - A solve is only the checker accepting the assigned target's validated net reserve loss after the live
   passkey assertion and Solana wallet approval. A written exploit path can receive explicitly defined
   partial credit, but must never be confused with a full solve.
 
-Provisional launch gate: two qualified human testers complete the live path without organizer improvisation;
-an assertion for another vault or a virtual authenticator is rejected; and an autonomous agent cannot
-complete the rostered passkey touch by itself. Human-led AI assistance remains allowed under the rules.
+Provisional launch gate: two qualified human testers complete the live path without organizer
+intervention; refreshes preserve the same target and credential; and an assertion for another vault is
+rejected. Virtual authenticators are an accepted limitation of self-enrollment and must be evaluated
+through the autonomous-agent arm rather than described as structurally blocked.
 
 ### LAST STOP
 

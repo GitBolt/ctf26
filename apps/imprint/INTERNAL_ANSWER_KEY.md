@@ -27,9 +27,10 @@ require!(
 Because that check is absent, a solver can use any valid passkey account they own and sign the target
 vault's withdrawal challenge with that passkey, so the vault's configured `registered_passkey` is ignored.
 
-In the hosted IMPRINT deployment, passkey registration happens through organizer pre-enrollment only.
-The participant can only claim their assigned credential and must provide a real user-verifying platform
-passkey assertion at claim time.
+In the hosted IMPRINT deployment, the authenticated participant creates one platform passkey on first
+launch. The credential is stored in generation-scoped Redis and returning launches must verify that
+same passkey. The user-verification prompt remains required, but self-enrollment deliberately accepts
+the virtual-authenticator risk documented in the challenge spec.
 
 ## Intended Patch
 
@@ -38,7 +39,7 @@ any lamports move.
 
 ## Intended Solve
 
-1. Claim the participant-assigned platform passkey through `/api/passkey/claim`.
+1. Create and claim the participant-bound platform passkey through `/api/passkey/claim`.
 2. Read the target vault account and note that its `registered_passkey` differs from your claimed
    key.
 3. Build the withdrawal challenge for the target vault, solver destination, chosen amount, and current

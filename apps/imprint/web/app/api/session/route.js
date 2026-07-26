@@ -7,8 +7,8 @@ import {
   directTestAccessAllowed,
   verifyChallengeSession,
 } from "@/lib/challenge-session.mjs";
+import { ensureParticipantTarget } from "@/lib/auto-provision.mjs";
 import { recordImprintIntegrity } from "@/lib/integrity-events.mjs";
-import { publicEventTargetForParticipant } from "@/lib/target-config.mjs";
 import { imprintTicketReplayStore } from "@/lib/ticket-replay.mjs";
 import {
   consumeImprintRequestBudget,
@@ -19,6 +19,7 @@ import {
 export const runtime = "nodejs";
 
 export async function POST(request) {
+  let admitted = false;
   try {
     await consumeImprintRequestBudget("session", { request });
     const body = await readBoundedJson(request, 8 * 1024);
@@ -29,10 +30,20 @@ export async function POST(request) {
           body.ticket,
           process.env,
           Date.now(),
-          async (claims) => (await imprintTicketReplayStore()).consume(claims),
+          async (claims) => (await imprintTicketReplayStore()).consume(claims)
         );
     const identity = verifyChallengeSession(token);
-    const target = publicEventTargetForParticipant(identity.participantId);
+    const jar = await cookies();
+    jar.set(IMPRINT_SESSION_COOKIE, token, {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 12 * 60 * 60,
+      path: "/",
+    });
+    admitted = true;
+    const provisioned = await ensureParticipantTarget(identity.participantId);
+    const target = { vault: provisioned.vault.toString() };
     await recordImprintIntegrity(
       identity,
       "interface:session",
@@ -56,24 +67,17 @@ export async function POST(request) {
           "browser-ui"
         );
     }
-    const jar = await cookies();
-    jar.set(IMPRINT_SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: "strict",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 12 * 60 * 60,
-      path: "/",
-    });
     return Response.json({
       ok: true,
       launchMode: directTest ? "direct-test" : "portal",
+      participantId: identity.participantId,
       target,
     });
   } catch (error) {
     const controlled = imprintRequestErrorResponse(error);
     if (controlled) return controlled;
     return new Response(error.message || "challenge access was denied", {
-      status: 401,
+      status: admitted ? 503 : 401,
     });
   }
 }
@@ -84,7 +88,8 @@ export async function GET(request) {
     const identity = verifyChallengeSession(
       jar.get(IMPRINT_SESSION_COOKIE)?.value
     );
-    const target = publicEventTargetForParticipant(identity.participantId);
+    const provisioned = await ensureParticipantTarget(identity.participantId);
+    const target = { vault: provisioned.vault.toString() };
     if (request.headers.get("x-imprint-ui") === "vault") {
       await recordImprintIntegrity(
         identity,
@@ -102,8 +107,20 @@ export async function GET(request) {
           "browser-ui"
         );
     }
-    return Response.json({ ok: true, target });
-  } catch {
-    return new Response("challenge session is required", { status: 401 });
+    return Response.json({
+      ok: true,
+      participantId: identity.participantId,
+      target,
+    });
+  } catch (error) {
+    const hasSession = Boolean(
+      (await cookies()).get(IMPRINT_SESSION_COOKIE)?.value
+    );
+    return new Response(
+      hasSession
+        ? error.message || "IMPRINT provisioning is temporarily unavailable"
+        : "challenge session is required",
+      { status: hasSession ? 503 : 401 }
+    );
   }
 }

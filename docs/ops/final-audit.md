@@ -56,7 +56,7 @@ change, and the last stable leaderboard remains available while the final snapsh
 | Challenge | Security lesson | Authoritative proof |
 | --- | --- | --- |
 | Reward Sniper | stale reward accounting and adversarial timing | persistent commit and reveal market |
-| IMPRINT | WebAuthn target binding | finalized assigned-target drain signed by enrolled owner |
+| IMPRINT | WebAuthn target binding | finalized assigned-target drain signed by the participant's registered owner |
 | SIGNET | signer privilege through unpinned CPI | assigned reserve-to-escrow transition |
 | DRIFT | adversarial Clock data | personalized exact SBF replay in LiteSVM |
 | LAST STOP | ambiguous concatenated PDA seeds | stateful SSH journey and restricted card acceptance |
@@ -81,7 +81,7 @@ change, and the last stable leaderboard remains available while the final snapsh
 - Health aggregation is cached and single-flight. Public leaderboard reads use a short edge cache.
   Completion fanout skips solved or unlaunched challenges and backs off unhealthy services.
 - Inventory and capacity health checks fail closed. Portal health checks exact roster parity for Reward,
-  exact credential count for IMPRINT, and exact count plus participant-ID digest for SIGNET.
+  funded dynamic provisioning for IMPRINT, and exact count plus participant-ID digest for SIGNET.
 - SIGNET budgets the operator balance for every unprovisioned participant. A fresh generation may
   begin with an empty inventory; each approved participant is provisioned on first launch, and
   official readiness requires the resulting inventory to match the checked-in field exactly.
@@ -108,8 +108,8 @@ Observed on 2026-07-25:
   or leaderboard exclusion control.
 - Reward Sniper is complete for rehearsal event `3dd7604f-88f5-471b-aabc-91e79e40d5d8` on generation
   `ctf26-rehearsal-20260721-r2`. An official event requires a new generation and Reward event.
-- IMPRINT is healthy but intentionally reports `eventReady: false`, one rehearsal participant, and
-  `single-target-rehearsal`. This is a hard official-launch gate until the final individual inventory exists.
+- IMPRINT reports `eventReady: true`, `targetMode: on-demand`, and funded dynamic provisioning when
+  Redis, RPC, registrar, operator, and instance configuration are healthy.
 - SIGNET is healthy on the rehearsal generation with three participant-bound targets. Approved Google
   sign-in attempts best-effort pre-provisioning, and first challenge launch retries provisioning if RPC
   access was temporarily unavailable.
@@ -162,9 +162,10 @@ short alias callback is added in Google Cloud and verified with a real sign-in.
 ## Official launch gates
 
 1. Choose a new live generation and prove every participant completion namespace is empty.
-2. Freeze the individual roster and confirm exact Portal, Reward, IMPRINT, and SIGNET inventory parity.
+2. Freeze the individual roster and confirm Portal and Reward parity, IMPRINT provisioning health, and
+   SIGNET inventory coverage.
 3. Reset Reward Sniper to a new event ID and rehearse start, rounds, cutoff, restart, and completion.
-4. Provision isolated IMPRINT and SIGNET programs and targets for every participant.
+4. Confirm fresh identities can provision isolated IMPRINT and SIGNET targets on first launch.
 5. Run Evidence Room on an isolated or access-controlled validator with a reset plan.
 6. Confirm every disposable payer and treasury still covers the final individual field after provisioning.
 7. Use a private primary RPC plus an independent fallback and keep lock-sensitive services at one replica.

@@ -1,6 +1,9 @@
 import * as anchor from "@coral-xyz/anchor";
 import { cookies } from "next/headers";
-import { verifyAuthenticationResponse } from "@simplewebauthn/server";
+import {
+  verifyAuthenticationResponse,
+  verifyRegistrationResponse,
+} from "@simplewebauthn/server";
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
 import { sha256 } from "@noble/hashes/sha256";
 
@@ -9,15 +12,17 @@ import {
   IMPRINT_SESSION_COOKIE,
   verifyChallengeSession,
 } from "@/lib/challenge-session.mjs";
-import { credentialForParticipant } from "@/lib/credential-roster.mjs";
+import { compressedP256FromCOSE } from "@/lib/credential-roster.mjs";
+import { enforcePlatformEnrollment } from "@/lib/enrollment-policy.mjs";
 import { PROGRAM_ID, loadRegistrar } from "@/lib/registrar.mjs";
 import { claimedPasskeyOwner } from "@/lib/solve-verifier.mjs";
 import {
   expectedWebAuthnOrigin,
   expectedWebAuthnRpID,
 } from "@/lib/webauthn-config.mjs";
-import { CLAIM_CHALLENGE_COOKIE } from "./options/route";
+import { CLAIM_CHALLENGE_COOKIE, CLAIM_MODE_COOKIE } from "./options/route";
 import { recordImprintIntegrity } from "@/lib/integrity-events.mjs";
+import { imprintStateStore } from "@/lib/state-store.mjs";
 import {
   consumeImprintRequestBudget,
   imprintRequestErrorResponse,
@@ -40,10 +45,19 @@ export async function POST(request) {
       request,
       participantId: session.participantId,
     });
-    await recordImprintIntegrity(session, "passkey-claim-started", "challenge-action", request);
+    await recordImprintIntegrity(
+      session,
+      "passkey-claim-started",
+      "challenge-action",
+      request
+    );
     const expectedChallenge = jar.get(CLAIM_CHALLENGE_COOKIE)?.value;
+    const claimMode = jar.get(CLAIM_MODE_COOKIE)?.value;
     if (!expectedChallenge)
       throw new Error("security-key claim challenge is missing or expired");
+    if (claimMode !== "register" && claimMode !== "authenticate") {
+      throw new Error("security-key claim mode is missing or expired");
+    }
 
     const { owner, response } = await readBoundedJson(request, 64 * 1024);
     if (response?.authenticatorAttachment !== "platform") {
@@ -51,22 +65,64 @@ export async function POST(request) {
         "claim requires the enrolled platform authenticator on this device"
       );
     }
-    const credential = credentialForParticipant(session.participantId);
-    const verification = await verifyAuthenticationResponse({
-      response,
-      expectedChallenge,
-      expectedOrigin: expectedWebAuthnOrigin(request),
-      expectedRPID: expectedWebAuthnRpID(request),
-      requireUserVerification: true,
-      credential: {
-        id: credential.credentialId,
-        publicKey: credential.cosePublicKey,
-        counter: credential.counter,
-        transports: credential.transports,
-      },
-    });
-    if (!verification.verified)
-      throw new Error("security-key assertion was not verified");
+    const store = await imprintStateStore();
+    let credential = await store.credentialForParticipant(
+      session.participantId
+    );
+    if (claimMode === "register") {
+      if (credential) {
+        throw new Error("this participant already has an IMPRINT passkey");
+      }
+      const verification = await verifyRegistrationResponse({
+        response,
+        expectedChallenge,
+        expectedOrigin: expectedWebAuthnOrigin(request),
+        expectedRPID: expectedWebAuthnRpID(request),
+        requireUserPresence: true,
+        requireUserVerification: true,
+        supportedAlgorithmIDs: [-7],
+      });
+      if (!verification.verified) {
+        throw new Error("platform passkey registration was not verified");
+      }
+      enforcePlatformEnrollment(verification.registrationInfo, response);
+      const registered = verification.registrationInfo.credential;
+      const publicKey = compressedP256FromCOSE(registered.publicKey);
+      credential = await store.saveCredential(session.participantId, {
+        participantId: session.participantId,
+        credentialId: registered.id,
+        credentialPublicKeyCoseBase64: Buffer.from(
+          registered.publicKey
+        ).toString("base64url"),
+        counter: registered.counter,
+        transports: registered.transports,
+      });
+      if (!credential.passkeyPubkey.equals(publicKey)) {
+        throw new Error(
+          "stored passkey does not match the verified credential"
+        );
+      }
+    } else {
+      if (!credential) {
+        throw new Error("this participant has not created an IMPRINT passkey");
+      }
+      const verification = await verifyAuthenticationResponse({
+        response,
+        expectedChallenge,
+        expectedOrigin: expectedWebAuthnOrigin(request),
+        expectedRPID: expectedWebAuthnRpID(request),
+        requireUserVerification: true,
+        credential: {
+          id: credential.credentialId,
+          publicKey: credential.cosePublicKey,
+          counter: credential.counter,
+          transports: credential.transports,
+        },
+      });
+      if (!verification.verified) {
+        throw new Error("platform passkey assertion was not verified");
+      }
+    }
     const ownerPubkey = new PublicKey(owner);
     const passkeySeed = Buffer.from(sha256(credential.passkeyPubkey));
     const [passkey] = PublicKey.findProgramAddressSync(
@@ -90,6 +146,7 @@ export async function POST(request) {
         );
       }
       jar.delete(CLAIM_CHALLENGE_COOKIE);
+      jar.delete(CLAIM_MODE_COOKIE);
       return Response.json({
         alreadyRegistered: true,
         credentialId: credential.credentialId,
@@ -130,6 +187,7 @@ export async function POST(request) {
     }).add(ix);
     tx.partialSign(registrar);
     jar.delete(CLAIM_CHALLENGE_COOKIE);
+    jar.delete(CLAIM_MODE_COOKIE);
     return Response.json({
       transaction: tx
         .serialize({ requireAllSignatures: false })

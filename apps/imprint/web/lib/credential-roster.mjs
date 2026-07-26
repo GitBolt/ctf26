@@ -13,7 +13,7 @@ const CREDENTIAL_FIELDS = new Set([
   "teamId",
 ]);
 
-function requireText(value, label) {
+export function requireText(value, label) {
   if (typeof value !== "string" || !value.trim()) {
     throw new Error(`${label} is required`);
   }
@@ -41,109 +41,67 @@ export function compressedP256FromCOSE(cosePublicKey) {
   ]);
 }
 
-export function parseCredentialRoster(
-  raw = process.env.IMPRINT_CREDENTIAL_ROSTER_JSON
-) {
-  if (!raw) {
-    throw new Error("IMPRINT_CREDENTIAL_ROSTER_JSON is required");
+export function parseCredentialEntry(entry, label = "credential") {
+  const index = label;
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    throw new Error(`credential roster entry ${index} must be an object`);
   }
-  let entries;
-  try {
-    entries = JSON.parse(raw);
-  } catch {
-    throw new Error("IMPRINT_CREDENTIAL_ROSTER_JSON must be valid JSON");
-  }
-  if (!Array.isArray(entries) || entries.length === 0) {
+  if (Object.keys(entry).some((field) => !CREDENTIAL_FIELDS.has(field))) {
     throw new Error(
-      "IMPRINT_CREDENTIAL_ROSTER_JSON must contain at least one credential"
+      `credential roster entry ${index} contains unsupported fields`
+    );
+  }
+  if (entry.participantId && entry.teamId) {
+    throw new Error(
+      `credential roster entry ${index} contains two participant identities`
+    );
+  }
+  // Existing rehearsal credentials predate the individual-only roster. Read
+  // their former field as the participant ID so the enrolled hardware remains
+  // usable, while every returned and newly enrolled record uses participantId.
+  const participantId = requireText(
+    entry.participantId || entry.teamId,
+    `credential roster entry ${index}.participantId`
+  );
+  if (!PARTICIPANT_ID_PATTERN.test(participantId)) {
+    throw new Error(
+      `credential roster entry ${index}.participantId is invalid`
     );
   }
 
-  const participants = new Set();
-  const credentialIds = new Set();
-  const passkeyPubkeys = new Set();
-  return entries.map((entry, index) => {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      throw new Error(`credential roster entry ${index} must be an object`);
-    }
-    if (Object.keys(entry).some((field) => !CREDENTIAL_FIELDS.has(field))) {
-      throw new Error(`credential roster entry ${index} contains unsupported fields`);
-    }
-    if (entry.participantId && entry.teamId) {
-      throw new Error(`credential roster entry ${index} contains two participant identities`);
-    }
-    // Existing rehearsal credentials predate the individual-only roster. Read
-    // their former field as the participant ID so the enrolled hardware remains
-    // usable, while every returned and newly enrolled record uses participantId.
-    const participantId = requireText(
-      entry.participantId || entry.teamId,
-      `credential roster entry ${index}.participantId`
-    );
-    if (!PARTICIPANT_ID_PATTERN.test(participantId) || participants.has(participantId)) {
-      throw new Error(
-        `credential roster entry ${index}.participantId is invalid or duplicated`
-      );
-    }
-    participants.add(participantId);
+  const credentialId = requireText(
+    entry.credentialId,
+    `credential roster entry ${index}.credentialId`
+  );
+  if (!BASE64URL_PATTERN.test(credentialId)) {
+    throw new Error(`credential roster entry ${index}.credentialId is invalid`);
+  }
 
-    const credentialId = requireText(
-      entry.credentialId,
-      `credential roster entry ${index}.credentialId`
+  const cosePublicKey = parseBase64url(
+    entry.credentialPublicKeyCoseBase64,
+    `credential roster entry ${index}.credentialPublicKeyCoseBase64`
+  );
+  const passkeyPubkey = compressedP256FromCOSE(cosePublicKey);
+  if (passkeyPubkey.length !== P256_COMPRESSED_POINT_SIZE) {
+    throw new Error(
+      `credential roster entry ${index} has an invalid P-256 key`
     );
-    if (
-      !BASE64URL_PATTERN.test(credentialId) ||
-      credentialIds.has(credentialId)
-    ) {
-      throw new Error(
-        `credential roster entry ${index}.credentialId is invalid or duplicated`
-      );
-    }
-    credentialIds.add(credentialId);
-
-    const cosePublicKey = parseBase64url(
-      entry.credentialPublicKeyCoseBase64,
-      `credential roster entry ${index}.credentialPublicKeyCoseBase64`
+  }
+  const counter = entry.counter ?? 0;
+  if (!Number.isSafeInteger(counter) || counter < 0) {
+    throw new Error(
+      `credential roster entry ${index}.counter must be a non-negative integer`
     );
-    const passkeyPubkey = compressedP256FromCOSE(cosePublicKey);
-    if (passkeyPubkey.length !== P256_COMPRESSED_POINT_SIZE) {
-      throw new Error(
-        `credential roster entry ${index} has an invalid P-256 key`
-      );
-    }
-    const publicKeyHex = passkeyPubkey.toString("hex");
-    if (passkeyPubkeys.has(publicKeyHex)) {
-      throw new Error(
-        `credential roster entry ${index} reuses a passkey public key`
-      );
-    }
-    passkeyPubkeys.add(publicKeyHex);
-
-    const counter = entry.counter ?? 0;
-    if (!Number.isSafeInteger(counter) || counter < 0) {
-      throw new Error(
-        `credential roster entry ${index}.counter must be a non-negative integer`
-      );
-    }
-    const transports = Array.isArray(entry.transports)
-      ? entry.transports.filter((value) => typeof value === "string")
-      : undefined;
-    return Object.freeze({
-      participantId,
-      credentialId,
-      cosePublicKey,
-      passkeyPubkey,
-      counter,
-      transports,
-    });
+  }
+  const transports = Array.isArray(entry.transports)
+    ? entry.transports.filter((value) => typeof value === "string")
+    : undefined;
+  return Object.freeze({
+    participantId,
+    credentialId,
+    cosePublicKey,
+    passkeyPubkey,
+    counter,
+    transports,
   });
-}
-
-export function credentialForParticipant(participantId, env = process.env) {
-  const credential = parseCredentialRoster(
-    env.IMPRINT_CREDENTIAL_ROSTER_JSON
-  ).find((entry) => entry.participantId === participantId);
-  if (!credential) {
-    throw new Error("no event-issued security key is assigned to this participant");
-  }
-  return credential;
 }

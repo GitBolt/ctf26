@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { p256 } from "@noble/curves/p256";
 
-import {
-  credentialForParticipant,
-  parseCredentialRoster,
-} from "../lib/credential-roster.mjs";
+import { parseCredentialEntry } from "../lib/credential-roster.mjs";
 
 function coseP256PublicKey(compressedPublicKey) {
   const point = Buffer.from(
@@ -31,47 +28,31 @@ function entry(participantId, secretByte) {
     credentialPublicKeyCoseBase64:
       coseP256PublicKey(publicKey).toString("base64url"),
     counter: 0,
-    transports: ["usb"],
+    transports: ["internal"],
   };
 }
 
-test("derives the on-chain P-256 key exclusively from an organizer roster COSE key", () => {
-  const roster = parseCredentialRoster(JSON.stringify([entry("participant-a", 1)]));
-  assert.equal(roster.length, 1);
-  assert.equal(roster[0].passkeyPubkey.length, 33);
+test("derives the on-chain P-256 key from a verified WebAuthn COSE key", () => {
+  const credential = parseCredentialEntry(entry("participant-a", 1));
+  assert.equal(credential.passkeyPubkey.length, 33);
   assert.match(
-    roster[0].passkeyPubkey.toString("hex").slice(0, 2),
+    credential.passkeyPubkey.toString("hex").slice(0, 2),
     /^(02|03)$/
   );
 });
 
-test("requires one unique, valid physical-key record for every participant", () => {
-  const first = entry("participant-a", 1);
+test("rejects malformed dynamic credential records", () => {
   assert.throws(
     () =>
-      parseCredentialRoster(
-        JSON.stringify([first, { ...first, credentialId: "credential-2" }])
-      ),
-    /participantId is invalid or duplicated/
+      parseCredentialEntry({ ...entry("participant-a", 1), participantId: "" }),
+    /participantId is required/
   );
   assert.throws(
     () =>
-      parseCredentialRoster(
-        JSON.stringify([
-          { ...first, credentialPublicKeyCoseBase64: "not base64!" },
-        ])
-      ),
-    /must be base64url/
-  );
-  const found = credentialForParticipant("participant-a", {
-    IMPRINT_CREDENTIAL_ROSTER_JSON: JSON.stringify([first]),
-  });
-  assert.equal(found.credentialId, first.credentialId);
-  assert.throws(
-    () =>
-      credentialForParticipant("participant-b", {
-        IMPRINT_CREDENTIAL_ROSTER_JSON: JSON.stringify([first]),
+      parseCredentialEntry({
+        ...entry("participant-a", 1),
+        credentialPublicKeyCoseBase64: "not base64!",
       }),
-    /no event-issued security key/
+    /must be base64url/
   );
 });

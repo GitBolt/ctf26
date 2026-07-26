@@ -1,16 +1,23 @@
 import { cookies } from "next/headers";
-import { generateAuthenticationOptions } from "@simplewebauthn/server";
+import {
+  generateAuthenticationOptions,
+  generateRegistrationOptions,
+} from "@simplewebauthn/server";
 
 import {
   IMPRINT_SESSION_COOKIE,
   verifyChallengeSession,
 } from "@/lib/challenge-session.mjs";
-import { credentialForParticipant } from "@/lib/credential-roster.mjs";
+import { imprintStateStore } from "@/lib/state-store.mjs";
 import { expectedWebAuthnRpID } from "@/lib/webauthn-config.mjs";
-import { consumeImprintRequestBudget, imprintRequestErrorResponse } from "@/lib/request-budget.mjs";
+import {
+  consumeImprintRequestBudget,
+  imprintRequestErrorResponse,
+} from "@/lib/request-budget.mjs";
 
 export const runtime = "nodejs";
 const CLAIM_CHALLENGE_COOKIE = "imprint_claim_challenge";
+const CLAIM_MODE_COOKIE = "imprint_claim_mode";
 
 export async function POST(request) {
   try {
@@ -22,26 +29,48 @@ export async function POST(request) {
       request,
       participantId: session.participantId,
     });
-    const credential = credentialForParticipant(session.participantId);
-    const options = await generateAuthenticationOptions({
-      rpID: expectedWebAuthnRpID(request),
-      allowCredentials: [
-        {
-          id: credential.credentialId,
-          transports: credential.transports,
-        },
-      ],
-      userVerification: "required",
-      timeout: 60_000,
-    });
-    jar.set(CLAIM_CHALLENGE_COOKIE, options.challenge, {
+    const store = await imprintStateStore();
+    const credential = await store.credentialForParticipant(
+      session.participantId
+    );
+    const mode = credential ? "authenticate" : "register";
+    const options = credential
+      ? await generateAuthenticationOptions({
+          rpID: expectedWebAuthnRpID(request),
+          allowCredentials: [
+            {
+              id: credential.credentialId,
+              transports: credential.transports,
+            },
+          ],
+          userVerification: "required",
+          timeout: 60_000,
+        })
+      : await generateRegistrationOptions({
+          rpName: "IMPRINT CTF",
+          rpID: expectedWebAuthnRpID(request),
+          userID: Buffer.from(session.participantId, "utf8"),
+          userName: `imprint-${session.participantId}`,
+          userDisplayName: `IMPRINT ${session.participantId}`,
+          attestationType: "direct",
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            residentKey: "discouraged",
+            userVerification: "required",
+          },
+          supportedAlgorithmIDs: [-7],
+          timeout: 60_000,
+        });
+    const cookieOptions = {
       httpOnly: true,
       sameSite: "strict",
       secure: process.env.NODE_ENV === "production",
       maxAge: 120,
       path: "/",
-    });
-    return Response.json(options);
+    };
+    jar.set(CLAIM_CHALLENGE_COOKIE, options.challenge, cookieOptions);
+    jar.set(CLAIM_MODE_COOKIE, mode, cookieOptions);
+    return Response.json({ mode, options });
   } catch (error) {
     const controlled = imprintRequestErrorResponse(error);
     if (controlled) return controlled;
@@ -51,4 +80,4 @@ export async function POST(request) {
   }
 }
 
-export { CLAIM_CHALLENGE_COOKIE };
+export { CLAIM_CHALLENGE_COOKIE, CLAIM_MODE_COOKIE };
