@@ -183,6 +183,7 @@ export async function createEvidenceRoomServer(options = {}) {
       if (!completedAt) throw new Error("captured case lacks finalized completion time");
       instance.completedAt = completedAt;
       instance.receipt = crypto.createHmac("sha256", completionSecret).update(`evidence-room:${instance.participantId}:${captured.map((row) => row.id).join(",")}`).digest("base64url").slice(0, 24);
+      await store.putInstance(instance.participantId, instance);
       await reportSolve(instance, `evidence-room:${instance.participantId}:${instance.receipt}`, completedAt);
       changed = true;
     }

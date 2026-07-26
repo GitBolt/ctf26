@@ -88,6 +88,9 @@ export async function GET(request) {
       participantId,
       displayName: String(googleUser.name || email).slice(0, 80),
     };
+    const leaderboardName = identity.displayName === identity.participantId
+      ? String(googleUser.name || identity.displayName).slice(0, 80)
+      : identity.displayName;
     if (registration) {
       await provisionSignet(identity.participantId).catch((error) => {
         console.error("signet pre-provisioning failed", {
@@ -100,7 +103,7 @@ export async function GET(request) {
       participant_id: identity.participantId,
       email,
       name: googleUser.name || email,
-      leaderboard_name: identity.displayName,
+      leaderboard_name: leaderboardName,
       picture: googleUser.picture || "",
     });
 

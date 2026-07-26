@@ -59,7 +59,7 @@ test("Reward Sniper treats the briefing package and timed market as separate fir
   const reward = challengeByKey("reward-sniper");
   assert.deepEqual(reward.starts.map(({ kind }) => kind), ["download", "launch"]);
   assert.equal(reward.starts[0].href, "/packages/reward-sniper-player.zip");
-  assert.equal(reward.starts[1].label, "Open live market");
+  assert.equal(reward.starts[1].label, "Open the market");
 });
 
 test("route slugs and signed ticket audiences stay intentionally distinct", () => {
@@ -81,6 +81,15 @@ test("route slugs and signed ticket audiences stay intentionally distinct", () =
   );
 });
 
+test("board copy stays mood-only and does not name the investigation method", () => {
+  for (const challenge of CHALLENGES) {
+    assert.doesNotMatch(
+      `${challenge.copy} ${challenge.format} ${challenge.starts.map(({ label }) => label).join(" ")}`,
+      /source archive|archaeology|passkey|derived address|wallet protocol|three-?lock|checkout|malleab|CPI|permanent delegate/i,
+    );
+  }
+});
+
 test("The Broadcast launches the participant-bound protocol", () => {
   const challenge = challengeByKey("the-broadcast");
   assert.deepEqual(challenge.starts.map(({ kind }) => kind), ["launch"]);
@@ -95,11 +104,11 @@ test("PLAYER TWO launches one hosted arcade cabinet", () => {
   assert.equal(challenge.starts[0].label, "Enter the arcade");
 });
 
-test("AFTER HOURS has one Discord server checkout entry point", () => {
+test("AFTER HOURS has one Discord server entry point", () => {
   const challenge = challengeByKey("after-hours");
   assert.deepEqual(challenge.starts.map(({ kind }) => kind), ["launch"]);
-  assert.equal(challenge.format, "Discord server bot");
-  assert.equal(challenge.starts[0].label, "Start Discord checkout");
+  assert.equal(challenge.format, "Discord server");
+  assert.equal(challenge.starts[0].label, "Join the server");
 });
 
 test("hosted destinations are ticketed and URL credentials are rejected", () => {

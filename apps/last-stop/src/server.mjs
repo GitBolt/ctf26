@@ -330,6 +330,7 @@ function cachedProbe(probe, ttlMs = 15_000) {
 async function runTerminal(stream, identity, passageCode, store, env, recordIntegrity = async () => {}) {
   const write = (text = "") => stream.write(`${String(text).replace(/\n/g, "\r\n")}\r\n`);
   const prompt = (state) => stream.write(promptText(state));
+  const generation = eventGeneration(env);
   const { maxMs } = sessionTiming(env);
   let sessionEnded = false;
   let expiryTimer;

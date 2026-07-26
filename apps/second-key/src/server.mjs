@@ -285,6 +285,7 @@ export async function createSecondKeyServer(options = {}) {
       if (removal) {
         instance.removalSignature = removal.signature; instance.completedAt = removal.completedAt;
         instance.receipt = crypto.createHmac("sha256", completionSecret).update(`second-key:${identity.participantId}:${instance.mint}:${removal.signature}`).digest("base64url").slice(0, 24);
+        await store.putInstance(identity.participantId, instance);
         await reportSolve(identity, `second-key:${identity.participantId}:${instance.receipt}`, instance.completedAt); await audit(identity, "completion-verified", { headers: {} }, { signature: removal.signature });
       }
     }

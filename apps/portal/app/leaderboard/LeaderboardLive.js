@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { rowMovement, verifiedSolveCount } from "./solve-alerts.mjs";
 
 const SOLVE_ALERT_PATH = "/audio/solve-achievement.mp3";
+const CONFIRMED_PRIZE_POOL_USD = 4_000;
 // How long a ▲/▼ badge and the scored-row flash stay up after a change. Long
 // enough to read from across a room, short enough that the board settles.
 const MOVEMENT_HOLD_MS = 8_000;
@@ -22,6 +23,15 @@ const money = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+// The INR figure is a display-only estimate based on the RBI reference rate
+// published on 24 July 2026. Scoring and payouts remain denominated in USD.
+const USD_TO_INR = 96.539;
+const rupees = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
 const number = new Intl.NumberFormat("en-US");
 const time = new Intl.DateTimeFormat("en-IN", {
   hour: "2-digit",
@@ -30,8 +40,36 @@ const time = new Intl.DateTimeFormat("en-IN", {
   hour12: false,
 });
 
-function prize(snapshot, value) {
-  return snapshot.prizePoolPublished ? money.format(value) : "Redacted";
+function prize(value) {
+  return money.format(value);
+}
+
+function prizeInRupees(value) {
+  return `≈ ${rupees.format(value * USD_TO_INR)}`;
+}
+
+function publicPrizeProjection(rows) {
+  const earning = rows.filter((row) => row.rank && row.points > 0);
+  const weights = earning.map((row) => ({
+    participantId: row.participantId,
+    weight: row.points * (row.rank <= 10 ? 1.1 : 1),
+  }));
+  const totalWeight = weights.reduce((sum, row) => sum + row.weight, 0);
+  if (!totalWeight) return new Map();
+
+  const poolCents = CONFIRMED_PRIZE_POOL_USD * 100;
+  const allocations = weights.map((row) => {
+    const exact = poolCents * row.weight / totalWeight;
+    const cents = Math.floor(exact);
+    return { ...row, cents, remainder: exact - cents };
+  });
+  const centsLeft = poolCents - allocations.reduce((sum, row) => sum + row.cents, 0);
+  allocations.sort((left, right) => (
+    right.remainder - left.remainder
+    || left.participantId.localeCompare(right.participantId)
+  ));
+  for (let index = 0; index < centsLeft; index += 1) allocations[index].cents += 1;
+  return new Map(allocations.map((row) => [row.participantId, row.cents / 100]));
 }
 
 function syncLabel(snapshot) {
@@ -63,7 +101,14 @@ function MovementBadge({ movement }) {
   return null;
 }
 
-function LeaderboardRow({ row, snapshot, movement, rowRef }) {
+function publicParticipantName(row, index) {
+  const value = String(row.displayName || "").trim();
+  return /^[a-f0-9]{16}$/i.test(value)
+    ? `Participant ${String(index + 1).padStart(2, "0")}`
+    : value;
+}
+
+function LeaderboardRow({ row, rowIndex, projectedPrize, movement, rowRef }) {
   const classes = [
     "leader-row",
     row.rank && row.rank <= 3 ? `leader-row-top leader-row-top-${row.rank}` : "",
@@ -76,7 +121,7 @@ function LeaderboardRow({ row, snapshot, movement, rowRef }) {
         {row.rank ? String(row.rank).padStart(2, "0") : "••"}
       </div>
       <div className="leader-person">
-        <strong>{row.displayName}</strong>
+        <strong>{publicParticipantName(row, rowIndex)}</strong>
         <MovementBadge movement={movement} />
       </div>
       <div className="leader-score">
@@ -84,8 +129,8 @@ function LeaderboardRow({ row, snapshot, movement, rowRef }) {
         <span>points</span>
       </div>
       <div className="leader-prize">
-        <strong>{row.rank ? prize(snapshot, row.projectedPrize) : "Not earning"}</strong>
-        <span>live projection</span>
+        <strong>{row.rank ? prize(projectedPrize) : "Not earning"}</strong>
+        <span>{row.rank ? prizeInRupees(projectedPrize) : "live projection"}</span>
       </div>
     </article>
   );
@@ -301,6 +346,7 @@ export default function LeaderboardLive({ initialSnapshot }) {
   }
 
   const rows = useMemo(() => snapshot?.rows || [], [snapshot]);
+  const prizeProjection = useMemo(() => publicPrizeProjection(rows), [rows]);
   const marketDelayed = snapshot?.performanceSource?.stale === true;
   const marketUnavailable = snapshot?.performanceSource?.available === false;
   const boardDelayed = snapshot?.sharedCacheStale === true;
@@ -323,7 +369,14 @@ export default function LeaderboardLive({ initialSnapshot }) {
   return (
     <section className="standings-section leaderboard-list" aria-labelledby="standings-heading">
       <header className="leaderboard-list-header">
-        <h1 id="standings-heading">Leaderboard</h1>
+        <div className="leaderboard-title">
+          <h1 id="standings-heading">Leaderboard</h1>
+          <div className="leaderboard-prize-pool" aria-label={`Confirmed prize pool ${money.format(CONFIRMED_PRIZE_POOL_USD)}, approximately ${rupees.format(CONFIRMED_PRIZE_POOL_USD * USD_TO_INR)}`}>
+            <span>Confirmed prize pool</span>
+            <strong>{money.format(CONFIRMED_PRIZE_POOL_USD)}</strong>
+            <small>≈ {rupees.format(CONFIRMED_PRIZE_POOL_USD * USD_TO_INR)}</small>
+          </div>
+        </div>
         <div className="leaderboard-header-actions">
           <button
             className={`solve-sound-toggle${soundEnabled ? " solve-sound-toggle-on" : ""}`}
@@ -352,11 +405,12 @@ export default function LeaderboardLive({ initialSnapshot }) {
         <span>Rank</span><span>Participant</span><span>Score</span><span>Live award</span>
       </div>
       <div className="leader-table">
-        {rows.length ? rows.map((row) => (
+        {rows.length ? rows.map((row, rowIndex) => (
           <LeaderboardRow
             key={row.participantId}
             row={row}
-            snapshot={snapshot}
+            rowIndex={rowIndex}
+            projectedPrize={prizeProjection.get(row.participantId) || 0}
             movement={movements.get(row.participantId) || null}
             rowRef={(node) => {
               if (node) rowNodes.current.set(row.participantId, node);

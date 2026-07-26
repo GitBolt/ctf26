@@ -358,7 +358,16 @@ export function createLeaderboardStore(options = {}) {
     async upsertProfile(user) {
       const participantId = String(user?.participant_id || "");
       if (!PARTICIPANT_ID_PATTERN.test(participantId)) throw new Error("invalid participant ID");
-      const displayName = String(user?.leaderboard_name || participantId).trim().slice(0, 80) || participantId;
+      const configuredName = String(user?.leaderboard_name || "").trim();
+      const accountName = String(user?.name || "").trim();
+      const accountEmail = String(user?.email || "").trim().toLowerCase();
+      const displayName = (
+        configuredName && configuredName !== participantId
+          ? configuredName
+          : accountName && accountName.toLowerCase() !== accountEmail
+            ? accountName
+            : participantId
+      ).slice(0, 80);
       const profile = {
         participantId,
         displayName,

@@ -87,6 +87,11 @@ test("provisioning retries the reserved deterministic instance after an interrup
     body: JSON.stringify({ participantId: "allocation-retry-participant" }),
   });
   assert.equal((await launch()).status, 500);
+  const pending = await fetch(`${origin}/api/completion?participantId=allocation-retry-participant`, {
+    headers: { authorization: `Bearer ${TICKET_SECRET}` },
+  });
+  assert.equal(pending.status, 200);
+  assert.deepEqual(await pending.json(), { completed: false, eventGeneration: "rehearsal" });
   assert.equal((await launch()).status, 201);
   assert.equal(nonces.length, 2);
   assert.equal(nonces[0], nonces[1]);

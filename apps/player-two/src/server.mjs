@@ -127,7 +127,7 @@ export async function createPlayerTwoServer(options = {}) {
       if (!/^[a-zA-Z0-9_-]{1,128}$/.test(participantId)) throw new HttpError(400, "invalid participant ID");
       const instance = await withExpensiveSlot("chain-action", participantId, 15_000, maxActiveChainActions, () => withParticipant(participantId, async () => {
         const current = await store.getInstance(participantId);
-        if (!current) return null;
+        if (!isProvisionedInstance(current)) return current;
         if (await withTimeout(reconcileJackpot(current), 8_000, "completion reconciliation timed out", true)) await store.putInstance(participantId, current);
         return current;
       }));
@@ -204,7 +204,7 @@ export async function createPlayerTwoServer(options = {}) {
 
     const identity = await authenticate(request);
     let instance = await store.getInstance(identity.participantId);
-    if (!instance) throw new HttpError(409, "cabinet instance is unavailable");
+    if (!isProvisionedInstance(instance)) throw new HttpError(503, "cabinet provisioning is incomplete; relaunch the challenge");
     if (request.method === "GET" && url.pathname === "/api/cabinet") {
       await enforceRate(`cabinet:${identity.participantId}`, actionRateMax, 60_000);
       instance = await withExpensiveSlot("chain-action", identity.participantId, 15_000, maxActiveChainActions, () => withParticipant(identity.participantId, async () => {
@@ -341,6 +341,7 @@ function withTimeout(promise, timeoutMs, message, keepResourceSlot = false) { le
 function cachedProbe(probe, ttlMs = 15_000) { let cached = null; let inFlight = null; return async () => { const now = Date.now(); if (cached && cached.expiresAt > now) return cached.value; if (inFlight) return inFlight; inFlight = Promise.resolve().then(probe).then((value) => { cached = { value, expiresAt: Date.now() + ttlMs }; return value; }).finally(() => { inFlight = null; }); return inFlight; }; }
 function bearerAuthorized(request, secret) { if (!secret) return false; const supplied = Buffer.from(String(request.headers.authorization || "").replace(/^Bearer /, "")); const expected = Buffer.from(secret); return supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected); }
 function parseCookies(value) { return Object.fromEntries(value.split(";").map((part) => part.trim().split("=")).filter(([key, val]) => key && val)); }
+function isProvisionedInstance(instance) { return Boolean(instance && instance.allocationStatus !== "allocating" && instance.jackpot && instance.receiptSignature); }
 async function readJson(request) { return withTimeout((async () => { const chunks = []; let size = 0; for await (const chunk of request) { size += chunk.length; if (size > MAX_BODY) throw new HttpError(413, "request too large"); chunks.push(chunk); } try { return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"); } catch { throw new HttpError(400, "invalid JSON"); } })(), 5_000, "request body timed out"); }
 function security(response) { response.setHeader("content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"); response.setHeader("x-content-type-options", "nosniff"); response.setHeader("referrer-policy", "no-referrer"); }
 function json(response, status, body) { response.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }); response.end(JSON.stringify(body)); }
