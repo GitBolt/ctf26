@@ -3344,16 +3344,14 @@ button {
 
 .leaderboard-prize-pool {
   display: grid;
-  grid-template-columns: auto auto;
   align-items: baseline;
-  column-gap: 9px;
+  gap: 3px;
   padding-left: var(--space-5);
   border-left: 1px solid var(--border-strong);
   font-variant-numeric: tabular-nums;
 }
 
 .leaderboard-prize-pool span {
-  grid-column: 1 / 3;
   color: var(--muted);
   font-size: var(--type-meta);
   font-weight: 680;
@@ -3366,12 +3364,6 @@ button {
   font-size: 17px;
   font-weight: 760;
   letter-spacing: -.035em;
-}
-
-.leaderboard-prize-pool small {
-  color: var(--ink-soft);
-  font-size: var(--type-meta);
-  font-weight: 650;
 }
 
 .leaderboard-header-actions {
@@ -3427,7 +3419,7 @@ button {
 .leader-table-header,
 .leader-row {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) 108px 160px;
+  grid-template-columns: 58px minmax(0, 1fr) 190px 100px;
   align-items: center;
   gap: var(--space-4);
 }
@@ -3617,6 +3609,26 @@ button {
 
 .leader-prize strong {
   color: var(--accent);
+  font-size: clamp(18px, 2.2vw, 22px);
+  font-weight: 780;
+  white-space: nowrap;
+}
+
+.leader-prize span {
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -.01em;
+  text-transform: none;
+}
+
+.leader-score {
+  text-align: right;
+}
+
+.leader-score strong {
+  color: var(--ink-soft);
+  font-size: 15px;
 }
 
 .leaderboard-empty,
@@ -3674,7 +3686,7 @@ button {
 @media (max-width: 960px) {
   .leader-table-header,
   .leader-row {
-    grid-template-columns: 48px minmax(0, 1fr) 86px 130px;
+    grid-template-columns: 48px minmax(0, 1fr) 166px 78px;
     gap: 12px;
   }
 
@@ -3709,9 +3721,13 @@ button {
   }
   .leader-person { grid-column: 2; }
   .leader-score { grid-column: 3; grid-row: 1; text-align: right; }
-  .leader-prize { grid-column: 2 / 4; grid-row: 2; grid-template-columns: 1fr auto; align-items: baseline; }
-  .leader-prize span { grid-column: 1; grid-row: 1; }
-  .leader-prize strong { grid-column: 2; grid-row: 1; }
+  .leader-prize {
+    grid-column: 2 / 4;
+    grid-row: 2;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
   .leader-rank { align-self: start; padding-top: 2px; }
 }
 

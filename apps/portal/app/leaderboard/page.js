@@ -1,6 +1,8 @@
 import LeaderboardLive from "./LeaderboardLive";
 
+import { currentUser } from "@/lib/auth";
 import { leaderboardSnapshot } from "@/lib/leaderboard-service.mjs";
+import { createLeaderboardStore } from "@/lib/leaderboard-store.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +12,10 @@ export const metadata = {
 };
 
 export default async function LeaderboardPage() {
-  const initialSnapshot = await leaderboardSnapshot().catch(() => null);
+  const store = createLeaderboardStore();
+  const user = await currentUser();
+  if (user) await store.upsertProfile(user).catch(() => null);
+  const initialSnapshot = await leaderboardSnapshot({ store }).catch(() => null);
   return (
     <main className="shell leaderboard-shell">
       <nav className="topbar" aria-label="Event">

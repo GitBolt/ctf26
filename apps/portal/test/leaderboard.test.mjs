@@ -125,6 +125,54 @@ test("leaderboard configuration uses checked-in attendance without inventing an 
   }).minimumAward, 0);
 });
 
+test("an explicit zero floor distributes the whole pool by weighted points", async () => {
+  const env = {
+    PARTICIPANT_ID_SECRET,
+    PARTICIPANT_ROSTER_JSON: JSON.stringify([
+      { email: "one@example.com", displayName: "One" },
+      { email: "two@example.com", displayName: "Two" },
+    ]),
+    LEADERBOARD_FIELD_SIZE: "2",
+    LEADERBOARD_SCORING_MODE: "live",
+    LEADERBOARD_PRIZE_POOL_USD: "4000",
+    LEADERBOARD_MIN_INDIVIDUAL_AWARD_USD: "0",
+    LEADERBOARD_SCORING_START_AT: "2026-07-26T04:30:00.000Z",
+    LEADERBOARD_SCORING_END_AT: "2026-07-26T10:30:00.000Z",
+    LEADERBOARD_EVENT_GENERATION: "ctf26-final",
+    REWARD_SNIPER_EVENT_ID: "reward-event-final",
+    REWARD_SNIPER_SCORING_CONFIG_HASH: REWARD_CONFIG_HASH,
+  };
+  const config = leaderboardConfig(env);
+  assert.equal(config.minimumAward, 0);
+  assert.equal(config.prizePool, 4_000);
+  assert.equal(config.prizePoolPublished, true);
+
+  const leader = participantIdForEmail("one@example.com", env);
+  const trailer = participantIdForEmail("two@example.com", env);
+  const store = createLeaderboardStore({ command: memoryRedis() });
+  await store.upsertProfile({ participant_id: leader, leaderboard_name: "One" });
+  await store.upsertProfile({ participant_id: trailer, leaderboard_name: "Two" });
+  await store.recordSolve({ challenge: "imprint", participantId: leader, sourceId: "tx-a", eventId: "ctf26-final", occurredAt: "2026-07-26T05:00:00.000Z" });
+  await store.recordSolve({ challenge: "signet", participantId: leader, sourceId: "tx-b", eventId: "ctf26-final", occurredAt: "2026-07-26T05:10:00.000Z" });
+  await store.recordSolve({ challenge: "drift", participantId: trailer, sourceId: "tx-c", eventId: "ctf26-final", occurredAt: "2026-07-26T05:20:00.000Z" });
+
+  const snapshot = await leaderboardSnapshot({
+    env,
+    config,
+    store,
+    skipSharedCache: true,
+    fetchImpl: async () => new Response("[]", { headers: rewardHeaders({ eventId: "reward-event-final", generation: "ctf26-final", scoringConfigHash: REWARD_CONFIG_HASH }) }),
+  });
+  // Nobody receives a flat participation payment, the pool is fully allocated,
+  // and twice the points earns twice the award.
+  assert.equal(snapshot.rows.reduce((sum, row) => sum + row.projectedPrizeCents, 0), 400_000);
+  assert.equal(snapshot.rows[0].participantId, leader);
+  // Twice the points earns twice the award, up to the single cent that exhausting
+  // the pool leaves over.
+  assert.ok(Math.abs(snapshot.rows[0].projectedPrizeCents - 2 * snapshot.rows[1].projectedPrizeCents) <= 1);
+  assert.ok(snapshot.rows.every((row) => row.projectedPrizeCents > 0));
+});
+
 test("live scoring is roster-bound, time-bound, and frozen explicitly", () => {
   const roster = JSON.stringify([
     { email: "one@example.com", displayName: "One" },
@@ -153,6 +201,10 @@ test("live scoring is roster-bound, time-bound, and frozen explicitly", () => {
     ...env,
     LEADERBOARD_MIN_INDIVIDUAL_AWARD_USD: undefined,
   }), /requires explicit LEADERBOARD_PRIZE_POOL_USD/);
+  assert.throws(() => leaderboardConfig({
+    ...env,
+    LEADERBOARD_PRIZE_POOL_USD: "0",
+  }), /requires a positive prize pool/);
   assert.deepEqual(leaderboardConfig(env).checkedInParticipantIds, [participantOne, participantTwo].sort());
   assert.doesNotThrow(() => assertScoreEventAllowed({
     participantId: participantOne,

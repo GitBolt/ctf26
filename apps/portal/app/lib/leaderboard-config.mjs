@@ -111,8 +111,10 @@ export function leaderboardConfig(env = process.env) {
   if (officialScoring && (!prizePoolConfigured || !minimumAwardConfigured)) {
     throw new Error("official scoring requires explicit LEADERBOARD_PRIZE_POOL_USD and LEADERBOARD_MIN_INDIVIDUAL_AWARD_USD values");
   }
-  if (officialScoring && (prizePool <= 0 || minimumAward <= 0)) {
-    throw new Error("official scoring requires a positive prize pool and minimum award");
+  // A zero floor is a valid payout policy: every dollar is then distributed by
+  // weighted points. It must still be set explicitly so it is never an omission.
+  if (officialScoring && prizePool <= 0) {
+    throw new Error("official scoring requires a positive prize pool");
   }
   const awardCoverage = officialScoring ? fieldSize : registeredCount;
   if (prizePool > 0 && Math.round(minimumAward * 100) * awardCoverage > Math.round(prizePool * 100)) {
