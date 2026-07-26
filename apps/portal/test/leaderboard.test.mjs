@@ -1,10 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { assertChallengeLaunchAllowed, assertScoreEventAllowed, leaderboardConfig } from "../app/lib/leaderboard-config.mjs";
+import {
+  assertChallengeLaunchAllowed,
+  assertScoreEventAllowed,
+  leaderboardConfig,
+  presentField,
+} from "../app/lib/leaderboard-config.mjs";
+import { resolveLeaderboardConfig } from "../app/lib/leaderboard-lifecycle.mjs";
 import { leaderboardSnapshot } from "../app/lib/leaderboard-service.mjs";
 import { createLeaderboardStore } from "../app/lib/leaderboard-store.mjs";
 import { participantIdForEmail } from "../app/lib/registration.mjs";
+import { RULES_VERSION } from "../app/lib/tickets.js";
 
 const REWARD_CONFIG_HASH = "a".repeat(64);
 const PARTICIPANT_ID_SECRET = "participant-id-test-secret-at-least-32-bytes";
@@ -123,6 +130,121 @@ test("leaderboard configuration uses checked-in attendance without inventing an 
     PARTICIPANT_ROSTER_JSON: participantRoster,
     LEADERBOARD_FIELD_SIZE: "2",
   }).minimumAward, 0);
+});
+
+test("present field grows from rules acknowledgments without changing configHash", async () => {
+  const env = {
+    PARTICIPANT_ID_SECRET,
+    PARTICIPANT_ROSTER_JSON: JSON.stringify([
+      { email: "one@example.com", displayName: "One" },
+      { email: "two@example.com", displayName: "Two" },
+      { email: "three@example.com", displayName: "Three" },
+    ]),
+    LEADERBOARD_SCORING_MODE: "staging",
+    ALLOW_STAGING_SCORING: "true",
+    LEADERBOARD_PRIZE_POOL_USD: "4000",
+    LEADERBOARD_MIN_INDIVIDUAL_AWARD_USD: "0",
+    LEADERBOARD_SCORING_START_AT: "2026-07-26T06:30:00.000Z",
+    LEADERBOARD_SCORING_END_AT: "2026-07-26T12:15:00.000Z",
+    LEADERBOARD_EVENT_GENERATION: "ctf26-final",
+    REWARD_SNIPER_EVENT_ID: "reward-event-final",
+    REWARD_SNIPER_SCORING_CONFIG_HASH: REWARD_CONFIG_HASH,
+  };
+  const one = participantIdForEmail("one@example.com", env);
+  const two = participantIdForEmail("two@example.com", env);
+  const store = createLeaderboardStore({ command: memoryRedis() });
+  const before = leaderboardConfig(env).configHash;
+  assert.deepEqual((await presentField({ store, env, rulesVersion: RULES_VERSION })).checkedInParticipantIds, []);
+  await store.recordRulesAcknowledgment({ participant_id: one }, RULES_VERSION);
+  const mid = await presentField({ store, env, rulesVersion: RULES_VERSION });
+  assert.deepEqual(mid.checkedInParticipantIds, [one]);
+  assert.equal(mid.fieldSize, 1);
+  await store.recordRulesAcknowledgment({ participant_id: two }, RULES_VERSION);
+  const after = await presentField({ store, env, rulesVersion: RULES_VERSION });
+  assert.deepEqual(after.checkedInParticipantIds, [one, two].sort());
+  assert.equal(after.fieldSize, 2);
+  assert.equal(leaderboardConfig(env).configHash, before);
+});
+
+test("timed scoring opens and closes from the wall clock without an organizer live flip", async () => {
+  const env = {
+    PARTICIPANT_ID_SECRET,
+    PARTICIPANT_ROSTER_JSON: JSON.stringify([
+      { email: "one@example.com", displayName: "One" },
+      { email: "two@example.com", displayName: "Two" },
+    ]),
+    LEADERBOARD_SCORING_MODE: "staging",
+    ALLOW_STAGING_SCORING: "true",
+    LEADERBOARD_PRIZE_POOL_USD: "4000",
+    LEADERBOARD_MIN_INDIVIDUAL_AWARD_USD: "0",
+    LEADERBOARD_SCORING_START_AT: "2026-07-26T06:30:00.000Z",
+    LEADERBOARD_SCORING_END_AT: "2026-07-26T12:15:00.000Z",
+    LEADERBOARD_EVENT_GENERATION: "ctf26-final",
+    REWARD_SNIPER_EVENT_ID: "reward-event-final",
+    REWARD_SNIPER_SCORING_CONFIG_HASH: REWARD_CONFIG_HASH,
+  };
+  const participant = participantIdForEmail("one@example.com", env);
+  let lifecycle = null;
+  const store = {
+    async assertEventConfig() {},
+    async initializeEventLifecycle(metadata) {
+      lifecycle ||= { ...metadata, revision: 0, updatedAt: "2026-07-26T00:00:00.000Z", updatedBy: "system" };
+      return lifecycle;
+    },
+    async advanceEventLifecycle({ phase, organizer }) {
+      lifecycle = {
+        ...lifecycle,
+        phase,
+        launchPaused: phase !== "live",
+        revision: lifecycle.revision + 1,
+        updatedAt: "2026-07-26T00:01:00.000Z",
+        updatedBy: organizer,
+      };
+      return lifecycle;
+    },
+    async rulesAcknowledgments() {
+      return [{ participantId: participant, rulesVersion: RULES_VERSION, acknowledgedAt: "2026-07-26T05:00:00.000Z" }];
+    },
+  };
+
+  const beforeStart = await resolveLeaderboardConfig({
+    env,
+    store,
+    now: new Date("2026-07-26T06:00:00.000Z"),
+  });
+  assert.equal(beforeStart.lifecyclePhase, "staging");
+  assert.equal(beforeStart.scoringMode, "staging");
+  assert.throws(() => assertChallengeLaunchAllowed(
+    participant,
+    env,
+    new Date("2026-07-26T06:00:00.000Z"),
+    beforeStart,
+  ), /closed outside live/);
+
+  const during = await resolveLeaderboardConfig({
+    env,
+    store,
+    now: new Date("2026-07-26T08:00:00.000Z"),
+  });
+  assert.equal(during.lifecyclePhase, "live");
+  assert.equal(during.scoringMode, "live");
+  assert.equal(during.fieldSize, 1);
+  assert.doesNotThrow(() => assertScoreEventAllowed({
+    participantId: participant,
+    occurredAt: "2026-07-26T08:00:00.000Z",
+  }, env, new Date("2026-07-26T08:00:01.000Z"), during));
+
+  const afterEnd = await resolveLeaderboardConfig({
+    env,
+    store,
+    now: new Date("2026-07-26T12:16:00.000Z"),
+  });
+  assert.equal(afterEnd.lifecyclePhase, "recovery");
+  assert.equal(afterEnd.scoringMode, "recovery");
+  assert.throws(() => assertScoreEventAllowed({
+    participantId: participant,
+    occurredAt: "2026-07-26T08:00:00.000Z",
+  }, env, new Date("2026-07-26T12:16:00.000Z"), { ...during, scoringMode: "live" }), /switch explicitly to recovery/);
 });
 
 test("an explicit zero floor distributes the whole pool by weighted points", async () => {

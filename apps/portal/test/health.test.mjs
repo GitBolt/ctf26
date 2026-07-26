@@ -211,13 +211,28 @@ test("official readiness binds every funded inventory to the checked-in field", 
   }), /AFTER HOURS capacity does not cover/);
 });
 
-test("official readiness requires Reward Sniper to contain the same individual field", async () => {
+test("official readiness allows a sparse Reward Sniper scoreboard", async () => {
   const env = officialEnv();
-  await assert.rejects(() => portalHealth({
+  const participantIds = JSON.parse(env.LEADERBOARD_CHECKED_IN_PARTICIPANT_IDS);
+  const baseFetch = healthyFetch([], { participantIds, fieldSize: 2 });
+  await assert.doesNotReject(() => portalHealth({
     env,
     redisCommand: async () => "PONG",
-    fetchImpl: healthyFetch([], { participantIds: ["someone-else"], fieldSize: 2 }),
-  }), /Reward Sniper scoreboard does not match/);
+    fetchImpl: async (input, options) => {
+      const url = new URL(input);
+      if (url.pathname === "/api/scoreboard") {
+        return Response.json([{ participantId: participantIds[0], score: 0 }], { headers: {
+          "x-reward-event-id": "reward-event-a",
+          "x-reward-event-generation": "event-a",
+          "x-reward-event-stage": "live",
+          "x-reward-scoring-config": REWARD_CONFIG_HASH,
+          "x-reward-event-start-at": "2026-07-20T00:00:00.000Z",
+          "x-reward-event-end-at": "2026-07-30T00:00:00.000Z",
+        } });
+      }
+      return baseFetch(input, options);
+    },
+  }));
 });
 
 test("official readiness requires the exact SIGNET target inventory", async () => {
@@ -239,7 +254,7 @@ test("official readiness requires the exact SIGNET target inventory", async () =
       }
       return baseFetch(input, options);
     },
-  }), /SIGNET target inventory does not match/);
+  }), /SIGNET target inventory does not match the overridden checked-in field/);
 });
 
 test("official readiness binds Reward Sniper to the canonical scoring window", async () => {

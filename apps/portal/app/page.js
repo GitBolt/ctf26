@@ -111,11 +111,10 @@ export default async function Home({ searchParams }) {
           <ul className="rules-list">
             <li>Solve only as the registered participant. Do not share or receive flags, solutions, credentials, or challenge access.</li>
             <li>Public documentation, general concept questions, ordinary non-agent code completion, translation, and accessibility tools are allowed.</li>
-            <li>Do not give challenge files, screenshots, code, logs, account data, or challenge-specific tasks to an AI system.</li>
             <li>Do not use an AI or outside operator to control a browser, terminal, wallet, RPC client, debugger, or submission, or to construct a scored exploit.</li>
             <li>Do not attack the event infrastructure, other participants, shared services, or anything outside the challenge scope.</li>
             <li>Use disposable Devnet wallets and accounts. Never submit a production secret or real funds.</li>
-            <li>You are responsible for every score. Organizers may hold a result for private review, ask you to explain or reproduce it, and provide an appeal before payout.</li>
+            <li>You are responsible for every score. Organizers may hold any result for private review before payout.</li>
           </ul>
           <form className="rules-form" action="/api/rules/acknowledge" method="post">
             <label className="rules-check">

@@ -85,16 +85,6 @@ async function livePerformance({ env, fetchImpl, store, config }) {
       if (headerEventGeneration !== config.eventGeneration) {
         throw new Error("Reward Sniper scoreboard belongs to another CTF event generation");
       }
-      if (config.scoringMode !== "staging") {
-        const payloadParticipants = [...new Set(payload.map((row) => String(row?.participantId || "")))].sort();
-        const expectedParticipants = [...config.checkedInParticipantIds].sort();
-        if (
-          payloadParticipants.length !== expectedParticipants.length
-          || payloadParticipants.some((participantId, index) => participantId !== expectedParticipants[index])
-        ) {
-          throw new Error("Reward Sniper scoreboard does not match the checked-in roster");
-        }
-      }
       const rows = normalizePerformance(payload);
       const cached = await store.cachedPerformance().catch(() => null);
       if (isUnexpectedRegression(cached, payload, headerEventId, stage, headerScoringConfigHash)) {
@@ -162,7 +152,7 @@ async function calculateSnapshot({ env, store, fetchImpl, config }) {
   if (!inputs) throw new Error("leaderboard inputs changed while the snapshot was being calculated");
   const { profiles, solves, performance, revision } = inputs;
   const checkedIn = new Set(config.checkedInParticipantIds);
-  const officialScoring = config.scoringMode !== "staging";
+  const officialScoring = config.scoringMode !== "staging" || Boolean(config.timedEvent);
   const scoringProfiles = officialScoring
     ? profiles.filter((profile) => checkedIn.has(profile.participantId))
     : profiles;
@@ -176,9 +166,7 @@ async function calculateSnapshot({ env, store, fetchImpl, config }) {
     ...scoringSolves.map((solve) => solve.participantId),
     ...scoringPerformance.map((row) => row.participantId),
   ]).size;
-  const effectiveFieldSize = officialScoring
-    ? config.fieldSize
-    : Math.max(config.fieldSize, observedScoringParticipants);
+  const effectiveFieldSize = Math.max(1, config.fieldSize, observedScoringParticipants);
   const calculated = calculateLeaderboard({
     profiles: scoringProfiles,
     solves: scoringSolves,

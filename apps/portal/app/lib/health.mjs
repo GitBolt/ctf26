@@ -2,11 +2,11 @@ import crypto from "node:crypto";
 
 import { CHALLENGES, challengeDestination } from "./challenges.mjs";
 import { leaderboardRedisCommand } from "./leaderboard-redis.mjs";
-import { leaderboardConfig } from "./leaderboard-config.mjs";
+import { clockDerivedScoringMode, leaderboardConfig, presentField } from "./leaderboard-config.mjs";
 import { resolveLeaderboardConfig } from "./leaderboard-lifecycle.mjs";
 import { createLeaderboardStore } from "./leaderboard-store.mjs";
 import { participantRoster } from "./registration.mjs";
-import { challengeTicketSecret } from "./tickets.js";
+import { challengeTicketSecret, RULES_VERSION } from "./tickets.js";
 import { fastSolveReviewSeconds } from "./fast-solve.mjs";
 import { organizerConfiguration } from "./organizers.mjs";
 
@@ -122,7 +122,7 @@ async function probeCompletion(challenge, destination, secret, generation, fetch
   return body;
 }
 
-async function probeRewardScoreboard(baseUrl, expectedEventId, expectedGeneration, expectedScoringConfigHash, expectedParticipantIds, expectedStartsAt, expectedEndsAt, fetchImpl, signal) {
+async function probeRewardScoreboard(baseUrl, expectedEventId, expectedGeneration, expectedScoringConfigHash, expectedStartsAt, expectedEndsAt, fetchImpl, signal) {
   const response = await fetchImpl(new URL("/api/scoreboard", baseUrl), {
     cache: "no-store",
     headers: { accept: "application/json" },
@@ -164,13 +164,6 @@ async function probeRewardScoreboard(baseUrl, expectedEventId, expectedGeneratio
     }
     participants.add(participantId);
   }
-  if (expectedParticipantIds) {
-    const expected = [...expectedParticipantIds].sort();
-    const actual = [...participants].sort();
-    if (actual.length !== expected.length || actual.some((participantId, index) => participantId !== expected[index])) {
-      throw new Error("Reward Sniper scoreboard does not match the checked-in individual field");
-    }
-  }
   return { eventId, eventGeneration, scoringConfigHash };
 }
 
@@ -183,30 +176,37 @@ function expectedCapacityFor(challengeKey, body) {
 }
 
 function assertOfficialFieldCoverage(scoring, dependencies, healthResults) {
-  if (scoring.scoringMode === "staging") return;
+  // Capacity/inventory exactness is an official-launch gate. Timed staging may
+  // score from presence before every challenge inventory is resized.
+  if (scoring.lifecyclePhase === "staging" || (scoring.scoringMode === "staging" && !scoring.timedEvent)) {
+    return;
+  }
+  const fieldSize = Math.max(1, Number(scoring.fieldSize) || 0);
   for (const [index, { challenge }] of dependencies.entries()) {
     const expected = expectedCapacityFor(challenge.key, healthResults[index]);
     if (expected === null) continue;
-    if (!Number.isSafeInteger(expected) || expected < scoring.fieldSize) {
-      throw new Error(`${challenge.name} capacity does not cover the checked-in individual field`);
+    if (!Number.isSafeInteger(expected) || expected < fieldSize) {
+      throw new Error(`${challenge.name} capacity does not cover the present individual field`);
     }
   }
   const imprintIndex = dependencies.findIndex(({ challenge }) => challenge.key === "imprint");
   const imprintParticipants = healthResults[imprintIndex]?.participantCount;
-  if (!Number.isSafeInteger(imprintParticipants) || imprintParticipants !== scoring.fieldSize) {
-    throw new Error("IMPRINT credential inventory does not match the checked-in individual field");
+  if (!Number.isSafeInteger(imprintParticipants) || imprintParticipants < fieldSize) {
+    throw new Error("IMPRINT credential inventory does not cover the present individual field");
   }
   const signetIndex = dependencies.findIndex(({ challenge }) => challenge.key === "signet");
   const signetInventory = healthResults[signetIndex]?.targetInventory;
-  const expectedSignetDigest = crypto.createHash("sha256")
-    .update(JSON.stringify([...scoring.checkedInParticipantIds].sort()))
-    .digest("hex");
-  if (
-    !Number.isSafeInteger(signetInventory?.count)
-    || signetInventory.count !== scoring.fieldSize
-    || signetInventory.participantIdsSha256 !== expectedSignetDigest
-  ) {
-    throw new Error("SIGNET target inventory does not match the checked-in individual field");
+  if (!Number.isSafeInteger(signetInventory?.count) || signetInventory.count < fieldSize) {
+    throw new Error("SIGNET target inventory does not cover the present individual field");
+  }
+  // Exact digest equality is only meaningful for an emergency frozen env override.
+  if (scoring.presenceSource === "env-override") {
+    const expectedSignetDigest = crypto.createHash("sha256")
+      .update(JSON.stringify([...scoring.checkedInParticipantIds].sort()))
+      .digest("hex");
+    if (signetInventory.participantIdsSha256 !== expectedSignetDigest) {
+      throw new Error("SIGNET target inventory does not match the overridden checked-in field");
+    }
   }
 }
 
@@ -285,9 +285,19 @@ export async function portalHealth(options = {}) {
 
   const lifecycleStore = options.lifecycleStore
     || (options.redisCommand ? null : createLeaderboardStore({ env, command: redisCommand }));
-  const scoring = lifecycleStore
+  let scoring = lifecycleStore
     ? await resolveLeaderboardConfig({ env, store: lifecycleStore })
     : leaderboardConfig(env);
+  if (!lifecycleStore) {
+    const presence = await presentField({ env, rulesVersion: RULES_VERSION });
+    scoring = Object.freeze({
+      ...scoring,
+      checkedInParticipantIds: presence.checkedInParticipantIds,
+      fieldSize: Math.min(scoring.registeredCount, presence.fieldSize),
+      presenceSource: presence.source,
+      scoringMode: clockDerivedScoringMode(scoring, scoring.scoringMode),
+    });
+  }
   const organizers = organizerConfiguration(env);
   if (scoring.scoringMode !== "staging" && !organizers.ready) {
     throw new Error("official readiness requires at least two distinct organizer emails");
@@ -309,9 +319,12 @@ export async function portalHealth(options = {}) {
       scoring.rewardEventId,
       scoring.eventGeneration,
       scoring.rewardScoringConfigHash,
-      scoring.scoringMode === "staging" ? null : scoring.checkedInParticipantIds,
-      scoring.scoringMode === "staging" ? null : scoring.scoringStartAt,
-      scoring.scoringMode === "staging" ? null : scoring.scoringEndAt,
+      scoring.lifecyclePhase === "staging" || (scoring.scoringMode === "staging" && !scoring.timedEvent)
+        ? null
+        : scoring.scoringStartAt,
+      scoring.lifecyclePhase === "staging" || (scoring.scoringMode === "staging" && !scoring.timedEvent)
+        ? null
+        : scoring.scoringEndAt,
       fetchImpl,
       signal(),
     ),
@@ -335,10 +348,14 @@ export async function portalHealth(options = {}) {
       throw new Error(`${label} belongs to another event generation`);
     }
   }
-  if (scoring.scoringMode !== "staging" && (
-    String(rewardHealth.eventStartsAt || "") !== scoring.scoringStartAt
-    || String(rewardHealth.eventEndsAt || "") !== scoring.scoringEndAt
-  )) {
+  if (
+    scoring.lifecyclePhase !== "staging"
+    && scoring.scoringMode !== "staging"
+    && (
+      String(rewardHealth.eventStartsAt || "") !== scoring.scoringStartAt
+      || String(rewardHealth.eventEndsAt || "") !== scoring.scoringEndAt
+    )
+  ) {
     throw new Error("Reward Sniper health uses another event schedule");
   }
   if (

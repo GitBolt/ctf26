@@ -77,16 +77,30 @@ test("official lifecycle phases share one immutable scoring configuration", () =
 
 test("a deployment rollback cannot move the durable event lifecycle backward", async () => {
   const store = lifecycleStore();
-  const staging = await resolveLeaderboardConfig({ env: officialEnvironment("staging"), store });
+  const staging = await resolveLeaderboardConfig({
+    env: officialEnvironment("staging"),
+    store,
+    now: new Date("2026-07-26T03:00:00.000Z"),
+  });
+  assert.equal(staging.lifecyclePhase, "staging");
   assert.equal(staging.scoringMode, "staging");
 
   await store.advanceEventLifecycle({ phase: "live", configHash: staging.configHash, organizer: "one@example.com" });
   await store.advanceEventLifecycle({ phase: "recovery", configHash: staging.configHash, organizer: "one@example.com" });
-  const recovery = await resolveLeaderboardConfig({ env: officialEnvironment("staging"), store });
+  const recovery = await resolveLeaderboardConfig({
+    env: officialEnvironment("staging"),
+    store,
+    now: new Date("2026-07-26T08:00:00.000Z"),
+  });
   assert.equal(recovery.scoringMode, "recovery");
+  assert.equal(recovery.lifecyclePhase, "recovery");
   assert.equal(recovery.lifecycleRevision, 2);
 
-  const rolledBackDeployment = await resolveLeaderboardConfig({ env: officialEnvironment("live"), store });
+  const rolledBackDeployment = await resolveLeaderboardConfig({
+    env: officialEnvironment("live"),
+    store,
+    now: new Date("2026-07-26T08:00:00.000Z"),
+  });
   assert.equal(rolledBackDeployment.scoringMode, "recovery");
   assert.equal(rolledBackDeployment.launchPaused, true);
   assert.equal(rolledBackDeployment.lifecycleRevision, 2);
@@ -94,11 +108,16 @@ test("a deployment rollback cannot move the durable event lifecycle backward", a
 
 test("a deployment-level emergency pause overrides a durable open lifecycle", async () => {
   const store = lifecycleStore();
-  const staged = await resolveLeaderboardConfig({ env: officialEnvironment("staging"), store });
+  const staged = await resolveLeaderboardConfig({
+    env: officialEnvironment("staging"),
+    store,
+    now: new Date("2026-07-26T03:00:00.000Z"),
+  });
   await store.advanceEventLifecycle({ phase: "live", configHash: staged.configHash, organizer: "one@example.com" });
   const config = await resolveLeaderboardConfig({
     env: { ...officialEnvironment("live"), LEADERBOARD_LAUNCH_PAUSED: "true" },
     store,
+    now: new Date("2026-07-26T08:00:00.000Z"),
   });
   assert.equal(config.scoringMode, "live");
   assert.equal(config.launchPaused, true);
@@ -106,7 +125,11 @@ test("a deployment-level emergency pause overrides a durable open lifecycle", as
 
 test("deployment configuration cannot advance an event without an organizer action", async () => {
   const store = lifecycleStore();
-  const config = await resolveLeaderboardConfig({ env: officialEnvironment("frozen"), store });
-  assert.equal(config.scoringMode, "staging");
+  const config = await resolveLeaderboardConfig({
+    env: officialEnvironment("frozen"),
+    store,
+    now: new Date("2026-07-26T03:00:00.000Z"),
+  });
+  assert.equal(config.lifecyclePhase, "staging");
   assert.equal(config.lifecycleRevision, 0);
 });

@@ -91,10 +91,23 @@ export function createLeaderboardStore(options = {}) {
       if (!/^[0-9a-f]{64}$/.test(String(configHash || ""))) throw new Error("leaderboard config hash is invalid");
       await command(["SET", key("event-config-hash"), configHash, "NX"]);
       const stored = String((await command(["GET", key("event-config-hash")])) || "");
-      if (stored !== configHash) {
+      if (stored === configHash) return stored;
+      // Staging may adopt a new hash (e.g. scoring window pinned later). Official
+      // phases remain immutable.
+      const lifecycle = parseLifecycle(await command(["GET", key("event-lifecycle")]));
+      if (lifecycle && lifecycle.phase !== "staging") {
         throw new LeaderboardStorageError("Leaderboard event configuration changed after initialization");
       }
-      return stored;
+      await command(["SET", key("event-config-hash"), configHash]);
+      if (lifecycle) {
+        await command(["SET", key("event-lifecycle"), JSON.stringify({
+          ...lifecycle,
+          configHash,
+          updatedAt: new Date().toISOString(),
+          updatedBy: lifecycle.updatedBy || "system",
+        })]);
+      }
+      return configHash;
     },
 
     async assertFastSolveConfig(seconds) {
@@ -126,10 +139,22 @@ export function createLeaderboardStore(options = {}) {
       };
       await command(["SET", key("event-lifecycle"), JSON.stringify(lifecycle), "NX"]);
       const stored = parseLifecycle(await command(["GET", key("event-lifecycle")]));
-      if (!stored || stored.configHash !== configHash) {
+      if (!stored) {
+        throw new LeaderboardStorageError("Event lifecycle could not be initialized");
+      }
+      if (stored.configHash === configHash) return stored;
+      if (stored.phase !== "staging") {
         throw new LeaderboardStorageError("Event lifecycle belongs to another immutable configuration");
       }
-      return stored;
+      const refreshed = Object.freeze({
+        ...stored,
+        configHash,
+        updatedAt: new Date().toISOString(),
+        updatedBy: organizer || stored.updatedBy || "system",
+      });
+      await command(["SET", key("event-lifecycle"), JSON.stringify(refreshed)]);
+      await command(["SET", key("event-config-hash"), configHash]);
+      return refreshed;
     },
 
     async eventLifecycle() {

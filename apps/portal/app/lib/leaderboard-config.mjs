@@ -53,32 +53,131 @@ function booleanSetting(env, name, fallback = false) {
   return encoded === "true";
 }
 
-function checkedInParticipants(env, roster, fieldSize, scoringMode) {
-  const officialScoring = scoringMode !== "staging";
-  const rosterParticipants = roster ? new Set([...roster.values()].map((entry) => entry.participantId)) : null;
+function parseCheckedInOverride(env, roster) {
   const encoded = String(env.LEADERBOARD_CHECKED_IN_PARTICIPANT_IDS || "").trim();
-  let participants = [];
-  if (encoded) {
-    try {
-      const parsed = JSON.parse(encoded);
-      if (!Array.isArray(parsed)) throw new Error("not an array");
-      participants = parsed.map((value) => String(value));
-    } catch {
-      throw new Error("LEADERBOARD_CHECKED_IN_PARTICIPANT_IDS must be a JSON array of participant IDs");
-    }
-    if (new Set(participants).size !== participants.length || participants.some((participantId) => !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(participantId))) {
-      throw new Error("LEADERBOARD_CHECKED_IN_PARTICIPANT_IDS contains an invalid or duplicate participant ID");
-    }
-    if (rosterParticipants && participants.some((participantId) => !rosterParticipants.has(participantId))) {
-      throw new Error("LEADERBOARD_CHECKED_IN_PARTICIPANT_IDS contains a participant outside the roster");
-    }
-  } else if (officialScoring && rosterParticipants && rosterParticipants.size === fieldSize) {
-    participants = [...rosterParticipants];
+  if (!encoded) return null;
+  const rosterParticipants = roster ? new Set([...roster.values()].map((entry) => entry.participantId)) : null;
+  let participants;
+  try {
+    const parsed = JSON.parse(encoded);
+    if (!Array.isArray(parsed)) throw new Error("not an array");
+    participants = parsed.map((value) => String(value));
+  } catch {
+    throw new Error("LEADERBOARD_CHECKED_IN_PARTICIPANT_IDS must be a JSON array of participant IDs");
   }
-  if (officialScoring && participants.length !== fieldSize) {
-    throw new Error("official scoring requires one checked-in participant ID for every field position");
+  if (new Set(participants).size !== participants.length || participants.some((participantId) => !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(participantId))) {
+    throw new Error("LEADERBOARD_CHECKED_IN_PARTICIPANT_IDS contains an invalid or duplicate participant ID");
   }
-  return Object.freeze(participants.sort());
+  if (rosterParticipants && participants.some((participantId) => !rosterParticipants.has(participantId))) {
+    throw new Error("LEADERBOARD_CHECKED_IN_PARTICIPANT_IDS contains a participant outside the roster");
+  }
+  return Object.freeze([...participants].sort());
+}
+
+/**
+ * Field size and checked-in IDs come from roster members who accepted the current
+ * rules (sign-in required to ack). Optional env list remains an emergency override.
+ */
+export async function presentField({
+  store,
+  env = process.env,
+  rulesVersion,
+} = {}) {
+  const roster = participantRoster(env);
+  const override = parseCheckedInOverride(env, roster);
+  if (override) {
+    return Object.freeze({
+      checkedInParticipantIds: override,
+      fieldSize: override.length,
+      source: "env-override",
+    });
+  }
+
+  const registeredCount = roster
+    ? roster.size
+    : integerSetting(env, "LEADERBOARD_REGISTERED_COUNT", 50);
+  const fieldSizeOverride = String(env.LEADERBOARD_FIELD_SIZE ?? "").trim()
+    ? integerSetting(env, "LEADERBOARD_FIELD_SIZE", 1, { minimum: 1, maximum: 500 })
+    : null;
+
+  if (store && typeof store.rulesAcknowledgments === "function") {
+    const requiredVersion = String(rulesVersion || "").trim();
+    if (!requiredVersion) {
+      throw new Error("present field resolution requires the active rules version");
+    }
+    const rosterIds = roster
+      ? new Set([...roster.values()].map((entry) => entry.participantId))
+      : null;
+    const acknowledgments = await store.rulesAcknowledgments();
+    const present = [...new Set(
+      acknowledgments
+        .filter((entry) => String(entry?.rulesVersion || "") === requiredVersion)
+        .map((entry) => String(entry?.participantId || ""))
+        .filter((participantId) => /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(participantId))
+        .filter((participantId) => !rosterIds || rosterIds.has(participantId)),
+    )].sort();
+    return Object.freeze({
+      checkedInParticipantIds: Object.freeze(present),
+      fieldSize: Math.min(registeredCount, present.length),
+      source: "rules-acknowledgments",
+    });
+  }
+
+  const fieldSize = Math.min(registeredCount, fieldSizeOverride || registeredCount);
+  let checkedInParticipantIds = Object.freeze([]);
+  if (roster && fieldSize === roster.size) {
+    checkedInParticipantIds = Object.freeze(
+      [...roster.values()].map((entry) => entry.participantId).sort(),
+    );
+  }
+  return Object.freeze({
+    checkedInParticipantIds,
+    fieldSize,
+    source: "config",
+  });
+}
+
+export function scoringConfigHash(input) {
+  return crypto.createHash("sha256").update(JSON.stringify({
+    scoringSchemaVersion: LEADERBOARD_SCORING_SCHEMA_VERSION,
+    scoringRules: {
+      binaryChallenges: BINARY_CHALLENGE_KEYS,
+      maximumChallengePoints: MAX_CHALLENGE_POINTS,
+      minimumChallengePoints: MIN_CHALLENGE_POINTS,
+      prizePlaces: PRIZE_PLACES,
+      topTenPrizeBoost: TOP_TEN_PRIZE_BOOST,
+    },
+    eventGeneration: input.eventGeneration,
+    scoringStartAt: input.scoringStartAt,
+    scoringEndAt: input.scoringEndAt,
+    recoveryMinutes: input.recoveryMinutes,
+    prizePool: input.prizePool,
+    minimumAward: input.minimumAward,
+    rewardEventId: input.rewardEventId,
+    rewardScoringConfigHash: input.rewardScoringConfigHash,
+  })).digest("hex");
+}
+
+/**
+ * When a scoring window is configured, the wall clock opens/closes live scoring.
+ * Organizer freezing/frozen always wins. Recovery is automatic after the end until freeze.
+ */
+export function clockDerivedScoringMode(config, lifecyclePhase, now = new Date()) {
+  const phase = String(lifecyclePhase || config.scoringMode || "staging");
+  if (phase === "freezing" || phase === "frozen") return phase;
+  // Durable recovery/freeze always wins over the wall clock.
+  if (phase === "recovery") return "recovery";
+  if (!config.scoringStartAt || !config.scoringEndAt) return phase;
+
+  const start = new Date(config.scoringStartAt);
+  const end = new Date(config.scoringEndAt);
+  const current = new Date(now);
+  if (Number.isNaN(current.valueOf())) return phase;
+
+  // Timed events open and close from the clock without an organizer live flip.
+  if (current < start) return phase;
+  if (current <= end) return "live";
+  return "recovery";
 }
 
 export function leaderboardConfig(env = process.env) {
@@ -86,9 +185,22 @@ export function leaderboardConfig(env = process.env) {
   const registeredCount = roster
     ? roster.size
     : integerSetting(env, "LEADERBOARD_REGISTERED_COUNT", 50);
-  const fieldSize = integerSetting(env, "LEADERBOARD_FIELD_SIZE", 50, { minimum: 2, maximum: 500 });
+
+  const override = parseCheckedInOverride(env, roster);
+  const fieldSizeOverride = String(env.LEADERBOARD_FIELD_SIZE ?? "").trim()
+    ? integerSetting(env, "LEADERBOARD_FIELD_SIZE", 1, { minimum: 1, maximum: 500 })
+    : null;
+  const fieldSize = override
+    ? override.length
+    : (fieldSizeOverride || registeredCount);
   if (fieldSize > registeredCount) {
-    throw new Error("LEADERBOARD_FIELD_SIZE must not exceed the registered participant count");
+    throw new Error("scoring field size must not exceed the registered participant count");
+  }
+  let checkedInParticipantIds = override || Object.freeze([]);
+  if (!override && roster && fieldSize === roster.size) {
+    checkedInParticipantIds = Object.freeze(
+      [...roster.values()].map((entry) => entry.participantId).sort(),
+    );
   }
 
   const prizePoolConfigured = String(env.LEADERBOARD_PRIZE_POOL_USD ?? "").trim() !== "";
@@ -107,6 +219,26 @@ export function leaderboardConfig(env = process.env) {
     throw new Error("production staging scoring requires ALLOW_STAGING_SCORING=true");
   }
   const launchPaused = booleanSetting(env, "LEADERBOARD_LAUNCH_PAUSED", false);
+  const scoringStartAt = timestampSetting(env, "LEADERBOARD_SCORING_START_AT");
+  const scoringEndAt = timestampSetting(env, "LEADERBOARD_SCORING_END_AT");
+  if (Boolean(scoringStartAt) !== Boolean(scoringEndAt)) {
+    throw new Error("LEADERBOARD_SCORING_START_AT and LEADERBOARD_SCORING_END_AT must be set together");
+  }
+  if (scoringStartAt && new Date(scoringEndAt) <= new Date(scoringStartAt)) {
+    throw new Error("LEADERBOARD_SCORING_END_AT must be after LEADERBOARD_SCORING_START_AT");
+  }
+  if (
+    env.NODE_ENV === "production"
+    && !scoringStartAt
+    && env.ALLOW_STAGING_SCORING !== "true"
+  ) {
+    throw new Error("production requires LEADERBOARD_SCORING_START_AT and LEADERBOARD_SCORING_END_AT");
+  }
+
+  const timedEvent = Boolean(scoringStartAt && scoringEndAt);
+  // Timed windows open/close scoring from the clock. They do not by themselves
+  // force the full official pin set (Reward event ID, etc.); that still follows
+  // the durable/admin scoring mode.
   const officialScoring = scoringMode !== "staging";
   if (officialScoring && (!prizePoolConfigured || !minimumAwardConfigured)) {
     throw new Error("official scoring requires explicit LEADERBOARD_PRIZE_POOL_USD and LEADERBOARD_MIN_INDIVIDUAL_AWARD_USD values");
@@ -116,23 +248,26 @@ export function leaderboardConfig(env = process.env) {
   if (officialScoring && prizePool <= 0) {
     throw new Error("official scoring requires a positive prize pool");
   }
-  const awardCoverage = officialScoring ? fieldSize : registeredCount;
-  if (prizePool > 0 && Math.round(minimumAward * 100) * awardCoverage > Math.round(prizePool * 100)) {
-    throw new Error("LEADERBOARD_PRIZE_POOL_USD cannot fund the minimum award for every scoring participant");
+  // Funding check uses the whitelist upper bound so a growing live field cannot
+  // invalidate a pool that was sized for the full roster.
+  if (prizePool > 0 && Math.round(minimumAward * 100) * registeredCount > Math.round(prizePool * 100)) {
+    throw new Error("LEADERBOARD_PRIZE_POOL_USD cannot fund the minimum award for every registered participant");
   }
-  const scoringStartAt = timestampSetting(env, "LEADERBOARD_SCORING_START_AT");
-  const scoringEndAt = timestampSetting(env, "LEADERBOARD_SCORING_END_AT");
-  if (Boolean(scoringStartAt) !== Boolean(scoringEndAt)) {
-    throw new Error("LEADERBOARD_SCORING_START_AT and LEADERBOARD_SCORING_END_AT must be set together");
+  if (officialScoring && !roster) {
+    throw new Error("official scoring requires a participant roster");
   }
-  if (scoringStartAt && new Date(scoringEndAt) <= new Date(scoringStartAt)) {
-    throw new Error("LEADERBOARD_SCORING_END_AT must be after LEADERBOARD_SCORING_START_AT");
+  if (officialScoring && !scoringStartAt) {
+    throw new Error("official scoring requires an explicit scoring window");
   }
-  if (scoringMode !== "staging" && (!roster || !scoringStartAt)) {
-    throw new Error("official scoring requires a participant roster and an explicit scoring window");
+  if (
+    env.NODE_ENV === "production"
+    && timedEvent
+    && !roster
+    && env.ALLOW_OPEN_REGISTRATION !== "true"
+  ) {
+    throw new Error("timed production scoring requires a participant roster");
   }
   const recoveryMinutes = integerSetting(env, "LEADERBOARD_RECOVERY_MINUTES", 30, { minimum: 1, maximum: 240 });
-  const checkedInParticipantIds = checkedInParticipants(env, roster, fieldSize, scoringMode);
   const eventGeneration = String(env.LEADERBOARD_EVENT_GENERATION || (officialScoring ? "" : "rehearsal")).trim();
   const rewardEventId = String(env.REWARD_SNIPER_EVENT_ID || "").trim();
   const rewardScoringConfigHash = String(env.REWARD_SNIPER_SCORING_CONFIG_HASH || "").trim().toLowerCase();
@@ -149,18 +284,8 @@ export function leaderboardConfig(env = process.env) {
   if (officialScoring && !rewardScoringConfigHash) {
     throw new Error("official scoring requires the pinned REWARD_SNIPER_SCORING_CONFIG_HASH");
   }
-  const configHash = crypto.createHash("sha256").update(JSON.stringify({
-    scoringSchemaVersion: LEADERBOARD_SCORING_SCHEMA_VERSION,
-    scoringRules: {
-      binaryChallenges: BINARY_CHALLENGE_KEYS,
-      maximumChallengePoints: MAX_CHALLENGE_POINTS,
-      minimumChallengePoints: MIN_CHALLENGE_POINTS,
-      prizePlaces: PRIZE_PLACES,
-      topTenPrizeBoost: TOP_TEN_PRIZE_BOOST,
-    },
+  const configHash = scoringConfigHash({
     eventGeneration,
-    fieldSize,
-    checkedInParticipantIds,
     scoringStartAt,
     scoringEndAt,
     recoveryMinutes,
@@ -168,7 +293,7 @@ export function leaderboardConfig(env = process.env) {
     minimumAward,
     rewardEventId,
     rewardScoringConfigHash,
-  })).digest("hex");
+  });
 
   return Object.freeze({
     eventId: "ctf26",
@@ -185,6 +310,7 @@ export function leaderboardConfig(env = process.env) {
     scoringEndAt,
     recoveryMinutes,
     checkedInParticipantIds,
+    timedEvent,
     eventGeneration,
     rewardEventId,
     rewardScoringConfigHash,
@@ -198,7 +324,9 @@ export function assertScoreEventAllowed(event, env = process.env, receivedAt = n
   if (config.scoringMode === "freezing" || config.scoringMode === "frozen") {
     throw new Error("leaderboard scoring is frozen");
   }
-  if (config.scoringMode === "staging") return config;
+  const timed = Boolean(config.scoringStartAt && config.scoringEndAt);
+  if (config.scoringMode === "staging" && !timed) return config;
+
   if (!config.checkedInParticipantIds.includes(String(event?.participantId || ""))) {
     throw new Error("score event participant is not checked in");
   }
@@ -233,7 +361,8 @@ export function assertChallengeLaunchAllowed(participantId, env = process.env, r
   if (config.launchPaused) {
     throw new ChallengeLaunchError(503, "Challenge launches are temporarily paused by the organizers.");
   }
-  if (config.scoringMode === "staging") return config;
+  const timed = Boolean(config.scoringStartAt && config.scoringEndAt);
+  if (config.scoringMode === "staging" && !timed) return config;
   if (config.scoringMode !== "live") {
     throw new ChallengeLaunchError(409, "New challenge sessions are closed outside live scoring.");
   }

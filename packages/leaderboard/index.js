@@ -127,7 +127,6 @@ export function dynamicSolveValue({
   increment = 10,
 }) {
   const field = positiveInteger(fieldSize, "field size");
-  if (field < 2) fail("invalid_value", "field size must be at least 2");
   const solves = Number(solveCount);
   if (!Number.isSafeInteger(solves) || solves < 0 || solves > field) {
     fail("invalid_value", "solve count must be an integer within the field");
@@ -137,6 +136,7 @@ export function dynamicSolveValue({
   const step = positiveInteger(increment, "point increment");
   if (min < 0 || max <= min) fail("invalid_value", "point bounds are invalid");
   if (solves === 0) return max;
+  if (field === 1) return max;
 
   const information = Math.log(field / solves) / Math.log(field);
   return Math.min(max, Math.max(min, roundTo(min + (max - min) * information, step)));

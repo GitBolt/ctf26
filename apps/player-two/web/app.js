@@ -79,8 +79,17 @@ function renderCabinet() {
 $("#receipt-button").addEventListener("click", async () => {
   $("#receipt-dialog").showModal();
   $("#receipt-button").classList.add("pulled");
-  $("#event-message").textContent = "A confirmed migration receipt slides free.";
-  await event("receipt-pulled");
+  $("#receipt-signature").textContent = "Loading confirmed transaction…";
+  try {
+    const receipt = await api("/api/receipt", { method: "POST", body: "{}" });
+    state.cabinet.receiptSignature = receipt.signature;
+    $("#receipt-signature").textContent = receipt.signature;
+    $("#event-message").textContent = "A confirmed migration receipt slides free.";
+    await event("receipt-pulled");
+  } catch (error) {
+    $("#receipt-signature").textContent = "Transaction unavailable. Close the receipt and try again.";
+    $("#event-message").textContent = error.message;
+  }
 });
 
 $("#copy-transaction").addEventListener("click", async () => {

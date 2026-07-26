@@ -339,15 +339,7 @@ export default function LeaderboardLive({ initialSnapshot }) {
   return (
     <section className="standings-section leaderboard-list" aria-labelledby="standings-heading">
       <header className="leaderboard-list-header">
-        <div className="leaderboard-title">
-          <h1 id="standings-heading">Leaderboard</h1>
-          {snapshot?.prizePoolPublished ? (
-            <div className="leaderboard-prize-pool" aria-label={`Confirmed prize pool ${money.format(snapshot.prizePool)}`}>
-              <span>Confirmed prize pool</span>
-              <strong>{money.format(snapshot.prizePool)}</strong>
-            </div>
-          ) : null}
-        </div>
+        <h1 id="standings-heading">Leaderboard</h1>
         <div className="leaderboard-header-actions">
           <button
             className={`solve-sound-toggle${soundEnabled ? " solve-sound-toggle-on" : ""}`}

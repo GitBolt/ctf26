@@ -59,6 +59,11 @@ test("dynamic challenge values are field-relative, monotone, and bounded", () =>
   }
 });
 
+test("a one-person field remains valid and awards the first solve full points", () => {
+  assert.equal(dynamicSolveValue({ solveCount: 0, fieldSize: 1 }), 1_000);
+  assert.equal(dynamicSolveValue({ solveCount: 1, fieldSize: 1 }), 1_000);
+});
+
 test("all solvers of the same binary challenge receive its current value", () => {
   const snapshot = calculateLeaderboard({
     fieldSize: 50,

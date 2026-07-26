@@ -75,10 +75,10 @@ portal. It has four locked principles:
 2. **Equal work receives equal current credit.** Everyone who solves the same binary challenge holds
    the same value, including a participant who solves later. When another participant solves, the
    value changes retroactively for every solver.
-3. **The checked-in scoring field is the denominator.** Let `N` be the number of unique event-day
-   participants, locked before scoring begins with `LEADERBOARD_FIELD_SIZE`. Rehearsal simulations use
-   50 individual participants as a capacity example. Lock the honest final participant
-   count before scoring begins and do not grow `N` gradually as people open the portal.
+3. **The present scoring field is the denominator.** Let `N` be the number of rostered participants
+   who have signed in and accepted the current rules for this event generation. The portal derives
+   that set from durable acknowledgments, so it supports any actual turnout without a hard-coded
+   attendance count. Rehearsal simulations use 50 participants only as a capacity example.
 4. **Time is not a hidden tiebreaker.** Equal totals share the same rank and prize weight. Final
    currency rounding can differ by at most one cent. Solve time remains integrity evidence, not score.
 
