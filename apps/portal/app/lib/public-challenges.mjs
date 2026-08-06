@@ -1,0 +1,113 @@
+const REPOSITORY = "https://github.com/GitBolt/ctf26";
+
+export const PUBLIC_CHALLENGES = Object.freeze([
+  {
+    key: "last-stop",
+    name: "LAST STOP",
+    number: "01",
+    discipline: "Program-derived addresses",
+    experience: "An abandoned station reached over SSH",
+    summary: "Trace how user input becomes seeds, cards, and a gate decision inside a Solana program.",
+    sourcePath: "apps/last-stop",
+  },
+  {
+    key: "player-two",
+    name: "PLAYER TWO",
+    number: "02",
+    discipline: "Credential lifecycle",
+    experience: "A corrupted arcade cabinet",
+    summary: "Investigate a migration flow where identity, authority, and state no longer line up.",
+    sourcePath: "apps/player-two",
+  },
+  {
+    key: "after-hours",
+    name: "AFTER HOURS",
+    number: "03",
+    discipline: "Token identity",
+    experience: "A Discord-native midnight checkout",
+    summary: "Settle a Solana Pay invoice and question which properties actually identify the requested asset.",
+    sourcePath: "apps/after-hours",
+  },
+  {
+    key: "the-chamber",
+    name: "THE CHAMBER",
+    number: "04",
+    discipline: "Cross-program invocation",
+    experience: "Three physical and on-chain locks",
+    summary: "Open a participant-bound chamber through signatures, venue NFC, and a caller program of your own.",
+    sourcePath: "apps/the-chamber",
+  },
+  {
+    key: "second-key",
+    name: "SECOND KEY",
+    number: "05",
+    discipline: "Token-2022 custody",
+    experience: "A collateral review desk",
+    summary: "Audit the relationship between an extension-aware asset, its authority, and the receipt that claims custody.",
+    sourcePath: "apps/second-key",
+  },
+  {
+    key: "evidence-room",
+    name: "EVIDENCE ROOM",
+    number: "06",
+    discipline: "Account lifecycle",
+    experience: "A live evidence intake room",
+    summary: "Reason about account closure, reuse, and the evidence a checker can safely trust after state changes.",
+    sourcePath: "apps/evidence-room",
+  },
+  {
+    key: "the-broadcast",
+    name: "THE BROADCAST",
+    number: "07",
+    discipline: "Wallet cryptography",
+    experience: "A pirate television signal",
+    summary: "Recover the message a wallet really authorized when display, encoding, and signed bytes tell different stories.",
+    sourcePath: "apps/the-broadcast",
+  },
+  {
+    key: "imprint",
+    name: "IMPRINT",
+    number: "08",
+    discipline: "Passkey authorization",
+    experience: "A biometric authorization console",
+    summary: "Connect a real platform passkey assertion to a participant-specific on-chain authorization target.",
+    sourcePath: "apps/imprint",
+  },
+  {
+    key: "signet",
+    name: "SIGNET",
+    number: "09",
+    discipline: "Deployment archaeology",
+    experience: "A repository with one silent patch",
+    summary: "Compare source history with what was actually deployed and exploit the gap without mistaking newer code for live code.",
+    sourcePath: "apps/signet",
+  },
+  {
+    key: "drift",
+    name: "DRIFT",
+    number: "10",
+    discipline: "Native SBF analysis",
+    experience: "A local binary replay lab",
+    summary: "Reverse a compiled Solana program and discover which runtime assumption lets its authorization drift.",
+    sourcePath: "apps/drift",
+  },
+  {
+    key: "reward-sniper",
+    name: "Reward Sniper",
+    number: "11",
+    discipline: "Adversarial market systems",
+    experience: "A noisy DLMM-style market",
+    summary: "Use incomplete public signals and a small action budget to outperform the field across unseen market regimes.",
+    sourcePath: "apps/reward-sniper",
+    packageHref: "/packages/reward-sniper-player.zip",
+  },
+].map((challenge) => Object.freeze({
+  ...challenge,
+  sourceUrl: `${REPOSITORY}/tree/main/${challenge.sourcePath}`,
+})));
+
+const BY_KEY = new Map(PUBLIC_CHALLENGES.map((challenge) => [challenge.key, challenge]));
+
+export function publicChallengeByKey(key) {
+  return BY_KEY.get(String(key || "")) || null;
+}

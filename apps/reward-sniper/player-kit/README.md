@@ -6,12 +6,16 @@ the final event score is the sum of those normalized round shares.
 
 ## Start
 
-When you are ready for the timed session, open:
+The shared event market has been retired. Run a fresh local market from the public repository:
 
-https://superteamctf.vercel.app/api/launch/reward-sniper
+```bash
+cd apps/reward-sniper
+npm install
+npm run serve
+```
 
-The link checks your event sign-in and redirects to your live market. If you opened this folder
-in another browser, sign into the event portal there first and use the same link again.
+Open `http://127.0.0.1:3010/web/`. With no participant-ticket secret, the service creates an
+anonymous local participant so the full round loop can be explored without the event portal.
 
 ## Round loop
 
@@ -53,7 +57,7 @@ settled extraction after the event.
 import { RewardSniperClient } from "./sdk.mjs";
 
 const client = new RewardSniperClient({
-  baseUrl: "https://st26-reward.up.railway.app/",
+  baseUrl: "http://127.0.0.1:3010/",
   searcherToken: process.env.REWARD_SNIPER_SEARCHER_TOKEN,
 });
 

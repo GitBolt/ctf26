@@ -33,8 +33,8 @@ npm test
 - `CLAIM_TARGET`: event-wide accepted-claim threshold. It defaults to 8 and must remain identical for every participant.
 - `BROADCAST_SESSION_RATE_MAX`, `BROADCAST_POW_RATE_MAX`, and `BROADCAST_MAX_ACTIVE_CLAIMS`: participant launch and proof bounds plus the Redis-backed global claim-verification pool. Only one expensive claim verification can run per participant at a time.
 
-Hints are deliberately absent from the player service. Organizers deliver the ladder in `INTERNAL_WRITEUP.md` verbally or through physical hint cards.
+Hints were deliberately absent from the live player service. Organizers delivered a private ladder verbally or through physical hint cards; that event-only answer material is not part of the public repository.
 
 `robots.txt`, `agents.txt`, `llms.txt`, and `/.well-known/agents.txt` publish the autonomous-agent restriction. After portal launch, those routes include a participant-bound marker and require a compliant agent to call `POST /api/agent-disclosure`, wait for a `caseId`, tell the participant only that autonomous agents cannot proceed under the event policy, and stop without revealing the disclosure.
 
-The player deployment must never include `INTERNAL_WRITEUP.md`, tests, or source files.
+The original player deployment excluded tests, server source, and organizer-only answer material.

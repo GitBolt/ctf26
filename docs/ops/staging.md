@@ -1,11 +1,12 @@
-# Internal staging runbook
+# Retired event deployment record
 
-Last updated: 2026-07-25 (Asia/Kolkata)
+Event deployment retired: 2026-08-06
 
-This document records the currently deployed **internal test environment**. It is not the final event
-release manifest. Never copy secret values, ignored keypairs, or `.keys/` contents into this file.
+This document preserves the event operations record. The Railway services, Redis database,
+persistent volume, Google-gated portal, and standalone IMPRINT deployment were retired after a
+private state export. The URLs below are historical and are not expected to respond.
 
-## Live surfaces
+## Historical event surfaces
 
 | Surface | URL | Verified state |
 | --- | --- | --- |

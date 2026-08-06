@@ -1,6 +1,11 @@
 # CTF26 Knowledge Base
 
-Updated: 2026-07-24
+Updated: 2026-08-06
+
+The in-person event is complete. Its Google authentication, signed launch tickets, Redis-backed
+leaderboard, integrity telemetry, and hosted challenge services are retained here as historical
+implementation context, not as active infrastructure. The public portal is now an ungated archive;
+running a challenge requires following that challenge's local setup and provisioning fresh keys.
 
 This is the working memory for the event: what we are building, how we protect competition integrity,
 why the challenge slate looks this way, what benchmark we are comparing against, and which real Solana
@@ -42,7 +47,7 @@ completed challenge only for an explicitly named future revision or event-config
 | THE BROADCAST | Done for the current iteration | signature-variant mechanic and claim workbench unless testing finds a concrete defect |
 | EVIDENCE ROOM | Done for the current iteration | account-allocation race and reserve-factory interaction unless testing finds a concrete defect |
 | SECOND KEY | Done for the current iteration | Token-2022 custody mechanic and collateral-desk interaction unless testing finds a concrete defect |
-| THE CHAMBER | Deployed; venue batch preparation in progress | Three-lock vault reusing the prototype's live Devnet program and inherited admin/hidden keys, hosted at `https://st26-chamber.up.railway.app`; program and read the shared signer as a Base64 NDEF Text record on every venue card |
+| THE CHAMBER | Event complete; public source retained | Three-lock vault with a venue NFC signer; retired event keys are excluded and a fresh deployment must use new challenge-scoped keys |
 
 The live catalogue now contains eleven challenges. PLAYER TWO and THE BROADCAST were promoted
 from retained prototype and companion status after their hosted implementations, authoritative

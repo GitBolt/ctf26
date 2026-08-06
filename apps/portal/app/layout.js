@@ -1,8 +1,8 @@
 import "./styles.css";
 
 export const metadata = {
-  title: "stCTF: Challenge room",
-  description: "The live challenge board for the Superteam Solana Security CTF.",
+  title: "stCTF · Public challenge archive",
+  description: "Eleven open Solana security challenges from the Superteam in-person CTF.",
   referrer: "no-referrer",
 };
 

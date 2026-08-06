@@ -5,11 +5,5 @@ target
 node_modules
 test-ledger
 .yarn
-# The two inherited keys are tracked deliberately: they are compiled into the
-# already-deployed program and cannot be rotated without a redeploy. Everything
-# else dropped in .keys/ stays ignored, so a future key is not swept in by
-# accident. Neither of these may ever reach a participant.
-.keys/*
-!.keys/the-chamber-operator.json
-!.keys/the-chamber-hidden.json
+.keys/
 *-keypair.json

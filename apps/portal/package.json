@@ -6,9 +6,8 @@
   "scripts": {
     "dev": "next dev -p 3001",
     "build:packages": "node scripts/build-player-packages.mjs",
-    "build": "npm run build:packages && next build",
+    "build": "next build",
     "start": "next start -p 3001",
-    "pretest": "npm run build:packages",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {

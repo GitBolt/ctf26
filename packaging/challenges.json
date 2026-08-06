@@ -36,7 +36,6 @@
       "generatedPlayerPaths": [],
       "strictPlayerRoots": [],
       "organizerOnlyPaths": [
-        "apps/imprint/INTERNAL_ANSWER_KEY.md",
         "apps/imprint/scripts",
         "apps/imprint/tests"
       ]
@@ -160,7 +159,6 @@
         "apps/the-broadcast/web"
       ],
       "organizerOnlyPaths": [
-        "apps/the-broadcast/INTERNAL_WRITEUP.md",
         "apps/the-broadcast/README.md",
         "apps/the-broadcast/src",
         "apps/the-broadcast/test"
@@ -217,7 +215,6 @@
       "organizerOnlyPaths": [
         "apps/the-chamber/.keys",
         "apps/the-chamber/Dockerfile",
-        "apps/the-chamber/INTERNAL_ANSWER_KEY.md",
         "apps/the-chamber/README.md",
         "apps/the-chamber/programs",
         "apps/the-chamber/src",

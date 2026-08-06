@@ -7,14 +7,16 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const archive = fs.readFileSync(path.join(ROOT, "public/packages/reward-sniper-player.zip"));
 
-test("Reward Sniper briefing ZIP is complete and contains no expiring participant ticket", () => {
+test("Reward Sniper public kit is complete and points to a local market", () => {
   const files = unzipStored(archive);
   assert.deepEqual([...files.keys()], [
     "reward-sniper-player/README.md",
     "reward-sniper-player/sdk.mjs",
   ]);
   const guide = files.get("reward-sniper-player/README.md").toString("utf8");
-  assert.match(guide, /https:\/\/superteamctf\.vercel\.app\/api\/launch\/reward-sniper/);
+  assert.match(guide, /http:\/\/127\.0\.0\.1:3010\/web\//);
+  assert.match(guide, /shared event market has been retired/i);
+  assert.doesNotMatch(guide, /superteamctf\.vercel\.app|st26-reward\.up\.railway\.app/);
   assert.doesNotMatch(guide, /fresh launch ticket|short-lived launch ticket|embedded credential/i);
   assert.doesNotMatch(guide, /[?&]ticket=|v1\.eyJ/);
   const sdk = files.get("reward-sniper-player/sdk.mjs").toString("utf8");
