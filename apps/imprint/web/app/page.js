@@ -329,7 +329,11 @@ export default function Home() {
           headers: { "content-type": "application/json", ...uiHeaders },
           body: JSON.stringify({ ticket }),
         })
-      : fetch("/api/session", { headers: uiHeaders });
+      : fetch("/api/session", {
+          method: "POST",
+          headers: { "content-type": "application/json", ...uiHeaders },
+          body: "{}",
+        });
     request
       .then(async (response) => {
         if (!response.ok) throw new Error(await response.text());

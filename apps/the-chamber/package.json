@@ -10,8 +10,8 @@
     "start": "node src/server.mjs",
     "test": "node --test test/*.test.mjs",
     "test:onchain": "anchor test",
-    "build:program": "anchor build",
-    "build:idl": "anchor build && cp target/idl/st_chamber_of_secrets.json web/the-chamber-idl.json"
+    "build:program": "anchor build --no-idl -- --tools-version v1.57",
+    "build:idl": "anchor build --no-idl -- --tools-version v1.57 && anchor idl build -p st_chamber_of_secrets -o web/the-chamber-idl.json"
   },
   "dependencies": {
     "@ctf26/agent-integrity": "file:../../packages/agent-integrity",

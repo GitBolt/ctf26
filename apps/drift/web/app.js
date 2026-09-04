@@ -59,6 +59,11 @@ async function establishSession() {
       method: "POST",
       body: JSON.stringify({ ticket }),
     });
+  } else {
+    await jsonRequest("/api/session", {
+      method: "POST",
+      body: "{}",
+    });
   }
   const target = await jsonRequest("/api/target");
   await jsonRequest("/api/ui-event", { method: "POST", body: JSON.stringify({ event: "page-ready" }) }).catch(() => {});

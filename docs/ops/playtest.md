@@ -11,19 +11,15 @@ downloaded artifact/starter, public UI, and public guide. Do not give them repos
 organizer source, deployment variables, checker source, reference traces, or this document's answer
 notes.
 
-For internal tests before OAuth is configured, generate a link inside the selected Railway service's
-environment so the signing secret is never copied into shell history:
+For the current public-practice deployment, start from the portal so the anonymous launch identity and
+challenge session are created through the same path a player uses:
 
 ```bash
-TICKET_AUDIENCE=drift \
-PARTICIPANT_ID=agent-participant-01 \
-CHALLENGE_URL=https://st26-drift.up.railway.app/ \
-railway run --service drift -- npm run issue:test-launch
+open https://superteamctf.vercel.app
 ```
 
-Use audience `signet` with service `signet`, or `reward-sniper` with service `reward-sniper`. Reward
-Sniper links should be opened only after its rehearsal state has been reset and the tester is ready,
-because first-session rehearsal mode starts the shared clock.
+The retired scored event used signed, audience-bound launch tickets. Reward Sniper should be opened
+only when the tester is ready because its participant state begins with the first session.
 
 Record five separate conditions:
 
@@ -233,7 +229,7 @@ fails; and portal recovery discovers a completed on-chain state.
   a real attendee receives it: a blank PVC card, with no verbal explanation that it is readable.
 - Use a card from the production batch. Confirm the participant can read its NDEF Text record with NFC
   Tools or another NDEF reader, decode the Base64 value into exactly 64 bytes, and derive
-  `AnCccXSJrEbge2W5cttNJ6JEf21dusiXfNMqMAZtXaty` before attempting lock two.
+  `BVR7YbDQiQB25nZmbAUFtLAQpQKapoaY9zMaJMTP1KC2` before attempting lock two.
 - Do not name cross-program invocation, `get_stack_height`, or "deploy a program" anywhere in the brief
   or the room. The vague `ThirdLockResists` message is the only feedback lock three gives.
 - Suggested timebox: 60 minutes. Record wallet registration, the first-lock transaction, how long the card

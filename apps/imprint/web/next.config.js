@@ -2,6 +2,7 @@ const path = require("path");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  assetPrefix: process.env.IMPRINT_ASSET_PREFIX || "",
   turbopack: {
     root: path.join(__dirname, "../../.."),
   },

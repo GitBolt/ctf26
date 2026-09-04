@@ -106,13 +106,24 @@ export function createEvidenceRoomChain(env = process.env) {
       transaction.recentBlockhash = lifetime.blockhash;
       transaction.sign(payer);
       const signature = await connection.sendRawTransaction(transaction.serialize(), { skipPreflight: true, maxRetries: 5, preflightCommitment: "finalized" });
-      const confirmation = await connection.confirmTransaction({ signature, ...lifetime }, "finalized");
+      let confirmation;
+      try {
+        confirmation = await connection.confirmTransaction({ signature, ...lifetime }, "finalized");
+      } catch (cause) {
+        // web3.js rejects confirmTransaction when a transaction lands with an
+        // instruction error. That is the expected success signal for this
+        // challenge, so recover the authoritative finalized status instead of
+        // leaving the case stuck in `allocated` forever.
+        const status = await waitForFinalizedStatus(connection, signature);
+        if (status && isExpectedFactoryInitializationFailure(status.err)) {
+          return { ok: false, failure: "already-initialized", signature, slot: status.slot };
+        }
+        if (status?.err != null) throw unexpectedFactoryFailure(signature, cause);
+        throw cause;
+      }
       if (confirmation.value.err == null) return { ok: true, signature, slot: confirmation.context.slot };
       if (!isExpectedFactoryInitializationFailure(confirmation.value.err)) {
-        const error = new Error("factory initialization failed for an unexpected finalized reason");
-        error.code = "unexpected_factory_failure";
-        error.signature = signature;
-        throw error;
+        throw unexpectedFactoryFailure(signature);
       }
       return { ok: false, failure: "already-initialized", signature, slot: confirmation.context.slot };
     },
@@ -308,6 +319,23 @@ export function isExpectedFactoryInitializationFailure(error) {
   return Array.isArray(instructionError)
     && instructionError[0] === 0
     && Number(instructionError[1]?.Custom) === 6;
+}
+
+async function waitForFinalizedStatus(connection, signature) {
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    const { value } = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
+    const status = value[0];
+    if (status?.confirmationStatus === "finalized") return { ...status, slot: status.slot };
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return null;
+}
+
+function unexpectedFactoryFailure(signature, cause) {
+  const error = new Error("factory initialization failed for an unexpected finalized reason", cause ? { cause } : undefined);
+  error.code = "unexpected_factory_failure";
+  error.signature = signature;
+  return error;
 }
 
 export function isSuccessfulCloseTransaction(transaction, { address, destination }) {

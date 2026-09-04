@@ -1,10 +1,10 @@
 {
-  "address": "Ekw4Zx3Nu9zTvCYsuzn1ubHNtgWjRAtm8PMUNavgmPXj",
+  "address": "ZWXmHNvUZ4bVe4cUQJtt7VheafuNc7G2kr7us1PTJUc",
   "metadata": {
     "name": "st_chamber_of_secrets",
     "version": "0.1.0",
     "spec": "0.1.0",
-    "description": "Created with Anchor"
+    "description": "THE CHAMBER — three-lock Solana authorization challenge (deployed crate name retained)"
   },
   "instructions": [
     {
@@ -24,7 +24,7 @@
           "name": "admin",
           "writable": true,
           "signer": true,
-          "address": "2pqmreJiLwbPMwCbwBH2rexfeWs7J6zpTaJcZCRv7AGZ"
+          "address": "2BefExdaHVpygYaqYZQVX8c6wiomJe3jMD8k2GBS93Tn"
         },
         {
           "name": "user",
@@ -130,7 +130,7 @@
         {
           "name": "hidden",
           "signer": true,
-          "address": "AnCccXSJrEbge2W5cttNJ6JEf21dusiXfNMqMAZtXaty"
+          "address": "BVR7YbDQiQB25nZmbAUFtLAQpQKapoaY9zMaJMTP1KC2"
         },
         {
           "name": "user_account",

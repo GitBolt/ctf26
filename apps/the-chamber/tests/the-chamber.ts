@@ -23,8 +23,8 @@ describe("the-chamber", () => {
   // Stands in for the arbitrary program a participant deploys to reach unlock_third.
   const caller = anchor.workspace.chamberCaller as Program<ChamberCaller>;
 
-  const admin = loadKeypair("the-chamber-operator.json");
-  const hidden = loadKeypair("the-chamber-hidden.json");
+  const admin = loadKeypair("public-admin.json");
+  const hidden = loadKeypair("public-card.json");
   const user = anchor.web3.Keypair.generate(); // happy-path participant
   const user2 = anchor.web3.Keypair.generate(); // never first-unlocks
   const user3 = anchor.web3.Keypair.generate(); // stops after the first unlock

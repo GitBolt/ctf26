@@ -6,8 +6,8 @@ solves to the portal. Participants never submit a flag: the solve is all three
 locks standing open on the participant's own PDA, derived by the service rather
 than read from the program's `chamber_open` byte (see below).
 
-Player-facing framing lives in `web/`. Event-only answer material and signing
-keypairs were archived privately after the event and are not published here.
+Player-facing framing lives in `web/`. Signing keypairs are ignored and are not
+published here.
 
 ## Layout
 
@@ -40,11 +40,20 @@ The original event deployment accepted only a signed portal ticket for the
 The event used the devnet program at
 `Ekw4Zx3Nu9zTvCYsuzn1ubHNtgWjRAtm8PMUNavgmPXj`. Its operator and hidden
 keypairs are intentionally absent from the public repository and must be treated
-as retired. The source mirrors the event artifact for study.
+as retired. That address remains in the event record; the checked-in source now
+targets the fresh public-practice deployment below.
 
 The crate keeps its original name, `st_chamber_of_secrets`, because that is what
 the deployed artifact and its published IDL carry. Only the event-facing name is
 THE CHAMBER.
+
+## Public practice deployment
+
+The post-event practice service uses the fresh devnet program
+`ZWXmHNvUZ4bVe4cUQJtt7VheafuNc7G2kr7us1PTJUc`. Its operator key is deployment-only.
+The retired physical-card mechanic is preserved by serving the practice card
+payload to an authenticated challenge session. A scored run must omit that route's
+configuration and issue a new physical card instead.
 
 ### Running a fresh instance
 
@@ -83,7 +92,7 @@ fits on NTAG213. Do not write the larger JSON array to the card.
 1. On an organizer-controlled Mac, encode the fresh hidden keypair as Base64:
 
    ```bash
-   node -e 'const fs=require("fs");const k=JSON.parse(fs.readFileSync(".keys/the-chamber-hidden.json","utf8"));process.stdout.write(Buffer.from(k).toString("base64"))' | pbcopy
+   node -e 'const fs=require("fs");const k=JSON.parse(fs.readFileSync(".keys/public-card.json","utf8"));process.stdout.write(Buffer.from(k).toString("base64"))' | pbcopy
    ```
 
 2. In NFC Tools, choose **Write**, add one **Text** record, and paste the copied

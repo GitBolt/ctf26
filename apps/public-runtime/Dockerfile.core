@@ -1,0 +1,39 @@
+FROM node:22-bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends redis-server ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /workspace
+
+COPY packages ./packages
+COPY apps/public-runtime ./apps/public-runtime
+
+COPY apps/reward-sniper/package*.json ./apps/reward-sniper/
+COPY apps/signet/package*.json ./apps/signet/
+COPY apps/after-hours/package*.json ./apps/after-hours/
+COPY apps/player-two/package*.json ./apps/player-two/
+COPY apps/the-broadcast/package*.json ./apps/the-broadcast/
+COPY apps/evidence-room/package*.json ./apps/evidence-room/
+COPY apps/second-key/package*.json ./apps/second-key/
+COPY apps/the-chamber/package*.json ./apps/the-chamber/
+COPY apps/imprint/web/package*.json ./apps/imprint/web/
+
+RUN printf '%s\n' \
+      reward-sniper signet after-hours player-two the-broadcast \
+      evidence-room second-key the-chamber imprint/web \
+    | xargs -n1 -P5 sh -c 'cd "/workspace/apps/$1" && npm ci --omit=dev --ignore-scripts' _
+
+COPY apps/reward-sniper ./apps/reward-sniper
+COPY apps/signet ./apps/signet
+COPY apps/after-hours ./apps/after-hours
+COPY apps/player-two ./apps/player-two
+COPY apps/the-broadcast ./apps/the-broadcast
+COPY apps/evidence-room ./apps/evidence-room
+COPY apps/second-key ./apps/second-key
+COPY apps/the-chamber ./apps/the-chamber
+COPY apps/imprint/web ./apps/imprint/web
+
+RUN cd /workspace/apps/imprint/web && IMPRINT_ASSET_PREFIX=/c/imprint npm run build
+
+ENV PUBLIC_RUNTIME_GROUP=core PORT=3000
+EXPOSE 3000
+CMD ["node", "apps/public-runtime/src/server.mjs"]

@@ -2,6 +2,10 @@
 
 Updated: 2026-07-25
 
+> This is the archived audit of the scored event. The current anonymous public-practice deployment
+> and its live URLs are recorded in [`staging.md`](staging.md). The event URLs and launch gates below
+> are retained as historical evidence and are intentionally no longer active.
+
 ## Verdict
 
 The eleven-challenge system is ready for a final event rehearsal. The implementation now has one
@@ -138,7 +142,7 @@ Rules must state what conceptual assistance is allowed and prohibit sending chal
 credentials, screenshots, output, or scored actions to an autonomous system. Prize action requires
 preserved evidence, an author-led solve defense, two organizers, private notice, and an appeal path.
 
-## Clean deployment surfaces
+## Retired event deployment surfaces
 
 | Surface | Canonical staging URL |
 | --- | --- |
@@ -155,9 +159,8 @@ preserved evidence, an author-led solve defense, two organizers, private notice,
 | Second Key | `https://st26-secondkey.up.railway.app` |
 | The Chamber | `https://st26-chamber.up.railway.app` |
 
-AFTER HOURS keeps its existing hostname because immutable on-chain token metadata points to that
-origin. The portal's Google OAuth base URL must remain on its currently allowlisted origin until the
-short alias callback is added in Google Cloud and verified with a real sign-in.
+These were the scored-event surfaces. Public practice now uses a newly issued NIGHT mint whose
+immutable metadata points at the current core runtime. The public portal does not use Google OAuth.
 
 ## Official launch gates
 

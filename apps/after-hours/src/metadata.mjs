@@ -11,7 +11,7 @@ import {
 
 export const OFFICIAL_NIGHT_NAME = "After Hours NIGHT";
 export const OFFICIAL_NIGHT_SYMBOL = "NIGHT";
-export const OFFICIAL_NIGHT_URI = "https://st26-afterhours.up.railway.app/night.json";
+export const OFFICIAL_NIGHT_URI = "https://public-core-production.up.railway.app/c/after-hours/night.json";
 
 const metadataProgram = address(MPL_TOKEN_METADATA_PROGRAM_ID);
 const addressEncoder = getAddressEncoder();

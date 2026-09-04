@@ -4,10 +4,9 @@ The public archive of the **Superteam Solana security CTF**: eleven distinct cha
 program-derived addresses, passkeys, deployment drift, Token-2022 custody, wallet signatures,
 account lifecycle, cross-program invocation, and adversarial market systems.
 
-The in-person event is complete. Its production Google gate, signed launch tickets, Redis-backed
-leaderboard, integrity telemetry, and hosted challenge services have been retired. The public portal
-is an ungated catalogue; the repository preserves each implementation for local study and fresh
-deployments.
+The in-person event is complete. The public portal is ungated and launches working practice instances
+of all eleven challenges. Event scoring and integrity review are retired; public-mode sessions use
+anonymous, challenge-bound identities and durable shared state.
 
 ## Layout
 
@@ -140,9 +139,15 @@ added to the repository test sweep by declaring its `appPath` there.
 
 ## Public deployment
 
-Only `apps/portal` is deployed. It is static with respect to event state and needs no Google OAuth,
-Redis, challenge ticket secrets, Railway services, or participant data. The historical service code
-is available for local study and can be deployed independently with fresh configuration.
+The public deployment has three surfaces:
+
+- `https://superteamctf.vercel.app` for the portal
+- `https://public-core-production.up.railway.app` for the web and Devnet challenges
+- `https://public-native-production.up.railway.app` for DRIFT and LAST STOP
+
+The two Railway runtimes use a managed Redis service for durable public sessions. Production Google
+accounts, event leaderboard data, private archives, and retired event secrets are not part of the
+public deployment or repository.
 
 ## Retired prototypes
 

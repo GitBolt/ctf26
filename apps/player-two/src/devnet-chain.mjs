@@ -196,7 +196,21 @@ export function createDevnetChain(env = process.env) {
 
     async jackpotState(jackpot) {
       const jackpotKey = new PublicKey(jackpot);
-      const state = await inspectJackpot(connection, programId, jackpotKey, "finalized");
+      let state;
+      try {
+        state = await inspectJackpot(connection, programId, jackpotKey, "finalized");
+      } catch (finalizedError) {
+        // Provisioning is confirmed before the instance is returned, while a
+        // completion must remain finalized. A first cabinet read can therefore
+        // race finality. Accept a valid confirmed account as pending, but never
+        // use it to award a solve.
+        try {
+          await inspectJackpot(connection, programId, jackpotKey, "confirmed");
+          return { opened: false, signature: null, openedAt: null };
+        } catch {
+          throw finalizedError;
+        }
+      }
       if (!state.opened) return { opened: false, signature: null, openedAt: null };
       const entries = await connection.getSignaturesForAddress(jackpotKey, { limit: 20 }, "finalized");
       for (const entry of entries) {

@@ -1,0 +1,31 @@
+FROM rust:1.89-bookworm AS drift-builder
+WORKDIR /build
+COPY apps/drift/native/harness/Cargo.toml apps/drift/native/harness/Cargo.lock ./
+COPY apps/drift/native/harness/src ./src
+RUN cargo build --locked --release
+
+FROM rust:1.89-bookworm AS stop-builder
+WORKDIR /build
+COPY apps/last-stop/native/harness/Cargo.toml apps/last-stop/native/harness/Cargo.lock ./harness/
+COPY apps/last-stop/native/harness/src ./harness/src
+COPY apps/last-stop/native/dist/last_stop_program.so ./dist/last_stop_program.so
+RUN cargo build --release --manifest-path harness/Cargo.toml
+
+FROM node:22-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends redis-server ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /workspace
+COPY packages ./packages
+COPY apps/public-runtime ./apps/public-runtime
+COPY apps/drift/package*.json ./apps/drift/
+COPY apps/last-stop/package*.json ./apps/last-stop/
+RUN cd apps/drift && npm ci --omit=dev --ignore-scripts \
+  && cd /workspace/apps/last-stop && npm ci --omit=dev --ignore-scripts
+COPY apps/drift ./apps/drift
+COPY apps/last-stop ./apps/last-stop
+COPY --from=drift-builder /build/target/release/drift-harness ./apps/drift/bin/drift-harness
+COPY --from=stop-builder /build/harness/target/release/last-stop-harness ./apps/last-stop/native/harness/target/release/last-stop-harness
+
+ENV PUBLIC_RUNTIME_GROUP=native PORT=3000 DRIFT_CHECKER_PATH=/workspace/apps/drift/bin/drift-harness
+EXPOSE 3000 2222
+CMD ["node", "apps/public-runtime/src/server.mjs"]

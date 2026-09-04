@@ -1,20 +1,16 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{get_stack_height, TRANSACTION_LEVEL_STACK_HEIGHT};
 
-// This source mirrors the program already deployed to devnet at the address
-// below. The crate keeps its original `st_chamber_of_secrets` name, which the
-// published IDL and the on-chain artifact both carry, even though the event
-// presents the challenge as THE CHAMBER. Do not change the identifiers or the
-// constants without redeploying: they are compiled into the live bytecode, so
-// editing them here would silently diverge from what participants hit.
-declare_id!("Ekw4Zx3Nu9zTvCYsuzn1ubHNtgWjRAtm8PMUNavgmPXj");
+// Public-practice deployment. These public keys are compiled into the program;
+// their private material stays outside the repository.
+declare_id!("ZWXmHNvUZ4bVe4cUQJtt7VheafuNc7G2kr7us1PTJUc");
 
 /// Only this key may create User PDAs. Held by the challenge service, never by a
 /// participant, so a wallet cannot provision itself outside a portal launch.
-pub const ADMIN_KEY: Pubkey = pubkey!("2pqmreJiLwbPMwCbwBH2rexfeWs7J6zpTaJcZCRv7AGZ");
+pub const ADMIN_KEY: Pubkey = pubkey!("2BefExdaHVpygYaqYZQVX8c6wiomJe3jMD8k2GBS93Tn");
 
 /// Delivered physically at the venue on an NFC card; must co-sign unlock_second.
-pub const HIDDEN_KEY: Pubkey = pubkey!("AnCccXSJrEbge2W5cttNJ6JEf21dusiXfNMqMAZtXaty");
+pub const HIDDEN_KEY: Pubkey = pubkey!("BVR7YbDQiQB25nZmbAUFtLAQpQKapoaY9zMaJMTP1KC2");
 
 pub const USER_SEED: &[u8] = b"user";
 

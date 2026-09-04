@@ -1,4 +1,18 @@
-# Retired event deployment record
+# Deployment record
+
+## Current public practice deployment
+
+| Surface | URL |
+| --- | --- |
+| Portal | `https://superteamctf.vercel.app` |
+| Core challenges | `https://public-core-production.up.railway.app` |
+| Native challenges | `https://public-native-production.up.railway.app` |
+
+The public deployment is separate from the retired scored event. It has no Google gate, prizes,
+leaderboard, participant roster, or event integrity workflow. Anonymous launch identities and
+challenge progress live in managed Redis so a runtime restart does not erase active practice state.
+
+## Retired event deployment
 
 Event deployment retired: 2026-08-06
 
@@ -218,21 +232,12 @@ npm run verify:portal
 git diff --check
 ```
 
-Public health checks:
+Current public-practice health checks:
 
 ```bash
-curl -fsS https://superteamctf.vercel.app/api/health
-curl -fsS https://st26-reward.up.railway.app/api/health
-curl -fsS https://st26-signet.up.railway.app/api/health
-curl -fsS https://st26-drift.up.railway.app/health
-curl -fsS https://st26-laststop.up.railway.app/health
-curl -fsS https://st26-afterhours.up.railway.app/health
-curl -fsS https://st26-player2.up.railway.app/health
-curl -fsS https://st26-broadcast.up.railway.app/health
-curl -fsS https://st26-evidence.up.railway.app/health
-curl -fsS https://st26-secondkey.up.railway.app/health
-curl -fsS https://st26-chamber.up.railway.app/health
-curl -fsS https://st26-imprint.vercel.app/api/health
+curl -fsSI https://superteamctf.vercel.app/
+curl -fsS https://public-core-production.up.railway.app/health
+curl -fsS https://public-native-production.up.railway.app/health
 ```
 
 All deployment credentials and staging keypairs remain ignored. Back up the dedicated operator/program

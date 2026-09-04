@@ -169,6 +169,24 @@ button:disabled { opacity: 0.5; cursor: default; }
   border-color: currentColor;
 }
 
+.event-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.event-card .ghost { flex: none; }
+
+@media (max-width: 520px) {
+  .event-card { align-items: flex-start; flex-direction: column; }
+}
+
 .open-line {
   margin: 0;
   font-size: 15px;

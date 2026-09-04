@@ -57,8 +57,8 @@ The Vercel project root is `apps/imprint/web`.
 SOLANA_RPC_URL=<private-devnet-rpc>
 NEXT_PUBLIC_PROGRAM_ID=5EgXikx8uaGDDRdLdxzoLsDafSruHZnNnstE7bd8wH6B
 
-IMPRINT_EXPECTED_ORIGIN=https://st26-imprint.vercel.app
-IMPRINT_RP_ID=st26-imprint.vercel.app
+IMPRINT_EXPECTED_ORIGIN=https://public-core-production.up.railway.app
+IMPRINT_RP_ID=public-core-production.up.railway.app
 
 CHALLENGE_TICKET_SECRET=<portal-imprint-ticket-secret>
 LEADERBOARD_INGEST_URL=<portal-leaderboard-ingest-url>

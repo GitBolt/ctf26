@@ -5,18 +5,17 @@ package_manager = "npm"
 resolution = true
 skip-lint = false
 
-# The vault is already deployed at this address and is not redeployed for the
-# event; `chamber_caller` is a localnet-only test fixture.
+# `chamber_caller` is a localnet-only test fixture.
 [programs.localnet]
-st_chamber_of_secrets = "Ekw4Zx3Nu9zTvCYsuzn1ubHNtgWjRAtm8PMUNavgmPXj"
+st_chamber_of_secrets = "ZWXmHNvUZ4bVe4cUQJtt7VheafuNc7G2kr7us1PTJUc"
 chamber_caller = "9Fswy4U3dsYL6hMavmMDsqiUWxLtEdgYFN6LQVvGmnzx"
 
 [programs.devnet]
-st_chamber_of_secrets = "Ekw4Zx3Nu9zTvCYsuzn1ubHNtgWjRAtm8PMUNavgmPXj"
+st_chamber_of_secrets = "ZWXmHNvUZ4bVe4cUQJtt7VheafuNc7G2kr7us1PTJUc"
 
 [provider]
 cluster = "localnet"
-wallet = ".keys/the-chamber-operator.json"
+wallet = ".keys/public-admin.json"
 
 [scripts]
 test = "npx ts-mocha -p ./tsconfig.json -t 1000000 \"tests/**/*.ts\""

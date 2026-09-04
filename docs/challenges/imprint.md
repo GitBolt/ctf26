@@ -77,7 +77,7 @@ must not claim that self-enrollment is equivalent to organizer-observed hardware
 
 - Program: `5EgXikx8uaGDDRdLdxzoLsDafSruHZnNnstE7bd8wH6B`
 - Registrar: `AdtCf3S1zEHZ14js7G7vqN5EDatSGC9SxSTDotJBEvJF`
-- Host: `https://st26-imprint.vercel.app`
+- Host: `https://public-core-production.up.railway.app/c/imprint/`
 - Target mode: `on-demand`
 - Credential state: generation-scoped Redis
 - Target derivation: HMAC of participant ID under a server-only instance secret

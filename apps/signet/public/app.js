@@ -36,6 +36,13 @@ async function boot() {
       fail(error.message);
       return;
     }
+  } else {
+    try {
+      await api("/api/session", { method: "POST", body: {}, retryBusy: true });
+    } catch (error) {
+      fail(error.message);
+      return;
+    }
   }
 
   try {

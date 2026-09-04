@@ -43,6 +43,7 @@ export async function createChamberServer(options = {}) {
   const sessionSecret = required(options.sessionSecret ?? env.SESSION_SECRET ?? (production ? null : "development-the-chamber-session-secret"), "SESSION_SECRET");
   const completionSecret = required(options.completionSecret ?? env.COMPLETION_SECRET ?? (production ? null : "development-the-chamber-completion-key"), "COMPLETION_SECRET");
   const policySecret = required(options.policySecret ?? env.AGENT_POLICY_SECRET ?? (production ? null : "development-the-chamber-policy-secret"), "AGENT_POLICY_SECRET");
+  const publicCard = readPublicCard(env.THE_CHAMBER_PUBLIC_CARD_BASE64);
   if (production && (options.allowDev === true || env.ALLOW_DEV_LAUNCH === "true")) throw new Error("development launch mode is not allowed in production");
   const allowDev = !production && (options.allowDev ?? (env.ALLOW_DEV_LAUNCH === "true" || !ticketSecret));
   const preAuthIpLimit = positiveInteger(options.preAuthIpLimit ?? env.THE_CHAMBER_PREAUTH_IP_LIMIT_PER_MINUTE ?? 240, "THE_CHAMBER_PREAUTH_IP_LIMIT_PER_MINUTE");
@@ -237,6 +238,16 @@ export async function createChamberServer(options = {}) {
       }, env, options.fetchImpl || fetch);
       await audit(identity, "agent-disclosure", request, { caseId: result.caseId });
       return json(response, 202, result);
+    }
+    if (request.method === "GET" && url.pathname === "/api/event-card") {
+      if (!publicCard) throw new HttpError(503, "the archived event card is not available");
+      await audit(identity, "event-card-read", request);
+      response.writeHead(200, {
+        "content-type": "text/plain; charset=utf-8",
+        "content-disposition": 'attachment; filename="the-chamber-event-card.txt"',
+        "cache-control": "no-store",
+      });
+      return response.end(`${publicCard}\n`);
     }
     if (request.method === "GET" && url.pathname === "/api/idl") {
       const idl = await readIdl();
@@ -451,6 +462,17 @@ function positiveInteger(value, name) {
   const number = Number(value);
   if (!Number.isSafeInteger(number) || number < 1) throw new Error(`${name} must be a positive integer`);
   return number;
+}
+function readPublicCard(value) {
+  const encoded = String(value || "").trim();
+  if (!encoded) return null;
+  let bytes;
+  try { bytes = Buffer.from(encoded, "base64"); }
+  catch { throw new Error("THE_CHAMBER_PUBLIC_CARD_BASE64 must be Base64"); }
+  if (bytes.length !== 64 || bytes.toString("base64") !== encoded) {
+    throw new Error("THE_CHAMBER_PUBLIC_CARD_BASE64 must encode one 64-byte keypair");
+  }
+  return encoded;
 }
 function authorized(request, secret) {
   if (!secret) return false;

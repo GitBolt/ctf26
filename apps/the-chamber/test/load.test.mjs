@@ -21,8 +21,8 @@ const WALLETS = Array.from({ length: PARTICIPANTS }, () => Keypair.generate().pu
 function fakeChain(state) {
   return {
     network: "devnet",
-    programId: "Ekw4Zx3Nu9zTvCYsuzn1ubHNtgWjRAtm8PMUNavgmPXj",
-    adminPublicKey: "2pqmreJiLwbPMwCbwBH2rexfeWs7J6zpTaJcZCRv7AGZ",
+    programId: "ZWXmHNvUZ4bVe4cUQJtt7VheafuNc7G2kr7us1PTJUc",
+    adminPublicKey: "2BefExdaHVpygYaqYZQVX8c6wiomJe3jMD8k2GBS93Tn",
     derive(wallet) { return `pda-${wallet.slice(0, 8)}`; },
     async provision(wallet) {
       state.provisionCalls += 1;
@@ -42,7 +42,7 @@ function fakeChain(state) {
         programAvailable: true,
         capacitySufficient: true,
         additionalParticipantCapacity: 2_000,
-        payer: "2pqmreJiLwbPMwCbwBH2rexfeWs7J6zpTaJcZCRv7AGZ",
+        payer: "2BefExdaHVpygYaqYZQVX8c6wiomJe3jMD8k2GBS93Tn",
         payerLamports: 5_000_000_000,
         requiredPayerBalance: 100_000,
       };
